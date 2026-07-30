@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum AppContext {
+  CLIENT_APP
+  DRIVER_APP
+  ADMIN_WEB
+  LOCAL_MOCK
+}
+
+enum UserTheme {
+  SYSTEM
+  LIGHT
+  DARK
+  TELEGRAM
+}
+
+enum DriverOnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BASIC_COMPLETED
+}
+
+enum DriverVerificationStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum TripStatus {
+  DRAFT
+  PUBLISHED
+  BOOKING_OPEN
+  FULL
+  BOARDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SeatStatus {
+  AVAILABLE
+  HELD
+  BOOKED
+  PAID
+  OCCUPIED
+  BLOCKED
+  UNAVAILABLE
+}
+
+enum BookingStatus {
+  DRAFT
+  HOLD
+  CONFIRMED
+  PAYMENT_PENDING
+  PAID
+  COMPLETED
+  CANCELLED_BY_CLIENT
+  CANCELLED_BY_DRIVER
+  CANCELLED_BY_ADMIN
+  EXPIRED
+}
+
+model User {
+  id              String     @id @default(cuid())
+  telegramId      BigInt?    @unique
+  username        String?
+  displayName     String?
+  firstName       String?
+  lastName        String?
+  phone           String?
+  avatarUrl       String?
+  locale          String     @default("ru")
+  theme           UserTheme  @default(TELEGRAM)
+  timezone        String     @default("Asia/Tashkent")
+  status          UserStatus @default(ACTIVE)
+  lastSeenAt      DateTime?
+  acceptedTermsAt DateTime?
+  termsVersion    String?
+  privacyVersion  String?
+  deletedAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  roles            UserRole[]
+  sessions         AuthSession[]
+  acceptances      UserLegalAcceptance[]
+  telegramIdentity TelegramIdentity?
+  preferences      UserPreference?
+  clientProfile    ClientProfile?
+  driver           DriverProfile?
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  createdAt   DateTime         @default(now())
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id        String           @id @default(cuid())
+  code      String           @unique
+  name      String
+  roles     RolePermission[]
+  createdAt DateTime         @default(now())
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model TelegramIdentity {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  telegramUserId      BigInt   @unique
+  username            String?
+  firstName           String?
+  lastName            String?
+  languageCode        String?
+  isPremium           Boolean  @default(false)
+  photoUrl            String?
+  allowsWriteToPm     Boolean?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  lastAuthenticatedAt DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([username])
+}
+
+model UserPreference {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  locale               String    @default("ru")
+  theme                UserTheme @default(TELEGRAM)
+  notificationsEnabled Boolean   @default(true)
+  marketingEnabled     Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuthSession {
+  id               String     @id @default(cuid())
+  userId           String
+  appContext       AppContext
+  refreshTokenHash String     @unique
+  sessionFamilyId  String
+  userAgent        String?
+  ipHash           String?
+  createdAt        DateTime   @default(now())
+  lastUsedAt       DateTime   @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokeReason     String?
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([sessionFamilyId])
+  @@index([expiresAt])
+}
+
+model LegalDocument {
+  id             String   @id @default(cuid())
+  type           String
+  version        String
+  locale         String
+  title          String
+  requiresReview Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  acceptances UserLegalAcceptance[]
+
+  @@unique([type, version, locale])
+}
+
+model UserLegalAcceptance {
+  id              String        @id @default(cuid())
+  userId          String
+  legalDocumentId String
+  acceptedAt      DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legalDocument   LegalDocument @relation(fields: [legalDocumentId], references: [id])
+
+  @@unique([userId, legalDocumentId])
+}
+
+model IdempotencyRecord {
+  id           String   @id @default(cuid())
+  scope        String
+  key          String
+  requestHash  String
+  responseJson Json?
+  status       String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([scope, key])
+}
+
+model AuditEvent {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String
+  oldValueJson Json?
+  newValueJson Json?
+  reason       String?
+  requestId    String?
+  createdAt    DateTime @default(now())
+}
+
+model TimelineEvent {
+  id         String   @id @default(cuid())
+  scopeType  String
+  scopeId    String
+  eventType  String
+  payload    Json
+  occurredAt DateTime @default(now())
+
+  @@index([scopeType, scopeId, occurredAt])
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      String    @default("PENDING")
+  availableAt DateTime  @default(now())
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, availableAt, createdAt])
+}
+
+model FileObject {
+  id          String           @id @default(cuid())
+  bucket      String
+  key         String           @unique
+  contentType String
+  sizeBytes   Int
+  scanStatus  String           @default("PENDING")
+  createdAt   DateTime         @default(now())
+  attachments FileAttachment[]
+}
+
+model FileAttachment {
+  id         String     @id @default(cuid())
+  fileId     String
+  entityType String
+  entityId   String
+  createdAt  DateTime   @default(now())
+  file       FileObject @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(false)
+  payload   Json?
+  updatedAt DateTime @updatedAt
+}
+
+model DriverProfile {
+  id                 String                   @id @default(cuid())
+  userId             String                   @unique
+  onboardingStatus   DriverOnboardingStatus   @default(NOT_STARTED)
+  verificationStatus DriverVerificationStatus @default(NOT_SUBMITTED)
+  bio                String?
+  city               String?
+  reliabilityScore   Int                      @default(0)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles           Vehicle[]
+  trips              Trip[]
+}
+
+model ClientProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  city                  String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Vehicle {
+  id               String        @id @default(cuid())
+  driverProfileId  String
+  make             String
+  model            String
+  plateNumber      String
+  passengerSeats   Int
+  moderationStatus String        @default("DRAFT")
+  createdAt        DateTime      @default(now())
+  driverProfile    DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  trips            Trip[]
+}
+
+model Trip {
+  id              String         @id @default(cuid())
+  driverProfileId String
+  vehicleId       String
+  originCity      String
+  destinationCity String
+  departureAtUtc  DateTime
+  status          TripStatus     @default(DRAFT)
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now())
+  driverProfile   DriverProfile  @relation(fields: [driverProfileId], references: [id])
+  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id])
+  execution       TripExecution?
+  seats           TripSeat[]
+  bookings        Booking[]
+}
+
+model TripExecution {
+  id        String    @id @default(cuid())
+  tripId    String    @unique
+  status    String    @default("NOT_STARTED")
+  startedAt DateTime?
+  endedAt   DateTime?
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model TripSeat {
+  id      String     @id @default(cuid())
+  tripId  String
+  seatKey String
+  label   String
+  status  SeatStatus @default(AVAILABLE)
+  trip    Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, seatKey])
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  tripId     String
+  clientId   String?
+  status     BookingStatus @default(DRAFT)
+  totalMinor BigInt        @default(0)
+  currency   String        @default("UZS")
+  createdAt  DateTime      @default(now())
+  trip       Trip          @relation(fields: [tripId], references: [id])
+  holds      SeatHold[]
+}
+
+model SeatHold {
+  id        String         @id @default(cuid())
+  bookingId String
+  expiresAt DateTime
+  status    String         @default("ACTIVE")
+  booking   Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  items     SeatHoldItem[]
+}
+
+model SeatHoldItem {
+  id         String   @id @default(cuid())
+  seatHoldId String
+  seatKey    String
+  seatHold   SeatHold @relation(fields: [seatHoldId], references: [id], onDelete: Cascade)
+}

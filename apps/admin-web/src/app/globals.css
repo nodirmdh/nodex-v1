@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "@nodex/ui/src/styles/global.css";
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100dvh;
+}
+
+@media (max-width: 840px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-nav);
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@nodex/admin-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "dev:e2e": "next dev -p 3102",
+    "build": "next build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:unit": "vitest run --passWithNoTests",
+    "test:integration": "vitest run --passWithNoTests",
+    "analyze": "cross-env ANALYZE=true next build && node ../../scripts/write-bundle-report.mjs admin . ../../artifacts/bundle/admin"
+  },
+  "dependencies": {
+    "@nodex/testing": "workspace:*",
+    "@nodex/ui": "workspace:*",
+    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-table": "8.21.3",
+    "cmdk": "1.1.1",
+    "lucide-react": "1.27.0",
+    "next": "16.2.12",
+    "next-intl": "4.13.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sonner": "2.0.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@nodex/typescript-config": "workspace:*",
+    "cross-env": "10.1.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

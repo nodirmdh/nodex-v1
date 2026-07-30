@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    { "matchPackageNames": ["next", "react", "react-dom"], "groupName": "react-next" },
+    { "matchPackagePatterns": ["^@tanstack/"], "groupName": "tanstack" },
+    { "matchPackagePatterns": ["^@nestjs/"], "groupName": "nestjs" },
+    { "matchPackageNames": ["prisma", "@prisma/client"], "groupName": "prisma" },
+    { "matchPackagePatterns": ["^@storybook/", "^storybook$"], "groupName": "storybook" },
+    {
+      "matchPackageNames": ["vitest", "playwright", "@playwright/test", "msw"],
+      "groupName": "testing"
+    }
+  ]
+}

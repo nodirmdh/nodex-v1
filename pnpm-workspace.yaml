@@ -1,0 +1,40 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+confirmModulesPurge: false
+overrides:
+  "fast-xml-parser": "5.10.1"
+  "orval>js-yaml": "4.1.0"
+  "js-yaml": "5.2.2"
+  "lodash": "4.18.1"
+  "path-to-regexp": "8.4.2"
+  "postcss": "8.5.24"
+  "sharp": "0.35.3"
+  "valibot": "1.4.2"
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - "@prisma/engines"
+  - "@prisma/client"
+  - "@scarf/scarf"
+  - "@swc/core"
+  - "esbuild"
+  - "msgpackr-extract"
+  - "msw"
+  - "prisma"
+  - "sharp"
+allowBuilds:
+  "@parcel/watcher": true
+  "@prisma/engines": true
+  "@prisma/client": true
+  "@scarf/scarf": true
+  "@swc/core": true
+  "esbuild": true
+  "msgpackr-extract": true
+  "msw": true
+  "prisma": true
+  "sharp": true
+minimumReleaseAgeExclude:
+  - framer-motion@12.43.0
+  - motion-dom@12.43.0
+  - motion@12.43.0
+  - postcss@8.5.24

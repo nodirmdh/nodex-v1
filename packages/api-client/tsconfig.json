@@ -1,0 +1,8 @@
+{
+  "extends": "../typescript-config/next.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src", "orval.config.ts"]
+}

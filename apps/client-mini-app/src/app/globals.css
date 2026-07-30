@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@nodex/ui/src/styles/global.css";
+
+.mobile-shell {
+  margin: 0 auto;
+  max-width: 430px;
+  min-height: 100dvh;
+  padding-bottom: 76px;
+}

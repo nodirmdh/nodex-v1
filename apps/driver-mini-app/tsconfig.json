@@ -1,0 +1,8 @@
+{
+  "extends": "../../packages/typescript-config/next.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["next-env.d.ts", "src"]
+}
