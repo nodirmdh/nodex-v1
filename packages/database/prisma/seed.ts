@@ -686,15 +686,19 @@ async function seedTripSupplyFixtures() {
   });
   const tripRows = [
     { route: routes[0]!, status: "DRAFT", offsetDays: 7, seats: 3, price: 8500000n },
+    { route: routes[0]!, status: "PUBLISHED", offsetDays: 7, seats: 4, price: 8500000n },
+    { route: routes[0]!, status: "PUBLISHED", offsetDays: 7, seats: 2, price: 9200000n },
     { route: routes[1]!, status: "PUBLISHED", offsetDays: 9, seats: 4, price: 9500000n },
     { route: routes[2]!, status: "UNPUBLISHED", offsetDays: 11, seats: 4, price: 18000000n },
   ] as const;
-  for (const row of tripRows) {
+  const seededTrips = [];
+  for (const [index, row] of tripRows.entries()) {
     const origin = await prisma.city.findUniqueOrThrow({ where: { id: row.route.originCityId } });
     const destination = await prisma.city.findUniqueOrThrow({
       where: { id: row.route.destinationCityId },
     });
-    const departureAtUtc = new Date(Date.UTC(2026, 7, 1 + row.offsetDays, 5, 0, 0));
+    const departureHourUtc = index === 0 ? 3 : index === 2 ? 13 : 5;
+    const departureAtUtc = new Date(Date.UTC(2026, 7, 1 + row.offsetDays, departureHourUtc, 0, 0));
     const existing = await prisma.trip.findFirst({
       where: { driverProfileId: driverProfile.id, routeId: row.route.id, departureAtUtc },
     });
@@ -720,7 +724,7 @@ async function seedTripSupplyFixtures() {
       parcelPriceMinor: 2500000n,
       currency: "UZS",
       luggageRules: "One suitcase and one small bag per passenger",
-      comment: "Phase 4 seed trip",
+      comment: index > 0 ? "Phase 5 searchable trip fixture" : "Phase 4 seed trip",
       publishedAt: row.status === "PUBLISHED" ? new Date("2026-08-01T10:00:00.000Z") : null,
       unpublishedAt: row.status === "UNPUBLISHED" ? new Date("2026-08-01T11:00:00.000Z") : null,
       publicationValidationSnapshot: { fixture: true, errors: [] },
@@ -728,6 +732,7 @@ async function seedTripSupplyFixtures() {
     const trip = existing
       ? await prisma.trip.update({ where: { id: existing.id }, data })
       : await prisma.trip.create({ data });
+    seededTrips.push(trip);
     await prisma.tripSeatSnapshot.upsert({
       where: { tripId: trip.id },
       create: {
@@ -784,6 +789,40 @@ async function seedTripSupplyFixtures() {
         await prisma.tripStop.update({ where: { id: existingStop.id }, data: stopData });
       else await prisma.tripStop.create({ data: stopData });
     }
+  }
+
+  await prisma.searchEvent.deleteMany({ where: { sessionId: "phase5-seed" } });
+  const publishedFixture = seededTrips.find((trip) => trip.status === "PUBLISHED");
+  if (publishedFixture) {
+    await prisma.searchEvent.createMany({
+      data: [
+        {
+          sessionId: "phase5-seed",
+          originCityId: publishedFixture.originCityId,
+          destinationCityId: publishedFixture.destinationCityId,
+          tripId: publishedFixture.id,
+          queryDate: publishedFixture.departureAtUtc,
+          passengers: 2,
+          sort: "departure_asc",
+          filtersJson: { parcelSupported: true, fixture: true },
+          resultCount: 2,
+          type: "SEARCH_PERFORMED",
+        },
+        {
+          sessionId: "phase5-seed",
+          originCityId: publishedFixture.originCityId,
+          destinationCityId: publishedFixture.destinationCityId,
+          tripId: publishedFixture.id,
+          queryDate: publishedFixture.departureAtUtc,
+          passengers: 2,
+          sort: "departure_asc",
+          filtersJson: { fixture: true },
+          resultCount: 2,
+          selectedResultRank: 1,
+          type: "TRIP_RESULT_OPENED",
+        },
+      ],
+    });
   }
 }
 
