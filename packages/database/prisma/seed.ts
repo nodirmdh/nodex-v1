@@ -58,6 +58,15 @@ const permissions = [
   "trip:unblock",
   "trip:cancel-admin",
   "trip:audit-read",
+  "booking:create-own",
+  "booking:read-own",
+  "booking:cancel-own",
+  "booking:read-driver",
+  "booking:approve-driver",
+  "booking:reject-driver",
+  "booking:read-admin",
+  "booking:cancel-admin",
+  "booking:audit-read",
 ];
 
 async function main() {
@@ -125,6 +134,7 @@ async function main() {
   await seedDriverVerificationFixtures();
   await seedVehicleFixtures();
   await seedTripSupplyFixtures();
+  await seedBookingFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -824,6 +834,229 @@ async function seedTripSupplyFixtures() {
       ],
     });
   }
+}
+
+function bookingSeatLayout(capacity: number) {
+  const labels = [
+    { seatKey: "FRONT_RIGHT", label: "Front right", row: 0, column: 1, seatType: "FRONT" },
+    { seatKey: "ROW_1_LEFT", label: "Row 1 left", row: 1, column: 0, seatType: "REAR" },
+    { seatKey: "ROW_1_RIGHT", label: "Row 1 right", row: 1, column: 1, seatType: "REAR" },
+    { seatKey: "ROW_2_LEFT", label: "Row 2 left", row: 2, column: 0, seatType: "STANDARD" },
+    { seatKey: "ROW_2_RIGHT", label: "Row 2 right", row: 2, column: 1, seatType: "STANDARD" },
+    { seatKey: "ROW_3_LEFT", label: "Row 3 left", row: 3, column: 0, seatType: "STANDARD" },
+    { seatKey: "ROW_3_RIGHT", label: "Row 3 right", row: 3, column: 1, seatType: "STANDARD" },
+    { seatKey: "ROW_4_LEFT", label: "Row 4 left", row: 4, column: 0, seatType: "STANDARD" },
+  ] as const;
+  return labels.slice(0, Math.max(1, Math.min(capacity, labels.length)));
+}
+
+async function seedBookingFixtures() {
+  const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
+  const trip = await prisma.trip.findFirstOrThrow({
+    where: { status: "PUBLISHED", originCity: "Nukus", destinationCity: "Urgench" },
+    include: { origin: true, destination: true },
+    orderBy: { departureAtUtc: "asc" },
+  });
+  const layout = bookingSeatLayout(trip.passengerSeatCapacity);
+
+  for (const seat of layout) {
+    await prisma.tripSeat.upsert({
+      where: { tripId_seatKey: { tripId: trip.id, seatKey: seat.seatKey } },
+      create: {
+        tripId: trip.id,
+        seatKey: seat.seatKey,
+        label: seat.label,
+        row: seat.row,
+        column: seat.column,
+        seatType: seat.seatType,
+        priceMinor: trip.pricePerSeatMinor,
+        status: "AVAILABLE",
+      },
+      update: {
+        label: seat.label,
+        row: seat.row,
+        column: seat.column,
+        seatType: seat.seatType,
+        priceMinor: trip.pricePerSeatMinor,
+      },
+    });
+  }
+
+  const confirmedSeats = layout.slice(0, Math.min(2, layout.length));
+  const heldSeat = layout[2];
+  const cancelledSeat = layout[3];
+  const now = new Date("2026-08-01T10:00:00.000Z");
+
+  const bookingFixtures = [
+    {
+      id: "phase6-booking-confirmed",
+      type: "MULTI_SEAT" as const,
+      status: "CONFIRMED" as const,
+      seats: confirmedSeats,
+      passengerCount: confirmedSeats.length,
+      totalMinor: trip.pricePerSeatMinor * BigInt(confirmedSeats.length),
+      paymentMethod: "CASH" as const,
+      confirmedAt: now,
+    },
+    {
+      id: "phase6-booking-hold",
+      type: "SEAT" as const,
+      status: "HOLD" as const,
+      seats: heldSeat ? [heldSeat] : [],
+      passengerCount: 1,
+      totalMinor: trip.pricePerSeatMinor,
+      paymentMethod: "MANUAL_TRANSFER" as const,
+      confirmedAt: null,
+    },
+    {
+      id: "phase6-booking-cancelled",
+      type: "SEAT" as const,
+      status: "CANCELLED_BY_CLIENT" as const,
+      seats: cancelledSeat ? [cancelledSeat] : [],
+      passengerCount: 1,
+      totalMinor: trip.pricePerSeatMinor,
+      paymentMethod: "CASH" as const,
+      confirmedAt: now,
+    },
+  ];
+
+  for (const fixture of bookingFixtures) {
+    if (fixture.seats.length === 0) continue;
+    const booking = await prisma.booking.upsert({
+      where: { id: fixture.id },
+      create: {
+        id: fixture.id,
+        tripId: trip.id,
+        clientId: client.id,
+        type: fixture.type,
+        status: fixture.status,
+        paymentMethod: fixture.paymentMethod,
+        currency: "UZS",
+        totalMinor: fixture.totalMinor,
+        passengerCount: fixture.passengerCount,
+        pricingSnapshot: { fixture: true, totalMinor: fixture.totalMinor.toString() },
+        tripSnapshot: {
+          fixture: true,
+          originCity: trip.originCity,
+          destinationCity: trip.destinationCity,
+          departureAtUtc: trip.departureAtUtc.toISOString(),
+        },
+        termsSnapshot: { version: "0.1-local" },
+        expiresAt: new Date("2026-08-01T10:10:00.000Z"),
+        confirmedAt: fixture.confirmedAt,
+        cancelledAt:
+          fixture.status === "CANCELLED_BY_CLIENT" ? new Date("2026-08-01T10:12:00.000Z") : null,
+        cancellationReason:
+          fixture.status === "CANCELLED_BY_CLIENT" ? "Fixture client cancellation" : null,
+      },
+      update: {
+        status: fixture.status,
+        paymentMethod: fixture.paymentMethod,
+        totalMinor: fixture.totalMinor,
+        passengerCount: fixture.passengerCount,
+        confirmedAt: fixture.confirmedAt,
+      },
+    });
+
+    await prisma.seatHold.upsert({
+      where: { tripId_idempotencyKey: { tripId: trip.id, idempotencyKey: `${fixture.id}-hold` } },
+      create: {
+        id: `${fixture.id}-hold`,
+        tripId: trip.id,
+        clientId: client.id,
+        bookingId: booking.id,
+        idempotencyKey: `${fixture.id}-hold`,
+        status: fixture.status === "HOLD" ? "ACTIVE" : "CONFIRMED",
+        expiresAt: new Date("2026-08-01T10:10:00.000Z"),
+        confirmedAt: fixture.status === "CONFIRMED" ? fixture.confirmedAt : null,
+      },
+      update: {
+        bookingId: booking.id,
+        status: fixture.status === "HOLD" ? "ACTIVE" : "CONFIRMED",
+      },
+    });
+
+    for (const seat of fixture.seats) {
+      const tripSeat = await prisma.tripSeat.findUniqueOrThrow({
+        where: { tripId_seatKey: { tripId: trip.id, seatKey: seat.seatKey } },
+      });
+      await prisma.seatHoldItem.upsert({
+        where: {
+          seatHoldId_seatKey: { seatHoldId: `${fixture.id}-hold`, seatKey: seat.seatKey },
+        },
+        create: {
+          seatHoldId: `${fixture.id}-hold`,
+          tripSeatId: tripSeat.id,
+          seatKey: seat.seatKey,
+        },
+        update: { tripSeatId: tripSeat.id },
+      });
+      await prisma.bookingSeat.upsert({
+        where: { bookingId_seatKey: { bookingId: booking.id, seatKey: seat.seatKey } },
+        create: {
+          bookingId: booking.id,
+          tripSeatId: tripSeat.id,
+          seatKey: seat.seatKey,
+          priceMinor: trip.pricePerSeatMinor,
+          status: fixture.status === "HOLD" ? "HELD" : "BOOKED",
+        },
+        update: {
+          tripSeatId: tripSeat.id,
+          priceMinor: trip.pricePerSeatMinor,
+          status:
+            fixture.status === "CANCELLED_BY_CLIENT"
+              ? "CANCELLED"
+              : fixture.status === "HOLD"
+                ? "HELD"
+                : "BOOKED",
+        },
+      });
+    }
+
+    await prisma.bookingPassenger.deleteMany({ where: { bookingId: booking.id } });
+    await prisma.bookingPassenger.createMany({
+      data: fixture.seats.map((seat, index) => ({
+        bookingId: booking.id,
+        firstName: index === 0 ? "Aman" : "Passenger",
+        lastName: "Fixture",
+        phone: index === 0 ? "+998900001111" : null,
+        ageCategory: "ADULT",
+        isPrimary: index === 0,
+        seatKey: seat.seatKey,
+      })),
+    });
+
+    await prisma.bookingBaggage.deleteMany({ where: { bookingId: booking.id } });
+    await prisma.bookingBaggage.create({
+      data: { bookingId: booking.id, type: "SUITCASE", quantity: 1, weightKg: 12 },
+    });
+    await prisma.bookingTimelineEvent.deleteMany({ where: { bookingId: booking.id } });
+    await prisma.bookingTimelineEvent.createMany({
+      data: [
+        { bookingId: booking.id, actorUserId: client.id, type: "BOOKING_HOLD_CREATED" },
+        { bookingId: booking.id, actorUserId: client.id, type: `BOOKING_${fixture.status}` },
+      ],
+    });
+  }
+
+  await prisma.tripSeat.updateMany({
+    where: { tripId: trip.id },
+    data: { status: "AVAILABLE" },
+  });
+  await prisma.tripSeat.updateMany({
+    where: { tripId: trip.id, seatKey: { in: confirmedSeats.map((seat) => seat.seatKey) } },
+    data: { status: "BOOKED" },
+  });
+  if (heldSeat) {
+    await prisma.tripSeat.update({
+      where: { tripId_seatKey: { tripId: trip.id, seatKey: heldSeat.seatKey } },
+      data: { status: "HELD" },
+    });
+  }
+  await prisma.trip.update({
+    where: { id: trip.id },
+    data: { availableSeatCount: Math.max(0, trip.passengerSeatCapacity - confirmedSeats.length) },
+  });
 }
 
 main()

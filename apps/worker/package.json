@@ -14,6 +14,7 @@
     "test:integration": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@nodex/database": "workspace:*",
     "bullmq": "5.81.2",
     "ioredis": "5.8.2",
     "pino": "10.3.1",

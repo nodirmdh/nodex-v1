@@ -117,7 +117,7 @@ test.describe("phase 5 public trip search", () => {
     );
     await page.getByRole("link", { name: "View 08:30" }).click();
     await expect(page.getByRole("heading", { name: /Nukus to/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Request booking" })).toBeVisible();
-    await expect(page.getByText("Booking opens in a later phase")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Choose seats" })).toBeVisible();
+    await expect(page.getByText("Choose a seat, add passenger details")).toBeVisible();
   });
 });

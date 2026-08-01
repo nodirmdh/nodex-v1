@@ -375,6 +375,9 @@ importers:
 
   apps/worker:
     dependencies:
+      "@nodex/database":
+        specifier: workspace:*
+        version: link:../../packages/database
       bullmq:
         specifier: 5.81.2
         version: 5.81.2

@@ -83,6 +83,7 @@ ALTER TABLE "SeatHold"
   ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
 
 ALTER TABLE "SeatHold" ALTER COLUMN "bookingId" DROP NOT NULL;
+ALTER TABLE "SeatHold" ALTER COLUMN "status" DROP DEFAULT;
 ALTER TABLE "SeatHold" ALTER COLUMN "status" TYPE "SeatHoldStatus" USING "status"::"SeatHoldStatus";
 ALTER TABLE "SeatHold" ALTER COLUMN "status" SET DEFAULT 'ACTIVE';
 UPDATE "SeatHold" SET "idempotencyKey" = "id" WHERE "idempotencyKey" IS NULL;
