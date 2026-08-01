@@ -81,6 +81,28 @@ const permissions = [
   "booking:read-admin",
   "booking:cancel-admin",
   "booking:audit-read",
+  "parcel:create-own",
+  "parcel:read-own",
+  "parcel:update-own-draft",
+  "parcel:submit-own",
+  "parcel:cancel-own",
+  "parcel:photo-manage-own",
+  "parcel:handover-code-read-own",
+  "parcel:handover-code-regenerate-own",
+  "parcel:pickup-code-read-own",
+  "parcel:read-driver",
+  "parcel:accept-driver",
+  "parcel:reject-driver",
+  "parcel:handover-driver",
+  "parcel:ready-driver",
+  "parcel:deliver-driver",
+  "parcel:issue-driver",
+  "parcel:read-admin",
+  "parcel:cancel-admin",
+  "parcel:mark-lost-admin",
+  "parcel:mark-damaged-admin",
+  "parcel:dispute-admin",
+  "parcel:audit-read",
 ];
 
 async function main() {
@@ -150,6 +172,7 @@ async function main() {
   await seedTripSupplyFixtures();
   await seedBookingFixtures();
   await seedTripOperationsFixtures();
+  await seedParcelFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -1263,6 +1286,207 @@ async function seedTripOperationsFixtures() {
         reason: "Phase 7 operational cancellation fixture",
       },
     });
+  }
+}
+
+async function seedParcelFixtures() {
+  const categories = [
+    ["DOCUMENTS", "Documents", "Paper documents and envelopes"],
+    ["CLOTHING", "Clothing", "Clothes and textile parcels"],
+    ["ELECTRONICS", "Electronics", "Small consumer electronics"],
+    ["FOOD_NON_PERISHABLE", "Non-perishable food", "Sealed food with stable shelf life"],
+    ["MEDICINE_NON_PRESCRIPTION", "Non-prescription medicine", "Allowed over-the-counter medicine"],
+    ["PERSONAL_ITEMS", "Personal items", "Small personal goods"],
+    ["AUTO_PARTS_SMALL", "Small auto parts", "Compact non-hazardous parts"],
+    ["OTHER", "Other allowed parcel", "Allowed parcel after sender declaration"],
+  ] as const;
+  for (const [index, [code, name, description]] of categories.entries()) {
+    await prisma.parcelCategory.upsert({
+      where: { code },
+      create: { code, name, description, sortOrder: index },
+      update: { name, description, isActive: true, sortOrder: index },
+    });
+  }
+
+  const prohibited = [
+    ["CASH", "Cash"],
+    ["BANK_CARDS", "Bank cards"],
+    ["JEWELRY_HIGH_VALUE", "High-value jewelry"],
+    ["WEAPONS", "Weapons"],
+    ["AMMUNITION", "Ammunition"],
+    ["EXPLOSIVES", "Explosives"],
+    ["DRUGS", "Drugs"],
+    ["ALCOHOL", "Alcohol"],
+    ["TOBACCO", "Tobacco"],
+    ["PERISHABLE_FOOD", "Perishable food"],
+    ["ANIMALS", "Animals"],
+    ["HAZARDOUS_MATERIALS", "Hazardous materials"],
+    ["ILLEGAL_ITEMS", "Illegal items"],
+    ["UNKNOWN_CONTENT", "Unknown content"],
+  ] as const;
+  for (const [index, [code, name]] of prohibited.entries()) {
+    await prisma.prohibitedParcelCategory.upsert({
+      where: { code },
+      create: { code, name, description: "Prohibited for intercity parcel delivery", sortOrder: index },
+      update: { name, isActive: true, sortOrder: index },
+    });
+  }
+
+  await prisma.systemSetting.upsert({
+    where: { key: "parcel.limits" },
+    create: {
+      key: "parcel.limits",
+      value: {
+        maxWeightGrams: 20000,
+        maxLengthCm: 80,
+        maxWidthCm: 60,
+        maxHeightCm: 60,
+        maxDeclaredValueMinor: 500000000,
+        maxPhotos: 6,
+      },
+    },
+    update: {
+      value: {
+        maxWeightGrams: 20000,
+        maxLengthCm: 80,
+        maxWidthCm: 60,
+        maxHeightCm: 60,
+        maxDeclaredValueMinor: 500000000,
+        maxPhotos: 6,
+      },
+    },
+  });
+
+  const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const driverProfile = await prisma.driverProfile.findUniqueOrThrow({ where: { userId: driver.id } });
+  const vehicle = await prisma.vehicle.findFirstOrThrow({
+    where: { driverProfileId: driverProfile.id, status: "APPROVED" },
+  });
+  const trip = await prisma.trip.findFirstOrThrow({
+    where: {
+      driverProfileId: driverProfile.id,
+      vehicleId: vehicle.id,
+      parcelSupported: true,
+      status: { in: ["PUBLISHED", "BOOKING_OPEN", "BOARDING", "IN_PROGRESS"] },
+    },
+    orderBy: { departureAtUtc: "asc" },
+  });
+  const category = await prisma.parcelCategory.findUniqueOrThrow({ where: { code: "DOCUMENTS" } });
+  const pickupPoint = await prisma.pickupPoint.findFirst({ orderBy: { sortOrder: "asc" } });
+  const statuses = [
+    "DRAFT",
+    "ACCEPTED",
+    "HANDED_TO_DRIVER",
+    "IN_TRANSIT",
+    "READY_FOR_PICKUP",
+    "DELIVERED",
+    "CANCELLED_BY_SENDER",
+    "DAMAGED",
+    "DISPUTED",
+  ] as const;
+  for (const [index, status] of statuses.entries()) {
+    const id = `phase8-parcel-${status.toLowerCase().replaceAll("_", "-")}`;
+    await prisma.parcelTimelineEvent.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelEvent.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelIssue.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelCancellation.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelHandoverCode.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelPickupCode.deleteMany({ where: { parcelId: id } });
+    await prisma.parcelAttachment.deleteMany({ where: { parcelId: id } });
+    const created = await prisma.parcelOrder.upsert({
+      where: { id },
+      create: {
+        id,
+        senderUserId: client.id,
+        tripId: trip.id,
+        driverProfileId: driverProfile.id,
+        vehicleId: vehicle.id,
+        categoryId: category.id,
+        status,
+        title: `Phase 8 ${status.toLowerCase().replaceAll("_", " ")} parcel`,
+        description: "Seeded parcel fixture for lifecycle, moderation, and smoke tests.",
+        weightGrams: 1200 + index * 100,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 10,
+        declaredValueMinor: 10000000n,
+        priceMinor: trip.parcelPriceMinor ?? 3000000n,
+        senderName: "Client Mock",
+        senderPhone: "+998900000003",
+        recipientName: "Recipient Mock",
+        recipientPhone: "+998901234567",
+        pickupPointId: pickupPoint?.id ?? null,
+        destinationPickupPointId: pickupPoint?.id ?? null,
+        pickupLabel: "Nukus Central Station",
+        destinationLabel: "Urgench Bus Station",
+        contentDeclarationAcceptedAt: new Date("2026-08-01T09:00:00.000Z"),
+        packagingDeclarationAcceptedAt: new Date("2026-08-01T09:00:00.000Z"),
+        termsSnapshot: { version: "0.1-local" },
+        pricingSnapshot: { currency: "UZS" },
+        handoverAt: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP", "DELIVERED"].includes(status)
+          ? new Date("2026-08-01T09:20:00.000Z")
+          : null,
+        inTransitAt: ["IN_TRANSIT", "READY_FOR_PICKUP", "DELIVERED"].includes(status)
+          ? new Date("2026-08-01T10:00:00.000Z")
+          : null,
+        readyForPickupAt: ["READY_FOR_PICKUP", "DELIVERED"].includes(status)
+          ? new Date("2026-08-01T12:00:00.000Z")
+          : null,
+        deliveredAt: status === "DELIVERED" ? new Date("2026-08-01T12:20:00.000Z") : null,
+        cancelledAt: status === "CANCELLED_BY_SENDER" ? new Date("2026-08-01T09:40:00.000Z") : null,
+      },
+      update: { status, driverProfileId: driverProfile.id, vehicleId: vehicle.id, tripId: trip.id },
+    });
+    await prisma.parcelEvent.create({
+      data: { parcelId: created.id, actorUserId: client.id, type: "PARCEL_SEEDED", payload: { status } },
+    });
+    await prisma.parcelTimelineEvent.create({
+      data: { parcelId: created.id, actorUserId: client.id, type: "PARCEL_SEEDED", payload: { status } },
+    });
+    if (["ACCEPTED", "HANDED_TO_DRIVER"].includes(status)) {
+      await prisma.parcelHandoverCode.create({
+        data: {
+          parcelId: created.id,
+          codeHash: hashSecret("482913"),
+          codeLength: 6,
+          expiresAt: new Date("2026-08-02T09:00:00.000Z"),
+        },
+      });
+    }
+    if (["READY_FOR_PICKUP", "DELIVERED"].includes(status)) {
+      await prisma.parcelPickupCode.create({
+        data: {
+          parcelId: created.id,
+          codeHash: hashSecret("739201"),
+          codeLength: 6,
+          expiresAt: new Date("2026-08-02T12:00:00.000Z"),
+          verifiedAt: status === "DELIVERED" ? new Date("2026-08-01T12:20:00.000Z") : null,
+          status: status === "DELIVERED" ? "VERIFIED" : "ACTIVE",
+        },
+      });
+    }
+    if (status === "DAMAGED" || status === "DISPUTED") {
+      await prisma.parcelIssue.create({
+        data: {
+          parcelId: created.id,
+          actorUserId: driver.id,
+          actorRole: "DRIVER",
+          type: status,
+          reason: "Seeded parcel issue",
+        },
+      });
+    }
+    if (status === "CANCELLED_BY_SENDER") {
+      await prisma.parcelCancellation.create({
+        data: {
+          parcelId: created.id,
+          actorUserId: client.id,
+          actorRole: "CLIENT",
+          reason: "Seeded sender cancellation",
+        },
+      });
+    }
   }
 }
 

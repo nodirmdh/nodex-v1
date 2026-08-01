@@ -113,6 +113,28 @@ const operationsWorker = new Worker(
       where: { status: "ACTIVE", expiresAt: { lte: now }, verifiedAt: null },
       data: { status: "EXPIRED" },
     });
+    const expiredHandoverCodes = await prisma.parcelHandoverCode.updateMany({
+      where: { status: "ACTIVE", expiresAt: { lte: now }, verifiedAt: null },
+      data: { status: "EXPIRED" },
+    });
+    const expiredPickupCodes = await prisma.parcelPickupCode.updateMany({
+      where: { status: "ACTIVE", expiresAt: { lte: now }, verifiedAt: null },
+      data: { status: "EXPIRED" },
+    });
+    const expiredDraftParcels = await prisma.parcelOrder.updateMany({
+      where: {
+        status: { in: ["DRAFT", "CREATED"] },
+        createdAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      },
+      data: { status: "EXPIRED", version: { increment: 1 } },
+    });
+    const staleAcceptedParcels = await prisma.parcelOrder.updateMany({
+      where: {
+        status: "ACCEPTED",
+        trip: { departureAtUtc: { lt: now } },
+      },
+      data: { status: "EXPIRED", version: { increment: 1 } },
+    });
     const staleTrips = await prisma.trip.findMany({
       where: {
         status: { in: ["PUBLISHED", "BOOKING_OPEN"] },
@@ -138,10 +160,24 @@ const operationsWorker = new Worker(
       });
     }
     logger.info(
-      { expiredCodes: expiredCodes.count, staleTrips: staleTrips.length },
+      {
+        expiredCodes: expiredCodes.count,
+        expiredHandoverCodes: expiredHandoverCodes.count,
+        expiredPickupCodes: expiredPickupCodes.count,
+        expiredDraftParcels: expiredDraftParcels.count,
+        staleAcceptedParcels: staleAcceptedParcels.count,
+        staleTrips: staleTrips.length,
+      },
       "processed trip operations job",
     );
-    return { expiredCodes: expiredCodes.count, staleTrips: staleTrips.length };
+    return {
+      expiredCodes: expiredCodes.count,
+      expiredHandoverCodes: expiredHandoverCodes.count,
+      expiredPickupCodes: expiredPickupCodes.count,
+      expiredDraftParcels: expiredDraftParcels.count,
+      staleAcceptedParcels: staleAcceptedParcels.count,
+      staleTrips: staleTrips.length,
+    };
   },
   { connection, concurrency: 1 },
 );
