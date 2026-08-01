@@ -381,6 +381,71 @@ export const bookingPaymentMethods = ["CASH", "MANUAL_TRANSFER"] as const;
 export const ageCategories = ["ADULT", "CHILD", "INFANT"] as const;
 export const baggageTypes = ["CABIN_BAG", "SUITCASE", "OVERSIZED", "OTHER"] as const;
 
+export const parcelStatuses = [
+  "DRAFT",
+  "CREATED",
+  "PENDING_DRIVER_ACCEPTANCE",
+  "ACCEPTED",
+  "HANDED_TO_DRIVER",
+  "IN_TRANSIT",
+  "READY_FOR_PICKUP",
+  "DELIVERED",
+  "CANCELLED_BY_SENDER",
+  "CANCELLED_BY_DRIVER",
+  "CANCELLED_BY_ADMIN",
+  "REJECTED",
+  "LOST",
+  "DAMAGED",
+  "DISPUTED",
+  "EXPIRED",
+] as const;
+
+export const parcelCategoryCodes = [
+  "DOCUMENTS",
+  "CLOTHING",
+  "ELECTRONICS",
+  "FOOD_NON_PERISHABLE",
+  "MEDICINE_NON_PRESCRIPTION",
+  "PERSONAL_ITEMS",
+  "AUTO_PARTS_SMALL",
+  "OTHER",
+] as const;
+
+export const prohibitedParcelCategoryCodes = [
+  "CASH",
+  "BANK_CARDS",
+  "JEWELRY_HIGH_VALUE",
+  "WEAPONS",
+  "AMMUNITION",
+  "EXPLOSIVES",
+  "DRUGS",
+  "ALCOHOL",
+  "TOBACCO",
+  "PERISHABLE_FOOD",
+  "ANIMALS",
+  "HAZARDOUS_MATERIALS",
+  "ILLEGAL_ITEMS",
+  "UNKNOWN_CONTENT",
+] as const;
+
+export const parcelAttachmentTypes = [
+  "PACKAGE_BEFORE_HANDOVER",
+  "PACKAGE_AT_HANDOVER",
+  "PACKAGE_DAMAGED",
+  "PACKAGE_AT_DELIVERY",
+  "OTHER",
+] as const;
+
+export const defaultParcelLimits = {
+  maxWeightGrams: 20_000,
+  maxLengthCm: 80,
+  maxWidthCm: 60,
+  maxHeightCm: 60,
+  maxDeclaredValueMinor: 5_000_000_00,
+  maxPhotos: 6,
+  maxDescriptionLength: 1000,
+} as const;
+
 export type SeatLayoutItem = {
   seatKey: string;
   label: string;
@@ -549,4 +614,145 @@ export function boardingCodeCanAttempt(input: {
     return { ok: false, code: "BOARDING_CODE_MAX_ATTEMPTS" };
   }
   return { ok: true, code: "BOARDING_CODE_ATTEMPT_ALLOWED" };
+}
+
+export const parcelDraftSchema = z.object({
+  tripId: z.string().trim().min(1).optional().nullable(),
+  categoryCode: z.enum(parcelCategoryCodes),
+  title: textField.max(100),
+  description: z.string().trim().min(3).max(defaultParcelLimits.maxDescriptionLength),
+  weightGrams: z.coerce.number().int().positive().max(defaultParcelLimits.maxWeightGrams),
+  lengthCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxLengthCm),
+  widthCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxWidthCm),
+  heightCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxHeightCm),
+  declaredValueMinor: z.coerce.bigint().nonnegative().max(BigInt(defaultParcelLimits.maxDeclaredValueMinor)),
+  senderName: textField.max(100),
+  senderPhone: optionalTextField,
+  recipientName: textField.max(100),
+  recipientPhone: textField.max(40),
+  pickupPointId: z.string().trim().min(1).optional().nullable(),
+  destinationPickupPointId: z.string().trim().min(1).optional().nullable(),
+  pickupLabel: textField.max(160),
+  destinationLabel: textField.max(160),
+  senderComment: z.string().trim().max(500).optional().nullable(),
+  recipientComment: z.string().trim().max(500).optional().nullable(),
+  contentDeclarationAccepted: z.boolean().optional(),
+  packagingDeclarationAccepted: z.boolean().optional(),
+});
+
+export const parcelSubmitSchema = z.object({
+  contentDeclarationAccepted: z.literal(true),
+  packagingDeclarationAccepted: z.literal(true),
+});
+
+export const parcelReasonSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const parcelCodeVerifySchema = z.object({
+  code: z.string().trim().regex(/^\d{4,6}$/),
+});
+
+export const parcelPhotoSchema = z.object({
+  type: z.enum(parcelAttachmentTypes).default("OTHER"),
+  originalFileName: textField.max(180),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  sizeBytes: z.coerce.number().int().positive().max(8 * 1024 * 1024),
+  checksum: z.string().trim().min(16).max(128),
+  storageKey: z.string().trim().min(16).max(300),
+});
+
+export type ParcelStatus = (typeof parcelStatuses)[number];
+export type ParcelAction =
+  | "SUBMIT"
+  | "DRIVER_ACCEPT"
+  | "DRIVER_REJECT"
+  | "HANDOVER"
+  | "START_TRANSIT"
+  | "READY_FOR_PICKUP"
+  | "DELIVER"
+  | "CANCEL_SENDER"
+  | "CANCEL_DRIVER"
+  | "CANCEL_ADMIN"
+  | "MARK_LOST"
+  | "MARK_DAMAGED"
+  | "DISPUTE"
+  | "EXPIRE";
+
+const parcelTransitionTargets = {
+  SUBMIT: "ACCEPTED",
+  DRIVER_ACCEPT: "ACCEPTED",
+  DRIVER_REJECT: "REJECTED",
+  HANDOVER: "HANDED_TO_DRIVER",
+  START_TRANSIT: "IN_TRANSIT",
+  READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  DELIVER: "DELIVERED",
+  CANCEL_SENDER: "CANCELLED_BY_SENDER",
+  CANCEL_DRIVER: "CANCELLED_BY_DRIVER",
+  CANCEL_ADMIN: "CANCELLED_BY_ADMIN",
+  MARK_LOST: "LOST",
+  MARK_DAMAGED: "DAMAGED",
+  DISPUTE: "DISPUTED",
+  EXPIRE: "EXPIRED",
+} as const satisfies Record<ParcelAction, ParcelStatus>;
+
+const parcelAllowedTransitions = {
+  SUBMIT: ["DRAFT", "CREATED"],
+  DRIVER_ACCEPT: ["PENDING_DRIVER_ACCEPTANCE"],
+  DRIVER_REJECT: ["PENDING_DRIVER_ACCEPTANCE", "CREATED"],
+  HANDOVER: ["ACCEPTED"],
+  START_TRANSIT: ["HANDED_TO_DRIVER"],
+  READY_FOR_PICKUP: ["IN_TRANSIT"],
+  DELIVER: ["READY_FOR_PICKUP"],
+  CANCEL_SENDER: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
+  CANCEL_DRIVER: ["PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
+  CANCEL_ADMIN: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED", "HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
+  MARK_LOST: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
+  MARK_DAMAGED: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
+  DISPUTE: ["READY_FOR_PICKUP", "DELIVERED", "DAMAGED", "LOST"],
+  EXPIRE: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
+} as const satisfies Record<ParcelAction, readonly ParcelStatus[]>;
+
+export function evaluateParcelTransition(
+  currentStatus: ParcelStatus,
+  action: ParcelAction,
+) {
+  const toStatus = parcelTransitionTargets[action];
+  if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true } as const;
+  const allowed: readonly ParcelStatus[] = parcelAllowedTransitions[action];
+  if (!allowed.includes(currentStatus)) {
+    return {
+      ok: false,
+      code: "PARCEL_INVALID_TRANSITION",
+      message: `${currentStatus} cannot transition via ${action}`,
+    } as const;
+  }
+  return { ok: true, toStatus, idempotent: false } as const;
+}
+
+export function calculateParcelPriceMinor(input: { baseParcelPriceMinor?: bigint | null; weightGrams: number }) {
+  const base = input.baseParcelPriceMinor ?? 25_000_00n;
+  const overweightSteps = Math.max(0, Math.ceil((input.weightGrams - 5_000) / 5_000));
+  return base + BigInt(overweightSteps) * 5_000_00n;
+}
+
+export function parcelCodeCanAttempt(input: {
+  status: string;
+  expiresAt: Date;
+  attemptsCount: number;
+  maxAttempts: number;
+  lockedAt?: Date | null;
+  verifiedAt?: Date | null;
+  now?: Date;
+}) {
+  if (input.status !== "ACTIVE") return { ok: false, code: "PARCEL_CODE_INACTIVE" };
+  if (input.verifiedAt) return { ok: false, code: "PARCEL_CODE_USED" };
+  if (input.lockedAt) return { ok: false, code: "PARCEL_CODE_LOCKED" };
+  if (input.expiresAt.getTime() <= (input.now ?? new Date()).getTime()) {
+    return { ok: false, code: "PARCEL_CODE_EXPIRED" };
+  }
+  if (input.attemptsCount >= input.maxAttempts) {
+    return { ok: false, code: "PARCEL_CODE_MAX_ATTEMPTS" };
+  }
+  return { ok: true, code: "PARCEL_CODE_ATTEMPT_ALLOWED" };
 }

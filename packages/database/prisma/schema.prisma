@@ -262,6 +262,41 @@ enum BaggageType {
   OTHER
 }
 
+enum ParcelStatus {
+  DRAFT
+  CREATED
+  PENDING_DRIVER_ACCEPTANCE
+  ACCEPTED
+  HANDED_TO_DRIVER
+  IN_TRANSIT
+  READY_FOR_PICKUP
+  DELIVERED
+  CANCELLED_BY_SENDER
+  CANCELLED_BY_DRIVER
+  CANCELLED_BY_ADMIN
+  REJECTED
+  LOST
+  DAMAGED
+  DISPUTED
+  EXPIRED
+}
+
+enum ParcelCodeStatus {
+  ACTIVE
+  VERIFIED
+  EXPIRED
+  LOCKED
+  REPLACED
+}
+
+enum ParcelAttachmentType {
+  PACKAGE_BEFORE_HANDOVER
+  PACKAGE_AT_HANDOVER
+  PACKAGE_DAMAGED
+  PACKAGE_AT_DELIVERY
+  OTHER
+}
+
 model User {
   id              String     @id @default(cuid())
   telegramId      BigInt?    @unique
@@ -306,6 +341,11 @@ model User {
   noShowRecords                           NoShowRecord[]                  @relation("NoShowRecordActor")
   tripCancellations                       TripCancellation[]              @relation("TripCancellationActor")
   completedTripSummaries                  TripCompletionSummary[]         @relation("TripCompletionSummaryActor")
+  sentParcels                             ParcelOrder[]                   @relation("ParcelSender")
+  parcelEvents                            ParcelEvent[]                   @relation("ParcelEventActor")
+  parcelIssues                            ParcelIssue[]                   @relation("ParcelIssueActor")
+  parcelCancellations                     ParcelCancellation[]            @relation("ParcelCancellationActor")
+  parcelTimelineEvents                    ParcelTimelineEvent[]           @relation("ParcelTimelineActor")
 
   @@index([status])
   @@index([phone])
@@ -485,6 +525,7 @@ model FileObject {
   driverVerificationDocuments DriverVerificationDocument[]
   vehicleDocuments            VehicleDocument[]
   vehiclePhotos               VehiclePhoto[]
+  parcelAttachments           ParcelAttachment[]
 }
 
 model FileAttachment {
@@ -530,6 +571,7 @@ model DriverProfile {
   verificationApplications DriverVerificationApplication[] @relation("DriverVerificationApplications")
   vehicles                 Vehicle[]
   trips                    Trip[]
+  parcelOrders             ParcelOrder[]
 }
 
 model Region {
@@ -547,24 +589,24 @@ model Region {
 }
 
 model City {
-  id           String        @id @default(cuid())
-  regionId     String
-  code         String        @unique
-  nameRu       String
-  nameUz       String
-  nameKaa      String
-  timezone     String        @default("Asia/Tashkent")
-  latitude     Decimal?      @db.Decimal(9, 6)
-  longitude    Decimal?      @db.Decimal(9, 6)
-  isActive     Boolean       @default(true)
-  isLaunchCity Boolean       @default(false)
-  sortOrder    Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  region       Region        @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  pickupPoints PickupPoint[]
-  originRoutes Route[]       @relation("OriginCityRoutes")
-  destinationRoutes Route[]  @relation("DestinationCityRoutes")
+  id                      String        @id @default(cuid())
+  regionId                String
+  code                    String        @unique
+  nameRu                  String
+  nameUz                  String
+  nameKaa                 String
+  timezone                String        @default("Asia/Tashkent")
+  latitude                Decimal?      @db.Decimal(9, 6)
+  longitude               Decimal?      @db.Decimal(9, 6)
+  isActive                Boolean       @default(true)
+  isLaunchCity            Boolean       @default(false)
+  sortOrder               Int           @default(0)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  region                  Region        @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  pickupPoints            PickupPoint[]
+  originRoutes            Route[]       @relation("OriginCityRoutes")
+  destinationRoutes       Route[]       @relation("DestinationCityRoutes")
   originTrips             Trip[]        @relation("OriginCityTrips")
   destinationTrips        Trip[]        @relation("DestinationCityTrips")
   originSearchEvents      SearchEvent[] @relation("OriginCitySearchEvents")
@@ -577,21 +619,23 @@ model City {
 }
 
 model PickupPoint {
-  id        String          @id @default(cuid())
-  cityId    String
-  name      String
-  address   String?
-  latitude  Decimal?        @db.Decimal(9, 6)
-  longitude Decimal?        @db.Decimal(9, 6)
-  type      PickupPointType @default(CUSTOM)
-  isActive  Boolean         @default(true)
-  sortOrder Int             @default(0)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  city      City            @relation(fields: [cityId], references: [id], onDelete: Restrict)
-  tripStops TripStop[]
-  bookingPickups Booking[] @relation("BookingPickupPoint")
-  bookingDropoffs Booking[] @relation("BookingDropoffPoint")
+  id                 String          @id @default(cuid())
+  cityId             String
+  name               String
+  address            String?
+  latitude           Decimal?        @db.Decimal(9, 6)
+  longitude          Decimal?        @db.Decimal(9, 6)
+  type               PickupPointType @default(CUSTOM)
+  isActive           Boolean         @default(true)
+  sortOrder          Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  city               City            @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  tripStops          TripStop[]
+  bookingPickups     Booking[]       @relation("BookingPickupPoint")
+  bookingDropoffs    Booking[]       @relation("BookingDropoffPoint")
+  parcelPickups      ParcelOrder[]   @relation("ParcelPickupPoint")
+  parcelDestinations ParcelOrder[]   @relation("ParcelDestinationPickupPoint")
 
   @@unique([cityId, name])
   @@index([cityId, isActive, sortOrder])
@@ -616,15 +660,15 @@ model Route {
 }
 
 model RouteStop {
-  id            String       @id @default(cuid())
-  routeId       String
-  cityId        String
-  order         Int
-  label         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  route         Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  city          City         @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  id        String   @id @default(cuid())
+  routeId   String
+  cityId    String
+  order     Int
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  route     Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Restrict)
 
   @@unique([routeId, order])
   @@index([cityId])
@@ -759,7 +803,7 @@ model ClientProfile {
 }
 
 model Vehicle {
-  id                 String                      @id @default(cuid())
+  id                 String                    @id @default(cuid())
   driverProfileId    String
   make               String
   model              String
@@ -768,13 +812,13 @@ model Vehicle {
   plateNumber        String
   normalizedPlate    String
   bodyType           String?
-  passengerSeatCount Int                         @default(4)
-  passengerSeats     Int                         @default(4)
+  passengerSeatCount Int                       @default(4)
+  passengerSeats     Int                       @default(4)
   luggageCapacity    String?
   amenities          Json?
-  isPrimary          Boolean                     @default(false)
-  status             VehicleStatus               @default(DRAFT)
-  moderationStatus   String                      @default("DRAFT")
+  isPrimary          Boolean                   @default(false)
+  status             VehicleStatus             @default(DRAFT)
+  moderationStatus   String                    @default("DRAFT")
   submittedAt        DateTime?
   reviewStartedAt    DateTime?
   reviewedAt         DateTime?
@@ -783,15 +827,16 @@ model Vehicle {
   changesRequestedAt DateTime?
   suspendedAt        DateTime?
   archivedAt         DateTime?
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
-  version            Int                         @default(1)
-  driverProfile      DriverProfile               @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  version            Int                       @default(1)
+  driverProfile      DriverProfile             @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
   documents          VehicleDocument[]
   photos             VehiclePhoto[]
   reviews            VehicleModerationReview[]
   events             VehicleModerationEvent[]
   trips              Trip[]
+  parcelOrders       ParcelOrder[]
 
   @@index([driverProfileId, status])
   @@index([status, submittedAt])
@@ -848,16 +893,16 @@ model VehiclePhoto {
 }
 
 model VehicleModerationReview {
-  id             String                      @id @default(cuid())
+  id             String                       @id @default(cuid())
   vehicleId      String
   reviewerUserId String
   action         VehicleModerationAction
   reasonCode     VehicleModerationReasonCode?
   comment        String?
   metadata       Json?
-  createdAt      DateTime                    @default(now())
-  vehicle        Vehicle                     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
-  reviewer       User                        @relation(fields: [reviewerUserId], references: [id])
+  createdAt      DateTime                     @default(now())
+  vehicle        Vehicle                      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  reviewer       User                         @relation(fields: [reviewerUserId], references: [id])
 
   @@index([vehicleId, createdAt])
   @@index([reviewerUserId])
@@ -877,7 +922,7 @@ model VehicleModerationEvent {
 }
 
 model Trip {
-  id                            String                  @id @default(cuid())
+  id                            String                 @id @default(cuid())
   driverProfileId               String
   vehicleId                     String
   routeId                       String?
@@ -887,15 +932,15 @@ model Trip {
   destinationCity               String
   departureAtUtc                DateTime
   arrivalEstimateAtUtc          DateTime?
-  timezone                      String                  @default("Asia/Tashkent")
-  status                        TripStatus              @default(DRAFT)
-  passengerSeatCapacity         Int                     @default(1)
-  availableSeatCount            Int                     @default(1)
-  pricePerSeatMinor             BigInt                  @default(0)
+  timezone                      String                 @default("Asia/Tashkent")
+  status                        TripStatus             @default(DRAFT)
+  passengerSeatCapacity         Int                    @default(1)
+  availableSeatCount            Int                    @default(1)
+  pricePerSeatMinor             BigInt                 @default(0)
   wholeCarPriceMinor            BigInt?
-  parcelSupported               Boolean                 @default(false)
+  parcelSupported               Boolean                @default(false)
   parcelPriceMinor              BigInt?
-  currency                      String                  @default("UZS")
+  currency                      String                 @default("UZS")
   luggageRules                  String?
   comment                       String?
   publicationValidationSnapshot Json?
@@ -905,14 +950,14 @@ model Trip {
   cancellationReason            String?
   blockedAt                     DateTime?
   blockReason                   String?
-  createdAt                     DateTime                @default(now())
-  updatedAt                     DateTime                @updatedAt
-  version                       Int                     @default(1)
-  driverProfile                 DriverProfile           @relation(fields: [driverProfileId], references: [id])
-  vehicle                       Vehicle                 @relation(fields: [vehicleId], references: [id])
-  route                         Route?                  @relation(fields: [routeId], references: [id], onDelete: Restrict)
-  origin                        City?                   @relation("OriginCityTrips", fields: [originCityId], references: [id], onDelete: Restrict)
-  destination                   City?                   @relation("DestinationCityTrips", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  createdAt                     DateTime               @default(now())
+  updatedAt                     DateTime               @updatedAt
+  version                       Int                    @default(1)
+  driverProfile                 DriverProfile          @relation(fields: [driverProfileId], references: [id])
+  vehicle                       Vehicle                @relation(fields: [vehicleId], references: [id])
+  route                         Route?                 @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  origin                        City?                  @relation("OriginCityTrips", fields: [originCityId], references: [id], onDelete: Restrict)
+  destination                   City?                  @relation("DestinationCityTrips", fields: [destinationCityId], references: [id], onDelete: Restrict)
   stops                         TripStop[]
   seatSnapshot                  TripSeatSnapshot?
   moderationEvents              TripModerationEvent[]
@@ -927,6 +972,7 @@ model Trip {
   cancellations                 TripCancellation[]
   completionSummary             TripCompletionSummary?
   noShowRecords                 NoShowRecord[]
+  parcelOrders                  ParcelOrder[]
 
   @@index([driverProfileId, status, departureAtUtc])
   @@index([vehicleId, status, departureAtUtc])
@@ -936,24 +982,24 @@ model Trip {
 }
 
 model SearchEvent {
-  id                  String   @id @default(cuid())
-  sessionId           String?
-  userId              String?
-  originCityId        String?
-  destinationCityId   String?
-  tripId              String?
-  queryDate           DateTime?
-  passengers          Int      @default(1)
-  sort                String?
-  filtersJson         Json?
-  resultCount         Int      @default(0)
-  selectedResultRank  Int?
-  type                String   @default("SEARCH_PERFORMED")
-  createdAt           DateTime @default(now())
-  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  originCity          City?    @relation("OriginCitySearchEvents", fields: [originCityId], references: [id], onDelete: SetNull)
-  destinationCity     City?    @relation("DestinationCitySearchEvents", fields: [destinationCityId], references: [id], onDelete: SetNull)
-  trip                Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  id                 String    @id @default(cuid())
+  sessionId          String?
+  userId             String?
+  originCityId       String?
+  destinationCityId  String?
+  tripId             String?
+  queryDate          DateTime?
+  passengers         Int       @default(1)
+  sort               String?
+  filtersJson        Json?
+  resultCount        Int       @default(0)
+  selectedResultRank Int?
+  type               String    @default("SEARCH_PERFORMED")
+  createdAt          DateTime  @default(now())
+  user               User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  originCity         City?     @relation("OriginCitySearchEvents", fields: [originCityId], references: [id], onDelete: SetNull)
+  destinationCity    City?     @relation("DestinationCitySearchEvents", fields: [destinationCityId], references: [id], onDelete: SetNull)
+  trip               Trip?     @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([originCityId, destinationCityId, createdAt])
@@ -1032,19 +1078,19 @@ model TripExecution {
 }
 
 model TripSeat {
-  id           String              @id @default(cuid())
+  id           String         @id @default(cuid())
   tripId       String
   seatKey      String
   label        String
-  row          Int                 @default(0)
-  column       Int                 @default(0)
-  seatType     SeatType            @default(STANDARD)
-  status       SeatStatus          @default(AVAILABLE)
-  priceMinor   BigInt              @default(0)
-  version      Int                 @default(1)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  trip         Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  row          Int            @default(0)
+  column       Int            @default(0)
+  seatType     SeatType       @default(STANDARD)
+  status       SeatStatus     @default(AVAILABLE)
+  priceMinor   BigInt         @default(0)
+  version      Int            @default(1)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  trip         Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
   bookingSeats BookingSeat[]
   holdItems    SeatHoldItem[]
 
@@ -1053,41 +1099,41 @@ model TripSeat {
 }
 
 model Booking {
-  id                        String                 @id @default(cuid())
-  tripId                    String
-  clientId                  String?
-  type                      BookingType            @default(SEAT)
-  status                    BookingStatus          @default(DRAFT)
-  paymentMethod             PaymentMethod          @default(CASH)
-  currency                  String                 @default("UZS")
-  totalMinor                BigInt                 @default(0)
-  passengerCount            Int                    @default(1)
-  pickupPointId             String?
-  destinationPickupPointId  String?
-  clientComment             String?
-  pricingSnapshot           Json?
-  tripSnapshot              Json?
-  termsSnapshot             Json?
-  expiresAt                 DateTime?
-  confirmedAt               DateTime?
-  cancelledAt               DateTime?
-  cancellationReason        String?
-  createdAt                 DateTime               @default(now())
-  updatedAt                 DateTime               @updatedAt
-  version                   Int                    @default(1)
-  trip                      Trip                   @relation(fields: [tripId], references: [id])
-  client                    User?                  @relation("ClientBookings", fields: [clientId], references: [id], onDelete: SetNull)
-  pickupPoint               PickupPoint?           @relation("BookingPickupPoint", fields: [pickupPointId], references: [id], onDelete: SetNull)
-  destinationPickupPoint    PickupPoint?           @relation("BookingDropoffPoint", fields: [destinationPickupPointId], references: [id], onDelete: SetNull)
-  holds                     SeatHold[]
-  passengers                BookingPassenger[]
-  seats                     BookingSeat[]
-  baggage                   BookingBaggage[]
-  timelineEvents            BookingTimelineEvent[]
-  cancellations             BookingCancellation[]
-  boardingCodes             BoardingCode[]
-  operationEvents           BookingOperationEvent[]
-  noShowRecords             NoShowRecord[]
+  id                       String                  @id @default(cuid())
+  tripId                   String
+  clientId                 String?
+  type                     BookingType             @default(SEAT)
+  status                   BookingStatus           @default(DRAFT)
+  paymentMethod            PaymentMethod           @default(CASH)
+  currency                 String                  @default("UZS")
+  totalMinor               BigInt                  @default(0)
+  passengerCount           Int                     @default(1)
+  pickupPointId            String?
+  destinationPickupPointId String?
+  clientComment            String?
+  pricingSnapshot          Json?
+  tripSnapshot             Json?
+  termsSnapshot            Json?
+  expiresAt                DateTime?
+  confirmedAt              DateTime?
+  cancelledAt              DateTime?
+  cancellationReason       String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  version                  Int                     @default(1)
+  trip                     Trip                    @relation(fields: [tripId], references: [id])
+  client                   User?                   @relation("ClientBookings", fields: [clientId], references: [id], onDelete: SetNull)
+  pickupPoint              PickupPoint?            @relation("BookingPickupPoint", fields: [pickupPointId], references: [id], onDelete: SetNull)
+  destinationPickupPoint   PickupPoint?            @relation("BookingDropoffPoint", fields: [destinationPickupPointId], references: [id], onDelete: SetNull)
+  holds                    SeatHold[]
+  passengers               BookingPassenger[]
+  seats                    BookingSeat[]
+  baggage                  BookingBaggage[]
+  timelineEvents           BookingTimelineEvent[]
+  cancellations            BookingCancellation[]
+  boardingCodes            BoardingCode[]
+  operationEvents          BookingOperationEvent[]
+  noShowRecords            NoShowRecord[]
 
   @@index([clientId, status, createdAt])
   @@index([tripId, status])
@@ -1095,20 +1141,20 @@ model Booking {
 }
 
 model SeatHold {
-  id             String           @id @default(cuid())
+  id             String         @id @default(cuid())
   tripId         String
   clientId       String?
   bookingId      String?
-  status         SeatHoldStatus   @default(ACTIVE)
+  status         SeatHoldStatus @default(ACTIVE)
   expiresAt      DateTime
   idempotencyKey String
-  createdAt      DateTime         @default(now())
+  createdAt      DateTime       @default(now())
   confirmedAt    DateTime?
   releasedAt     DateTime?
-  version        Int              @default(1)
-  trip           Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  client         User?            @relation("ClientSeatHolds", fields: [clientId], references: [id], onDelete: SetNull)
-  booking        Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  version        Int            @default(1)
+  trip           Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  client         User?          @relation("ClientSeatHolds", fields: [clientId], references: [id], onDelete: SetNull)
+  booking        Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   items          SeatHoldItem[]
 
   @@unique([tripId, idempotencyKey])
@@ -1118,12 +1164,12 @@ model SeatHold {
 }
 
 model SeatHoldItem {
-  id           String   @id @default(cuid())
-  seatHoldId   String
-  tripSeatId   String?
-  seatKey      String
-  seatHold     SeatHold @relation(fields: [seatHoldId], references: [id], onDelete: Cascade)
-  tripSeat     TripSeat? @relation(fields: [tripSeatId], references: [id], onDelete: SetNull)
+  id         String    @id @default(cuid())
+  seatHoldId String
+  tripSeatId String?
+  seatKey    String
+  seatHold   SeatHold  @relation(fields: [seatHoldId], references: [id], onDelete: Cascade)
+  tripSeat   TripSeat? @relation(fields: [tripSeatId], references: [id], onDelete: SetNull)
 
   @@unique([seatHoldId, seatKey])
   @@index([seatKey])
@@ -1199,21 +1245,223 @@ model BookingCancellation {
   @@index([bookingId, createdAt])
 }
 
+model ParcelCategory {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String
+  description String?
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  orders      ParcelOrder[]
+
+  @@index([isActive, sortOrder])
+}
+
+model ProhibitedParcelCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model ParcelOrder {
+  id                             String                @id @default(cuid())
+  senderUserId                   String
+  tripId                         String?
+  driverProfileId                String?
+  vehicleId                      String?
+  status                         ParcelStatus          @default(DRAFT)
+  categoryId                     String
+  title                          String
+  description                    String
+  weightGrams                    Int
+  lengthCm                       Int
+  widthCm                        Int
+  heightCm                       Int
+  declaredValueMinor             BigInt                @default(0)
+  currency                       String                @default("UZS")
+  priceMinor                     BigInt                @default(0)
+  senderName                     String
+  senderPhone                    String?
+  recipientName                  String
+  recipientPhone                 String
+  pickupPointId                  String?
+  destinationPickupPointId       String?
+  pickupLabel                    String
+  destinationLabel               String
+  senderComment                  String?
+  recipientComment               String?
+  contentDeclarationAcceptedAt   DateTime?
+  packagingDeclarationAcceptedAt DateTime?
+  termsSnapshot                  Json?
+  tripSnapshot                   Json?
+  pricingSnapshot                Json?
+  handoverAt                     DateTime?
+  inTransitAt                    DateTime?
+  readyForPickupAt               DateTime?
+  deliveredAt                    DateTime?
+  cancelledAt                    DateTime?
+  cancellationReason             String?
+  createdAt                      DateTime              @default(now())
+  updatedAt                      DateTime              @updatedAt
+  version                        Int                   @default(1)
+  sender                         User                  @relation("ParcelSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  trip                           Trip?                 @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  driverProfile                  DriverProfile?        @relation(fields: [driverProfileId], references: [id], onDelete: SetNull)
+  vehicle                        Vehicle?              @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  category                       ParcelCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  pickupPoint                    PickupPoint?          @relation("ParcelPickupPoint", fields: [pickupPointId], references: [id], onDelete: SetNull)
+  destinationPickupPoint         PickupPoint?          @relation("ParcelDestinationPickupPoint", fields: [destinationPickupPointId], references: [id], onDelete: SetNull)
+  attachments                    ParcelAttachment[]
+  handoverCodes                  ParcelHandoverCode[]
+  pickupCodes                    ParcelPickupCode[]
+  events                         ParcelEvent[]
+  issues                         ParcelIssue[]
+  cancellations                  ParcelCancellation[]
+  timelineEvents                 ParcelTimelineEvent[]
+
+  @@index([senderUserId, status, createdAt])
+  @@index([tripId, status])
+  @@index([driverProfileId, status])
+  @@index([categoryId, status])
+}
+
+model ParcelAttachment {
+  id               String               @id @default(cuid())
+  parcelId         String
+  fileObjectId     String?
+  type             ParcelAttachmentType @default(OTHER)
+  originalFileName String
+  storageKey       String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String
+  status           String               @default("UPLOADED")
+  createdAt        DateTime             @default(now())
+  parcel           ParcelOrder          @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  fileObject       FileObject?          @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, type])
+  @@index([fileObjectId])
+}
+
+model ParcelHandoverCode {
+  id            String           @id @default(cuid())
+  parcelId      String
+  codeHash      String
+  codeLength    Int              @default(6)
+  status        ParcelCodeStatus @default(ACTIVE)
+  expiresAt     DateTime
+  attemptsCount Int              @default(0)
+  maxAttempts   Int              @default(5)
+  lockedAt      DateTime?
+  verifiedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  parcel        ParcelOrder      @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  @@index([parcelId, status, expiresAt])
+}
+
+model ParcelPickupCode {
+  id            String           @id @default(cuid())
+  parcelId      String
+  codeHash      String
+  codeLength    Int              @default(6)
+  status        ParcelCodeStatus @default(ACTIVE)
+  expiresAt     DateTime
+  attemptsCount Int              @default(0)
+  maxAttempts   Int              @default(5)
+  lockedAt      DateTime?
+  verifiedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  parcel        ParcelOrder      @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  @@index([parcelId, status, expiresAt])
+}
+
+model ParcelEvent {
+  id          String      @id @default(cuid())
+  parcelId    String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime    @default(now())
+  parcel      ParcelOrder @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ParcelEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, createdAt])
+  @@index([type, createdAt])
+}
+
+model ParcelIssue {
+  id          String      @id @default(cuid())
+  parcelId    String
+  actorUserId String?
+  actorRole   String
+  type        String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  parcel      ParcelOrder @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ParcelIssueActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, createdAt])
+  @@index([type, createdAt])
+}
+
+model ParcelCancellation {
+  id          String      @id @default(cuid())
+  parcelId    String
+  actorUserId String?
+  actorRole   String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  parcel      ParcelOrder @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ParcelCancellationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, createdAt])
+}
+
+model ParcelTimelineEvent {
+  id          String      @id @default(cuid())
+  parcelId    String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime    @default(now())
+  parcel      ParcelOrder @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  actor       User?       @relation("ParcelTimelineActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, createdAt])
+  @@index([type, createdAt])
+}
+
 model BoardingCode {
-  id             String            @id @default(cuid())
-  bookingId      String
-  codeHash       String
-  codeLength     Int               @default(6)
-  status         String            @default("ACTIVE")
-  expiresAt      DateTime
-  attemptsCount  Int               @default(0)
-  maxAttempts    Int               @default(5)
-  lockedAt       DateTime?
-  verifiedAt     DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  attempts       BoardingAttempt[]
+  id            String            @id @default(cuid())
+  bookingId     String
+  codeHash      String
+  codeLength    Int               @default(6)
+  status        String            @default("ACTIVE")
+  expiresAt     DateTime
+  attemptsCount Int               @default(0)
+  maxAttempts   Int               @default(5)
+  lockedAt      DateTime?
+  verifiedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  booking       Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  attempts      BoardingAttempt[]
 
   @@index([bookingId, status, expiresAt])
 }
