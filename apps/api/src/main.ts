@@ -18,6 +18,14 @@ import {
   driverDocumentPresignSchema,
   driverReviewDecisionSchema,
   driverVerificationDraftSchema,
+  citySchema,
+  pickupPointSchema,
+  regionSchema,
+  routeSchema,
+  tripAdminActionSchema,
+  tripCancelSchema,
+  tripDraftSchema,
+  tripStopSchema,
   vehicleDocumentCompleteSchema,
   vehicleDocumentPresignSchema,
   vehicleDraftSchema,
@@ -946,6 +954,247 @@ function phase3OpenApiPaths() {
   };
 }
 
+function phase4OpenApiPaths() {
+  const bearer = [{ bearer: [] }];
+  const json = { "application/json": { schema: { type: "object" } } };
+  const tripId = { name: "tripId", in: "path", required: true, schema: { type: "string" } };
+  const cityId = { name: "cityId", in: "path", required: true, schema: { type: "string" } };
+  const routeId = { name: "routeId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/regions": {
+      get: {
+        operationId: "listRegions",
+        tags: ["Directories"],
+        responses: { 200: { description: "Regions", content: json } },
+      },
+    },
+    "/api/v1/cities": {
+      get: {
+        operationId: "listCities",
+        tags: ["Directories"],
+        responses: { 200: { description: "Cities", content: json } },
+      },
+    },
+    "/api/v1/cities/{cityId}": {
+      get: {
+        operationId: "getCity",
+        tags: ["Directories"],
+        parameters: [cityId],
+        responses: { 200: { description: "City", content: json } },
+      },
+    },
+    "/api/v1/cities/{cityId}/pickup-points": {
+      get: {
+        operationId: "listCityPickupPoints",
+        tags: ["Directories"],
+        parameters: [cityId],
+        responses: { 200: { description: "Pickup points", content: json } },
+      },
+    },
+    "/api/v1/routes": {
+      get: {
+        operationId: "listRoutes",
+        tags: ["Directories"],
+        responses: { 200: { description: "Routes", content: json } },
+      },
+    },
+    "/api/v1/routes/{routeId}": {
+      get: {
+        operationId: "getRoute",
+        tags: ["Directories"],
+        parameters: [routeId],
+        responses: { 200: { description: "Route", content: json } },
+      },
+    },
+    "/api/v1/trips/mine": {
+      get: {
+        operationId: "listMyTrips",
+        tags: ["Trips"],
+        security: bearer,
+        responses: { 200: { description: "My trips", content: json } },
+      },
+    },
+    "/api/v1/trips": {
+      post: {
+        operationId: "createTrip",
+        tags: ["Trips"],
+        security: bearer,
+        requestBody: { required: false, content: json },
+        responses: { 201: { description: "Trip draft", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}": {
+      get: {
+        operationId: "getTrip",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Trip", content: json } },
+      },
+      patch: {
+        operationId: "updateTrip",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Updated trip", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}/publish": {
+      post: {
+        operationId: "publishTrip",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Published trip", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}/unpublish": {
+      post: {
+        operationId: "unpublishTrip",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Unpublished trip", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}/cancel": {
+      post: {
+        operationId: "cancelTrip",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Cancelled trip", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}/history": {
+      get: {
+        operationId: "getTripHistory",
+        tags: ["Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Trip history", content: json } },
+      },
+    },
+    "/api/v1/admin/regions": {
+      get: {
+        operationId: "listAdminRegions",
+        tags: ["Admin Directories"],
+        security: bearer,
+        responses: { 200: { description: "Admin regions", content: json } },
+      },
+      post: {
+        operationId: "createAdminRegion",
+        tags: ["Admin Directories"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Region", content: json } },
+      },
+    },
+    "/api/v1/admin/cities": {
+      get: {
+        operationId: "listAdminCities",
+        tags: ["Admin Directories"],
+        security: bearer,
+        responses: { 200: { description: "Admin cities", content: json } },
+      },
+      post: {
+        operationId: "createAdminCity",
+        tags: ["Admin Directories"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "City", content: json } },
+      },
+    },
+    "/api/v1/admin/pickup-points": {
+      get: {
+        operationId: "listAdminPickupPoints",
+        tags: ["Admin Directories"],
+        security: bearer,
+        responses: { 200: { description: "Admin pickup points", content: json } },
+      },
+      post: {
+        operationId: "createAdminPickupPoint",
+        tags: ["Admin Directories"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Pickup point", content: json } },
+      },
+    },
+    "/api/v1/admin/routes": {
+      get: {
+        operationId: "listAdminRoutes",
+        tags: ["Admin Directories"],
+        security: bearer,
+        responses: { 200: { description: "Admin routes", content: json } },
+      },
+      post: {
+        operationId: "createAdminRoute",
+        tags: ["Admin Directories"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Route", content: json } },
+      },
+    },
+    "/api/v1/admin/trips": {
+      get: {
+        operationId: "listAdminTrips",
+        tags: ["Admin Trips"],
+        security: bearer,
+        responses: { 200: { description: "Admin trips", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}": {
+      get: {
+        operationId: "getAdminTrip",
+        tags: ["Admin Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Admin trip", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/block": {
+      post: {
+        operationId: "blockAdminTrip",
+        tags: ["Admin Trips"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Blocked trip", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/unblock": {
+      post: {
+        operationId: "unblockAdminTrip",
+        tags: ["Admin Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Unblocked trip", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/cancel": {
+      post: {
+        operationId: "cancelAdminTrip",
+        tags: ["Admin Trips"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Admin cancelled trip", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/history": {
+      get: {
+        operationId: "getAdminTripHistory",
+        tags: ["Admin Trips"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Admin trip history", content: json } },
+      },
+    },
+  };
+}
+
 const editableVerificationStatuses = ["DRAFT", "CHANGES_REQUESTED"] as const;
 const requiredDocumentTypes = [
   "IDENTITY_FRONT",
@@ -1352,6 +1601,870 @@ function serializeVehicle(
   vehicle: Prisma.VehicleGetPayload<{ include: ReturnType<typeof vehicleInclude> }>,
 ) {
   return serializeBigInt({ ...vehicle, completion: calculateVehicleCompletion(vehicle) });
+}
+
+const tripInclude = {
+  vehicle: true,
+  route: { include: { originCity: true, destinationCity: true } },
+  origin: true,
+  destination: true,
+  stops: { include: { city: true, pickupPoint: true }, orderBy: { order: "asc" as const } },
+  seatSnapshot: true,
+  timelineEvents: { orderBy: { createdAt: "desc" as const }, take: 20 },
+  moderationEvents: { orderBy: { createdAt: "desc" as const }, take: 20 },
+} satisfies Prisma.TripInclude;
+
+type TripWithInclude = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
+
+function serializeTrip(trip: TripWithInclude) {
+  return serializeBigInt(trip);
+}
+
+function cleanObject<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
+}
+
+async function writeTripTimeline(
+  tx: Prisma.TransactionClient,
+  tripId: string,
+  type: string,
+  payload?: unknown,
+) {
+  await tx.tripTimelineEvent.create({
+    data: { tripId, type, payload: payload as Prisma.InputJsonValue },
+  });
+}
+
+async function writeTripAudit(
+  tx: Prisma.TransactionClient,
+  action: string,
+  tripId: string,
+  actorUserId: string | null,
+  requestId?: string,
+  reason?: string,
+) {
+  const data: Prisma.AuditEventUncheckedCreateInput = {
+    actorUserId,
+    action,
+    entityType: "Trip",
+    entityId: tripId,
+  };
+  if (requestId) data.requestId = requestId;
+  if (reason) data.reason = reason;
+  await tx.auditEvent.create({
+    data,
+  });
+}
+
+async function driverOwnTrip(userId: string, tripId: string) {
+  const profile = await prisma.driverProfile.findUnique({ where: { userId } });
+  if (!profile) return null;
+  return prisma.trip.findFirst({
+    where: { id: tripId, driverProfileId: profile.id },
+    include: tripInclude,
+  });
+}
+
+async function validateTripPublication(tripId: string) {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      driverProfile: true,
+      vehicle: true,
+      route: { include: { originCity: true, destinationCity: true } },
+      origin: true,
+      destination: true,
+      stops: true,
+    },
+  });
+  const errors: Array<{ code: string; field?: string; message: string }> = [];
+  if (!trip)
+    return { canPublish: false, errors: [{ code: "TRIP_NOT_FOUND", message: "Trip not found" }] };
+  if (trip.driverProfile.verificationStatus !== "APPROVED") {
+    errors.push({
+      code: "DRIVER_NOT_APPROVED",
+      field: "driverProfileId",
+      message: "Driver must be approved",
+    });
+  }
+  if (trip.vehicle.status !== "APPROVED" || trip.vehicle.archivedAt || trip.vehicle.suspendedAt) {
+    errors.push({
+      code: "VEHICLE_NOT_APPROVED",
+      field: "vehicleId",
+      message: "Vehicle must be approved and active",
+    });
+  }
+  if (trip.vehicle.driverProfileId !== trip.driverProfileId) {
+    errors.push({
+      code: "VEHICLE_OWNERSHIP_MISMATCH",
+      field: "vehicleId",
+      message: "Vehicle must belong to driver",
+    });
+  }
+  if (!trip.routeId || !trip.route?.isActive) {
+    errors.push({ code: "ROUTE_INACTIVE", field: "routeId", message: "Active route is required" });
+  }
+  if (
+    !trip.originCityId ||
+    !trip.destinationCityId ||
+    !trip.origin?.isActive ||
+    !trip.destination?.isActive
+  ) {
+    errors.push({
+      code: "CITY_INACTIVE",
+      field: "originCityId",
+      message: "Active origin and destination cities are required",
+    });
+  }
+  if (trip.originCityId === trip.destinationCityId) {
+    errors.push({
+      code: "SAME_CITY",
+      field: "destinationCityId",
+      message: "Origin and destination must differ",
+    });
+  }
+  if (trip.departureAtUtc <= new Date()) {
+    errors.push({
+      code: "DEPARTURE_IN_PAST",
+      field: "departureAtUtc",
+      message: "Departure must be in the future",
+    });
+  }
+  if (
+    trip.passengerSeatCapacity < 1 ||
+    trip.passengerSeatCapacity > trip.vehicle.passengerSeatCount
+  ) {
+    errors.push({
+      code: "CAPACITY_INVALID",
+      field: "passengerSeatCapacity",
+      message: "Capacity must fit approved vehicle",
+    });
+  }
+  if (trip.currency !== "UZS" || trip.pricePerSeatMinor <= 0n) {
+    errors.push({
+      code: "PRICE_INVALID",
+      field: "pricePerSeatMinor",
+      message: "Positive UZS minor-unit price is required",
+    });
+  }
+  if (trip.stops.length < 2) {
+    errors.push({
+      code: "STOPS_INCOMPLETE",
+      field: "stops",
+      message: "Origin and destination stops are required",
+    });
+  }
+  return { canPublish: errors.length === 0, errors };
+}
+
+async function applyTripStops(
+  tx: Prisma.TransactionClient,
+  tripId: string,
+  stops?: Array<unknown>,
+) {
+  if (!stops) return;
+  await tx.tripStop.deleteMany({ where: { tripId } });
+  for (const stop of stops) {
+    const parsed = tripStopSchema.parse(stop);
+    await tx.tripStop.create({
+      data: cleanObject({ tripId, ...parsed }) as Prisma.TripStopUncheckedCreateInput,
+    });
+  }
+}
+
+async function registerTripSupplyRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  patch: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.get("/api/v1/regions", async (_req, res) => {
+    const regions = await prisma.region.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    res.json({ regions });
+  });
+
+  http.get("/api/v1/cities", async (req, res) => {
+    const regionId = cleanText(req.query.regionId, 80);
+    const cities = await prisma.city.findMany({
+      where: { isActive: true, ...(regionId ? { regionId } : {}) },
+      include: { region: true },
+      orderBy: [{ sortOrder: "asc" }, { nameRu: "asc" }],
+    });
+    res.json({ cities });
+  });
+
+  http.get("/api/v1/cities/:cityId", async (req, res) => {
+    const city = await prisma.city.findUnique({
+      where: { id: String(req.params.cityId) },
+      include: { region: true },
+    });
+    if (!city || !city.isActive) {
+      res.status(404).json(errorBody("CITY_NOT_FOUND", "City not found", req));
+      return;
+    }
+    res.json({ city });
+  });
+
+  http.get("/api/v1/cities/:cityId/pickup-points", async (req, res) => {
+    const pickupPoints = await prisma.pickupPoint.findMany({
+      where: { cityId: String(req.params.cityId), isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    res.json({ pickupPoints });
+  });
+
+  http.get("/api/v1/routes", async (req, res) => {
+    const originCityId = cleanText(req.query.originCityId, 80);
+    const destinationCityId = cleanText(req.query.destinationCityId, 80);
+    const routes = await prisma.route.findMany({
+      where: {
+        isActive: true,
+        ...(originCityId ? { originCityId } : {}),
+        ...(destinationCityId ? { destinationCityId } : {}),
+      },
+      include: { originCity: true, destinationCity: true },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    });
+    res.json({ routes });
+  });
+
+  http.get("/api/v1/routes/:routeId", async (req, res) => {
+    const route = await prisma.route.findUnique({
+      where: { id: String(req.params.routeId) },
+      include: {
+        originCity: true,
+        destinationCity: true,
+        stops: { include: { city: true }, orderBy: { order: "asc" } },
+      },
+    });
+    if (!route || !route.isActive) {
+      res.status(404).json(errorBody("ROUTE_NOT_FOUND", "Route not found", req));
+      return;
+    }
+    res.json({ route });
+  });
+
+  http.get("/api/v1/trips/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    if (!profile) {
+      res.status(403).json(errorBody("DRIVER_PROFILE_REQUIRED", "Driver profile required", req));
+      return;
+    }
+    const status = cleanText(req.query.status, 40);
+    const where: Prisma.TripWhereInput = { driverProfileId: profile.id };
+    if (status) where.status = status as NonNullable<Prisma.TripWhereInput["status"]>;
+    const trips = await prisma.trip.findMany({
+      where,
+      include: tripInclude,
+      orderBy: { departureAtUtc: "asc" },
+      take: 100,
+    });
+    res.json({ trips: serializeBigInt(trips) });
+  });
+
+  http.post("/api/v1/trips", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    if (!profile || profile.verificationStatus !== "APPROVED") {
+      res.status(403).json(errorBody("DRIVER_NOT_APPROVED", "Driver must be approved", req));
+      return;
+    }
+    const parsed = tripDraftSchema.parse(req.body ?? {});
+    const vehicle = parsed.vehicleId
+      ? await prisma.vehicle.findFirst({
+          where: {
+            id: parsed.vehicleId,
+            driverProfileId: profile.id,
+            status: "APPROVED",
+            archivedAt: null,
+          },
+        })
+      : await prisma.vehicle.findFirst({
+          where: { driverProfileId: profile.id, status: "APPROVED", archivedAt: null },
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        });
+    if (!vehicle) {
+      res
+        .status(400)
+        .json(errorBody("APPROVED_VEHICLE_REQUIRED", "Approved vehicle required", req));
+      return;
+    }
+    const trip = await prisma.$transaction(async (tx) => {
+      let route = parsed.routeId
+        ? await tx.route.findUnique({
+            where: { id: parsed.routeId },
+            include: { originCity: true, destinationCity: true },
+          })
+        : null;
+      if (!route && parsed.originCityId && parsed.destinationCityId) {
+        route = await tx.route.findUnique({
+          where: {
+            originCityId_destinationCityId: {
+              originCityId: parsed.originCityId,
+              destinationCityId: parsed.destinationCityId,
+            },
+          },
+          include: { originCity: true, destinationCity: true },
+        });
+      }
+      const origin =
+        route?.originCity ??
+        (parsed.originCityId
+          ? await tx.city.findUnique({ where: { id: parsed.originCityId } })
+          : null);
+      const destination =
+        route?.destinationCity ??
+        (parsed.destinationCityId
+          ? await tx.city.findUnique({ where: { id: parsed.destinationCityId } })
+          : null);
+      const departureAtUtc = parsed.departureAtUtc ?? new Date(Date.now() + 86_400_000);
+      const capacity = parsed.passengerSeatCapacity ?? Math.min(vehicle.passengerSeatCount, 4);
+      const createData = cleanObject({
+        driverProfileId: profile.id,
+        vehicleId: vehicle.id,
+        routeId: route?.id ?? parsed.routeId ?? null,
+        originCityId: origin?.id ?? parsed.originCityId ?? null,
+        destinationCityId: destination?.id ?? parsed.destinationCityId ?? null,
+        originCity: origin?.nameRu ?? "Draft origin",
+        destinationCity: destination?.nameRu ?? "Draft destination",
+        departureAtUtc,
+        arrivalEstimateAtUtc:
+          parsed.arrivalEstimateAtUtc ??
+          (route?.estimatedDurationMinutes
+            ? new Date(departureAtUtc.getTime() + route.estimatedDurationMinutes * 60_000)
+            : null),
+        timezone: parsed.timezone,
+        passengerSeatCapacity: capacity,
+        availableSeatCount: capacity,
+        pricePerSeatMinor: parsed.pricePerSeatMinor ?? 0n,
+        wholeCarPriceMinor: parsed.wholeCarPriceMinor,
+        parcelSupported: parsed.parcelSupported ?? false,
+        parcelPriceMinor: parsed.parcelPriceMinor,
+        currency: "UZS",
+        luggageRules: parsed.luggageRules,
+        comment: parsed.comment,
+      }) as Prisma.TripUncheckedCreateInput;
+      const created = await tx.trip.create({
+        data: createData,
+      });
+      await applyTripStops(tx, created.id, parsed.stops);
+      await writeTripTimeline(tx, created.id, "TRIP_CREATED", { status: created.status });
+      await writeTripAudit(tx, "TRIP_CREATED", created.id, req.auth!.userId, req.requestId);
+      return tx.trip.findUniqueOrThrow({ where: { id: created.id }, include: tripInclude });
+    });
+    res.status(201).json({ trip: serializeTrip(trip) });
+  });
+
+  http.get("/api/v1/trips/:tripId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ trip: serializeTrip(trip) });
+  });
+
+  http.patch("/api/v1/trips/:tripId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status !== "DRAFT" && trip.status !== "UNPUBLISHED") {
+      res
+        .status(409)
+        .json(errorBody("TRIP_LOCKED", "Unpublish trip before editing critical fields", req));
+      return;
+    }
+    const parsed = tripDraftSchema.parse(req.body ?? {});
+    const updated = await prisma.$transaction(async (tx) => {
+      const data: Prisma.TripUncheckedUpdateInput = {
+        version: { increment: 1 },
+        ...(parsed.departureAtUtc ? { departureAtUtc: parsed.departureAtUtc } : {}),
+        ...(parsed.arrivalEstimateAtUtc !== undefined
+          ? { arrivalEstimateAtUtc: parsed.arrivalEstimateAtUtc }
+          : {}),
+        ...(parsed.passengerSeatCapacity
+          ? {
+              passengerSeatCapacity: parsed.passengerSeatCapacity,
+              availableSeatCount: parsed.passengerSeatCapacity,
+            }
+          : {}),
+        ...(parsed.pricePerSeatMinor !== undefined
+          ? { pricePerSeatMinor: parsed.pricePerSeatMinor }
+          : {}),
+        ...(parsed.wholeCarPriceMinor !== undefined
+          ? { wholeCarPriceMinor: parsed.wholeCarPriceMinor }
+          : {}),
+        ...(parsed.parcelSupported !== undefined
+          ? { parcelSupported: parsed.parcelSupported }
+          : {}),
+        ...(parsed.parcelPriceMinor !== undefined
+          ? { parcelPriceMinor: parsed.parcelPriceMinor }
+          : {}),
+        ...(parsed.luggageRules !== undefined ? { luggageRules: parsed.luggageRules } : {}),
+        ...(parsed.comment !== undefined ? { comment: parsed.comment } : {}),
+      };
+      const saved = await tx.trip.update({ where: { id: trip.id }, data });
+      await applyTripStops(tx, saved.id, parsed.stops);
+      await writeTripTimeline(tx, saved.id, "TRIP_UPDATED", {});
+      await writeTripAudit(tx, "TRIP_UPDATED", saved.id, req.auth!.userId, req.requestId);
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.post("/api/v1/trips/:tripId/publish", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status === "PUBLISHED") {
+      res.json({ trip: serializeTrip(trip), validation: { canPublish: true, errors: [] } });
+      return;
+    }
+    const validation = await validateTripPublication(trip.id);
+    if (!validation.canPublish) {
+      res.status(422).json({
+        ...errorBody("TRIP_PUBLICATION_INVALID", "Trip cannot be published", req),
+        validation,
+      });
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: {
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          unpublishedAt: null,
+          availableSeatCount: trip.passengerSeatCapacity,
+          publicationValidationSnapshot: validation as Prisma.InputJsonValue,
+          version: { increment: 1 },
+        },
+      });
+      await tx.tripSeatSnapshot.upsert({
+        where: { tripId: saved.id },
+        create: {
+          tripId: saved.id,
+          vehicleId: saved.vehicleId,
+          passengerSeatCapacity: saved.passengerSeatCapacity,
+          availableSeatCount: saved.passengerSeatCapacity,
+        },
+        update: {
+          vehicleId: saved.vehicleId,
+          passengerSeatCapacity: saved.passengerSeatCapacity,
+          availableSeatCount: saved.passengerSeatCapacity,
+        },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_PUBLISHED", validation);
+      await writeTripAudit(tx, "TRIP_PUBLISHED", saved.id, req.auth!.userId, req.requestId);
+      await tx.outboxEvent.create({
+        data: { type: "trip.published", payload: { tripId: saved.id } },
+      });
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated), validation });
+  });
+
+  http.post("/api/v1/trips/:tripId/unpublish", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status === "UNPUBLISHED") {
+      res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    if (trip.status !== "PUBLISHED") {
+      res
+        .status(409)
+        .json(errorBody("TRIP_NOT_PUBLISHED", "Only published trips can be unpublished", req));
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: { status: "UNPUBLISHED", unpublishedAt: new Date(), version: { increment: 1 } },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_UNPUBLISHED", {});
+      await writeTripAudit(tx, "TRIP_UNPUBLISHED", saved.id, req.auth!.userId, req.requestId);
+      await tx.outboxEvent.create({
+        data: { type: "trip.unpublished", payload: { tripId: saved.id } },
+      });
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.post("/api/v1/trips/:tripId/cancel", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const parsed = tripCancelSchema.parse(req.body ?? {});
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status === "CANCELLED") {
+      res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancellationReason: parsed.reason,
+          version: { increment: 1 },
+        },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_CANCELLED", { reason: parsed.reason });
+      await writeTripAudit(
+        tx,
+        "TRIP_CANCELLED",
+        saved.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed.reason,
+      );
+      await tx.outboxEvent.create({
+        data: { type: "trip.cancelled", payload: { tripId: saved.id, reason: parsed.reason } },
+      });
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.get("/api/v1/trips/:tripId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ timeline: trip.timelineEvents, moderation: trip.moderationEvents });
+  });
+
+  http.get("/api/v1/admin/regions", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    res.json({
+      regions: await prisma.region.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    });
+  });
+  http.post("/api/v1/admin/regions", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = regionSchema.parse(req.body ?? {});
+    const region = await prisma.region.create({
+      data: cleanObject(parsed) as Prisma.RegionUncheckedCreateInput,
+    });
+    await writeAudit("REGION_CREATED", "Region", region.id, req.auth!.userId, req.requestId);
+    res.status(201).json({ region });
+  });
+  http.patch("/api/v1/admin/regions/:regionId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = regionSchema.partial().parse(req.body ?? {});
+    const region = await prisma.region.update({
+      where: { id: String(req.params.regionId) },
+      data: cleanObject(parsed) as Prisma.RegionUncheckedUpdateInput,
+    });
+    await writeAudit("REGION_UPDATED", "Region", region.id, req.auth!.userId, req.requestId);
+    res.json({ region });
+  });
+
+  http.get("/api/v1/admin/cities", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    res.json({
+      cities: await prisma.city.findMany({
+        include: { region: true },
+        orderBy: [{ sortOrder: "asc" }, { nameRu: "asc" }],
+      }),
+    });
+  });
+  http.post("/api/v1/admin/cities", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = citySchema.parse(req.body ?? {});
+    const city = await prisma.city.create({
+      data: cleanObject(parsed) as Prisma.CityUncheckedCreateInput,
+    });
+    await writeAudit("CITY_CREATED", "City", city.id, req.auth!.userId, req.requestId);
+    res.status(201).json({ city });
+  });
+  http.patch("/api/v1/admin/cities/:cityId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = citySchema.partial().parse(req.body ?? {});
+    const city = await prisma.city.update({
+      where: { id: String(req.params.cityId) },
+      data: cleanObject(parsed) as Prisma.CityUncheckedUpdateInput,
+    });
+    await writeAudit("CITY_UPDATED", "City", city.id, req.auth!.userId, req.requestId);
+    res.json({ city });
+  });
+
+  http.get("/api/v1/admin/pickup-points", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    res.json({
+      pickupPoints: await prisma.pickupPoint.findMany({
+        include: { city: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      }),
+    });
+  });
+  http.post("/api/v1/admin/pickup-points", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = pickupPointSchema.parse(req.body ?? {});
+    const pickupPoint = await prisma.pickupPoint.create({
+      data: cleanObject(parsed) as Prisma.PickupPointUncheckedCreateInput,
+    });
+    await writeAudit(
+      "PICKUP_POINT_CREATED",
+      "PickupPoint",
+      pickupPoint.id,
+      req.auth!.userId,
+      req.requestId,
+    );
+    res.status(201).json({ pickupPoint });
+  });
+  http.patch("/api/v1/admin/pickup-points/:pickupPointId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = pickupPointSchema.partial().parse(req.body ?? {});
+    const pickupPoint = await prisma.pickupPoint.update({
+      where: { id: String(req.params.pickupPointId) },
+      data: cleanObject(parsed) as Prisma.PickupPointUncheckedUpdateInput,
+    });
+    await writeAudit(
+      "PICKUP_POINT_UPDATED",
+      "PickupPoint",
+      pickupPoint.id,
+      req.auth!.userId,
+      req.requestId,
+    );
+    res.json({ pickupPoint });
+  });
+
+  http.get("/api/v1/admin/routes", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    res.json({
+      routes: await prisma.route.findMany({
+        include: { originCity: true, destinationCity: true },
+        take: 200,
+      }),
+    });
+  });
+  http.post("/api/v1/admin/routes", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = routeSchema.parse(req.body ?? {});
+    if (parsed.originCityId === parsed.destinationCityId) {
+      res
+        .status(400)
+        .json(errorBody("ROUTE_CITY_INVALID", "Origin and destination must differ", req));
+      return;
+    }
+    const route = await prisma.route.create({
+      data: cleanObject(parsed) as Prisma.RouteUncheckedCreateInput,
+    });
+    await writeAudit("ROUTE_CREATED", "Route", route.id, req.auth!.userId, req.requestId);
+    res.status(201).json({ route });
+  });
+  http.patch("/api/v1/admin/routes/:routeId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = routeSchema.partial().parse(req.body ?? {});
+    const route = await prisma.route.update({
+      where: { id: String(req.params.routeId) },
+      data: cleanObject(parsed) as Prisma.RouteUncheckedUpdateInput,
+    });
+    await writeAudit("ROUTE_UPDATED", "Route", route.id, req.auth!.userId, req.requestId);
+    res.json({ route });
+  });
+
+  http.get("/api/v1/admin/trips", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const status = cleanText(req.query.status, 40);
+    const where: Prisma.TripWhereInput = {};
+    if (status) where.status = status as NonNullable<Prisma.TripWhereInput["status"]>;
+    const trips = await prisma.trip.findMany({
+      where,
+      include: { ...tripInclude, driverProfile: { include: { user: true } } },
+      orderBy: { departureAtUtc: "asc" },
+      take: 100,
+    });
+    res.json({ trips: serializeBigInt(trips) });
+  });
+  http.get("/api/v1/admin/trips/:tripId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: { ...tripInclude, driverProfile: { include: { user: true } } },
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ trip: serializeBigInt(trip) });
+  });
+
+  http.post("/api/v1/admin/trips/:tripId/block", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = tripAdminActionSchema.parse(req.body ?? {});
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: tripInclude,
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status === "BLOCKED") {
+      res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: {
+          status: "BLOCKED",
+          blockedAt: new Date(),
+          blockReason: parsed.reason,
+          version: { increment: 1 },
+        },
+      });
+      await tx.tripModerationEvent.create({
+        data: {
+          tripId: saved.id,
+          actorUserId: req.auth!.userId,
+          action: "BLOCK",
+          reason: parsed.reason,
+        },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_BLOCKED", { reason: parsed.reason });
+      await writeTripAudit(
+        tx,
+        "TRIP_BLOCKED",
+        saved.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed.reason,
+      );
+      await tx.outboxEvent.create({
+        data: { type: "trip.blocked", payload: { tripId: saved.id, reason: parsed.reason } },
+      });
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.post("/api/v1/admin/trips/:tripId/unblock", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: tripInclude,
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status !== "BLOCKED") {
+      res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: {
+          status: trip.publishedAt ? "UNPUBLISHED" : "DRAFT",
+          blockedAt: null,
+          blockReason: null,
+          version: { increment: 1 },
+        },
+      });
+      await tx.tripModerationEvent.create({
+        data: { tripId: saved.id, actorUserId: req.auth!.userId, action: "UNBLOCK" },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_UNBLOCKED", {});
+      await writeTripAudit(tx, "TRIP_UNBLOCKED", saved.id, req.auth!.userId, req.requestId);
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.post("/api/v1/admin/trips/:tripId/cancel", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const parsed = tripAdminActionSchema.parse(req.body ?? {});
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: tripInclude,
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    if (trip.status === "CANCELLED") {
+      res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.trip.update({
+        where: { id: trip.id },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancellationReason: parsed.reason,
+          version: { increment: 1 },
+        },
+      });
+      await tx.tripModerationEvent.create({
+        data: {
+          tripId: saved.id,
+          actorUserId: req.auth!.userId,
+          action: "CANCEL",
+          reason: parsed.reason,
+        },
+      });
+      await writeTripTimeline(tx, saved.id, "TRIP_CANCELLED_BY_ADMIN", { reason: parsed.reason });
+      await writeTripAudit(
+        tx,
+        "TRIP_CANCELLED_BY_ADMIN",
+        saved.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed.reason,
+      );
+      await tx.outboxEvent.create({
+        data: { type: "trip.cancelled", payload: { tripId: saved.id, reason: parsed.reason } },
+      });
+      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
+    });
+    res.json({ trip: serializeTrip(updated) });
+  });
+
+  http.get("/api/v1/admin/trips/:tripId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: tripInclude,
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ timeline: trip.timelineEvents, moderation: trip.moderationEvents });
+  });
 }
 
 async function registerVehicleRoutes(http: {
@@ -3281,6 +4394,7 @@ async function bootstrap() {
     res.json(await serializeUser(user.id));
   });
 
+  await registerTripSupplyRoutes(http);
   await registerVehicleRoutes(http);
   await registerAdminVehicleRoutes(http);
   await registerDriverVerificationRoutes(http);
@@ -3300,6 +4414,7 @@ async function bootstrap() {
     ...(phase1OpenApiPaths() as typeof document.paths),
     ...(phase2OpenApiPaths() as typeof document.paths),
     ...(phase3OpenApiPaths() as typeof document.paths),
+    ...(phase4OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));
