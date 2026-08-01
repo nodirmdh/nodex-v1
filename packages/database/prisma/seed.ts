@@ -25,6 +25,20 @@ const permissions = [
   "admin.driverVerification.requestChanges",
   "admin.driverVerification.suspend",
   "admin.driverDocument.read",
+  "vehicle:create-own",
+  "vehicle:read-own",
+  "vehicle:update-own",
+  "vehicle:submit-own",
+  "vehicle:set-primary-own",
+  "vehicle:archive-own",
+  "vehicle:review",
+  "vehicle:approve",
+  "vehicle:reject",
+  "vehicle:request-changes",
+  "vehicle:suspend",
+  "vehicle:restore",
+  "vehicle:read-admin",
+  "vehicle:audit-read",
 ];
 
 async function main() {
@@ -90,6 +104,7 @@ async function main() {
     roleCode: "ADMIN",
   });
   await seedDriverVerificationFixtures();
+  await seedVehicleFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -104,6 +119,10 @@ async function main() {
       roleCode: "ADMIN",
     });
   }
+}
+
+function normalizePlate(plateNumber: string) {
+  return plateNumber.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 async function seedDriverVerificationFixtures() {
@@ -335,6 +354,177 @@ async function seedIdentity(input: {
       create: { userId: user.id, city: "Tashkent", onboardingStatus: "BASIC_COMPLETED" },
       update: {},
     });
+  }
+}
+
+async function seedVehicleFixtures() {
+  const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const driverProfile = await prisma.driverProfile.upsert({
+    where: { userId: driver.id },
+    create: {
+      userId: driver.id,
+      city: "Tashkent",
+      onboardingStatus: "BASIC_COMPLETED",
+      verificationStatus: "APPROVED",
+      verifiedAt: new Date("2026-07-30T10:00:00.000Z"),
+    },
+    update: {
+      verificationStatus: "APPROVED",
+      verifiedAt: new Date("2026-07-30T10:00:00.000Z"),
+    },
+  });
+  const fixtures = [
+    { status: "DRAFT", plate: "01 V 101 AA", make: "Chevrolet", model: "Cobalt", primary: false },
+    {
+      status: "SUBMITTED",
+      plate: "01 V 102 AA",
+      make: "Chevrolet",
+      model: "Lacetti",
+      primary: false,
+    },
+    { status: "UNDER_REVIEW", plate: "01 V 103 AA", make: "BYD", model: "Chazor", primary: false },
+    {
+      status: "APPROVED",
+      plate: "01 V 104 AA",
+      make: "Chevrolet",
+      model: "Tracker",
+      primary: true,
+    },
+    { status: "CHANGES_REQUESTED", plate: "01 V 105 AA", make: "Kia", model: "K5", primary: false },
+  ] as const;
+  for (const [index, fixture] of fixtures.entries()) {
+    const submittedAt = fixture.status === "DRAFT" ? null : new Date("2026-08-01T08:00:00.000Z");
+    const normalizedPlate = normalizePlate(fixture.plate);
+    const existingVehicle = await prisma.vehicle.findFirst({
+      where: { driverProfileId: driverProfile.id, normalizedPlate },
+    });
+    const vehicleData = {
+      driverProfileId: driverProfile.id,
+      make: fixture.make,
+      model: fixture.model,
+      year: 2023 - index,
+      color: index % 2 === 0 ? "White" : "Black",
+      plateNumber: fixture.plate,
+      normalizedPlate,
+      bodyType: "SEDAN",
+      passengerSeatCount: 4,
+      passengerSeats: 4,
+      luggageCapacity: "2 medium bags",
+      amenities: ["air_conditioning", "phone_charger"],
+      isPrimary: fixture.primary,
+      status: fixture.status,
+      moderationStatus: fixture.status,
+      submittedAt,
+      reviewStartedAt:
+        fixture.status === "UNDER_REVIEW" ? new Date("2026-08-01T09:00:00.000Z") : null,
+      approvedAt: fixture.status === "APPROVED" ? new Date("2026-08-01T10:00:00.000Z") : null,
+      changesRequestedAt:
+        fixture.status === "CHANGES_REQUESTED" ? new Date("2026-08-01T10:00:00.000Z") : null,
+    };
+    const vehicle = existingVehicle
+      ? await prisma.vehicle.update({
+          where: { id: existingVehicle.id },
+          data: vehicleData,
+        })
+      : await prisma.vehicle.create({
+          data: vehicleData,
+        });
+    for (const type of ["REGISTRATION_CERTIFICATE", "INSURANCE"] as const) {
+      const key = `vehicles/${vehicle.id}/documents/${type.toLowerCase()}.pdf`;
+      const file = await prisma.fileObject.upsert({
+        where: { key },
+        create: {
+          bucket: "nodex-vehicle-documents-local",
+          key,
+          contentType: "application/pdf",
+          sizeBytes: 164000,
+          scanStatus: "APPROVED",
+        },
+        update: {},
+      });
+      const existingDocument = await prisma.vehicleDocument.findFirst({
+        where: { vehicleId: vehicle.id, type },
+      });
+      const documentData = {
+        vehicleId: vehicle.id,
+        type,
+        storageKey: key,
+        fileObjectId: file.id,
+        originalFileName: `${type.toLowerCase()}.pdf`,
+        mimeType: "application/pdf",
+        size: 164000,
+        checksum: `phase3-vehicle-doc-${index + 1}-${type}`,
+      };
+      if (existingDocument) {
+        await prisma.vehicleDocument.update({
+          where: { id: existingDocument.id },
+          data: documentData,
+        });
+      } else {
+        await prisma.vehicleDocument.create({
+          data: documentData,
+        });
+      }
+    }
+    for (const type of ["FRONT", "REAR", "INTERIOR_FRONT", "PLATE"] as const) {
+      const key = `vehicles/${vehicle.id}/photos/${type.toLowerCase()}.jpg`;
+      const file = await prisma.fileObject.upsert({
+        where: { key },
+        create: {
+          bucket: "nodex-vehicle-photos-local",
+          key,
+          contentType: "image/jpeg",
+          sizeBytes: 210000,
+          scanStatus: "APPROVED",
+        },
+        update: {},
+      });
+      const existingPhoto = await prisma.vehiclePhoto.findFirst({
+        where: { vehicleId: vehicle.id, type },
+      });
+      const photoData = {
+        vehicleId: vehicle.id,
+        type,
+        storageKey: key,
+        fileObjectId: file.id,
+        originalFileName: `${type.toLowerCase()}.jpg`,
+        mimeType: "image/jpeg",
+        size: 210000,
+        checksum: `phase3-vehicle-photo-${index + 1}-${type}`,
+      };
+      if (existingPhoto) {
+        await prisma.vehiclePhoto.update({
+          where: { id: existingPhoto.id },
+          data: photoData,
+        });
+      } else {
+        await prisma.vehiclePhoto.create({
+          data: photoData,
+        });
+      }
+    }
+    if (!["DRAFT", "SUBMITTED"].includes(fixture.status)) {
+      await prisma.vehicleModerationReview.create({
+        data: {
+          vehicleId: vehicle.id,
+          reviewerUserId: admin.id,
+          action:
+            fixture.status === "UNDER_REVIEW"
+              ? "START_REVIEW"
+              : fixture.status === "APPROVED"
+                ? "APPROVE"
+                : "REQUEST_CHANGES",
+          reasonCode:
+            fixture.status === "APPROVED" || fixture.status === "UNDER_REVIEW" ? null : "OTHER",
+          comment:
+            fixture.status === "APPROVED" || fixture.status === "UNDER_REVIEW"
+              ? null
+              : "Fixture vehicle moderation note",
+          metadata: { fixture: true },
+        },
+      });
+    }
   }
 }
 

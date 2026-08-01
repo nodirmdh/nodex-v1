@@ -136,3 +136,50 @@ export interface DriverVerificationCompletion {
   canSubmit: boolean;
   missing: string[];
 }
+
+export type VehicleStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "UNDER_REVIEW"
+  | "CHANGES_REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUSPENDED"
+  | "ARCHIVED";
+
+export type VehicleDocumentType =
+  | "REGISTRATION_CERTIFICATE"
+  | "INSURANCE"
+  | "TECHNICAL_INSPECTION"
+  | "OWNERSHIP_OR_USAGE_PROOF"
+  | "OTHER";
+
+export type VehiclePhotoType =
+  | "FRONT"
+  | "REAR"
+  | "LEFT_SIDE"
+  | "RIGHT_SIDE"
+  | "INTERIOR_FRONT"
+  | "INTERIOR_REAR"
+  | "PLATE"
+  | "OTHER";
+
+export type VehicleModerationReasonCode =
+  | "DOCUMENT_UNREADABLE"
+  | "DOCUMENT_EXPIRED"
+  | "DOCUMENT_MISMATCH"
+  | "PHOTO_INCOMPLETE"
+  | "PLATE_MISMATCH"
+  | "INVALID_VEHICLE_DATA"
+  | "DUPLICATE_PLATE"
+  | "SAFETY_CONCERN"
+  | "OTHER";
+
+export interface VehicleCompletion {
+  vehicleDataComplete: boolean;
+  documentsComplete: boolean;
+  photosComplete: boolean;
+  canSubmit: boolean;
+  missing: string[];
+  overallPercentage: number;
+}

@@ -99,6 +99,65 @@ enum DriverVerificationReasonCode {
   OTHER
 }
 
+enum VehicleStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum VehicleDocumentType {
+  REGISTRATION_CERTIFICATE
+  INSURANCE
+  TECHNICAL_INSPECTION
+  OWNERSHIP_OR_USAGE_PROOF
+  OTHER
+}
+
+enum VehiclePhotoType {
+  FRONT
+  REAR
+  LEFT_SIDE
+  RIGHT_SIDE
+  INTERIOR_FRONT
+  INTERIOR_REAR
+  PLATE
+  OTHER
+}
+
+enum VehicleAssetStatus {
+  UPLOADED
+  ACCEPTED
+  REJECTED
+  REPLACED
+  DELETED
+}
+
+enum VehicleModerationAction {
+  START_REVIEW
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  SUSPEND
+  RESTORE
+}
+
+enum VehicleModerationReasonCode {
+  DOCUMENT_UNREADABLE
+  DOCUMENT_EXPIRED
+  DOCUMENT_MISMATCH
+  PHOTO_INCOMPLETE
+  PLATE_MISMATCH
+  INVALID_VEHICLE_DATA
+  DUPLICATE_PLATE
+  SAFETY_CONCERN
+  OTHER
+}
+
 enum TripStatus {
   DRAFT
   PUBLISHED
@@ -166,6 +225,7 @@ model User {
   submittedDriverVerificationApplications DriverVerificationApplication[] @relation("DriverVerificationSubmittedBy")
   reviewedDriverVerificationApplications  DriverVerificationApplication[] @relation("DriverVerificationReviewedBy")
   driverVerificationReviews               DriverVerificationReview[]
+  vehicleModerationReviews                VehicleModerationReview[]
 
   @@index([status])
   @@index([phone])
@@ -343,6 +403,8 @@ model FileObject {
   createdAt                   DateTime                     @default(now())
   attachments                 FileAttachment[]
   driverVerificationDocuments DriverVerificationDocument[]
+  vehicleDocuments            VehicleDocument[]
+  vehiclePhotos               VehiclePhoto[]
 }
 
 model FileAttachment {
@@ -519,16 +581,121 @@ model ClientProfile {
 }
 
 model Vehicle {
-  id               String        @id @default(cuid())
-  driverProfileId  String
-  make             String
-  model            String
-  plateNumber      String
-  passengerSeats   Int
-  moderationStatus String        @default("DRAFT")
-  createdAt        DateTime      @default(now())
-  driverProfile    DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
-  trips            Trip[]
+  id                 String                      @id @default(cuid())
+  driverProfileId    String
+  make               String
+  model              String
+  year               Int?
+  color              String?
+  plateNumber        String
+  normalizedPlate    String
+  bodyType           String?
+  passengerSeatCount Int                         @default(4)
+  passengerSeats     Int                         @default(4)
+  luggageCapacity    String?
+  amenities          Json?
+  isPrimary          Boolean                     @default(false)
+  status             VehicleStatus               @default(DRAFT)
+  moderationStatus   String                      @default("DRAFT")
+  submittedAt        DateTime?
+  reviewStartedAt    DateTime?
+  reviewedAt         DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  changesRequestedAt DateTime?
+  suspendedAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  version            Int                         @default(1)
+  driverProfile      DriverProfile               @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  documents          VehicleDocument[]
+  photos             VehiclePhoto[]
+  reviews            VehicleModerationReview[]
+  events             VehicleModerationEvent[]
+  trips              Trip[]
+
+  @@index([driverProfileId, status])
+  @@index([status, submittedAt])
+  @@index([normalizedPlate])
+  @@index([isPrimary])
+}
+
+model VehicleDocument {
+  id               String              @id @default(cuid())
+  vehicleId        String
+  type             VehicleDocumentType
+  storageKey       String
+  fileObjectId     String?
+  originalFileName String
+  mimeType         String
+  size             Int
+  checksum         String
+  status           VehicleAssetStatus  @default(UPLOADED)
+  uploadedAt       DateTime            @default(now())
+  verifiedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  vehicle          Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  fileObject       FileObject?         @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, type, status])
+  @@index([storageKey])
+}
+
+model VehiclePhoto {
+  id               String             @id @default(cuid())
+  vehicleId        String
+  type             VehiclePhotoType
+  storageKey       String
+  fileObjectId     String?
+  originalFileName String
+  mimeType         String
+  size             Int
+  checksum         String
+  status           VehicleAssetStatus @default(UPLOADED)
+  uploadedAt       DateTime           @default(now())
+  verifiedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  vehicle          Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  fileObject       FileObject?        @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, type, status])
+  @@index([storageKey])
+}
+
+model VehicleModerationReview {
+  id             String                      @id @default(cuid())
+  vehicleId      String
+  reviewerUserId String
+  action         VehicleModerationAction
+  reasonCode     VehicleModerationReasonCode?
+  comment        String?
+  metadata       Json?
+  createdAt      DateTime                    @default(now())
+  vehicle        Vehicle                     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  reviewer       User                        @relation(fields: [reviewerUserId], references: [id])
+
+  @@index([vehicleId, createdAt])
+  @@index([reviewerUserId])
+}
+
+model VehicleModerationEvent {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([vehicleId, createdAt])
+  @@index([type, createdAt])
 }
 
 model Trip {
