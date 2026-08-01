@@ -12,6 +12,7 @@ const nav: Array<[string, string]> = [
   ["Dashboard", "/"],
   ["Drivers", "/drivers"],
   ["Vehicles", "/vehicles"],
+  ["Routes", "/routes"],
   ["Trips", "/trips"],
   ["Bookings", "/bookings"],
   ["Support", "/support"],
