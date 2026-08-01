@@ -1,14 +1,5 @@
 import Link from "next/link";
-import {
-  AppHeader,
-  Badge,
-  BottomNav,
-  Button,
-  Panel,
-  Timeline,
-  VehicleSummary,
-  formatUzs,
-} from "@nodex/ui";
+import { AppHeader, Badge, BottomNav, Panel, Timeline, VehicleSummary, formatUzs } from "@nodex/ui";
 
 const tripDetails = {
   "phase5-nukus-urgench-morning": {
@@ -103,11 +94,14 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
         <Panel className="space-y-3">
           <h2 className="m-0 text-base font-bold">Next step</h2>
           <p className="m-0 text-sm text-slate-500">
-            Booking opens in a later phase. This action only records client intent for the MVP.
+            Choose a seat, add passenger details, and confirm with cash or manual transfer.
           </p>
-          <Button className="w-full" type="button">
-            Request booking
-          </Button>
+          <Link
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]"
+            href={`/trips/${tripId}/book`}
+          >
+            Choose seats
+          </Link>
           <Link
             className="block text-center text-sm font-semibold text-[rgb(var(--primary))]"
             href="/search"
