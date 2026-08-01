@@ -86,6 +86,30 @@ export const vehicleModerationReasonCodes = [
   "OTHER",
 ] as const;
 
+export const tripStatuses = [
+  "DRAFT",
+  "PUBLISHED",
+  "BOOKING_OPEN",
+  "FULL",
+  "UNPUBLISHED",
+  "CANCELLED",
+  "EXPIRED",
+  "BOARDING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "BLOCKED",
+] as const;
+
+export const pickupPointTypes = [
+  "CITY_CENTER",
+  "BUS_STATION",
+  "RAILWAY_STATION",
+  "AIRPORT",
+  "CUSTOM",
+] as const;
+
+export const tripStopTypes = ["ORIGIN", "INTERMEDIATE", "DESTINATION"] as const;
+
 const textField = z.string().trim().min(1).max(160);
 const optionalTextField = z.string().trim().max(240).optional().nullable();
 const dateField = z.coerce.date().optional().nullable();
@@ -186,4 +210,84 @@ export const vehicleModerationDecisionSchema = z.object({
   reasonCode: z.enum(vehicleModerationReasonCodes).optional(),
   comment: z.string().trim().max(1000).optional(),
   version: z.coerce.number().int().positive().optional(),
+});
+
+export const regionSchema = z.object({
+  countryCode: z.string().trim().length(2).default("UZ"),
+  code: z.string().trim().min(2).max(40),
+  name: textField,
+  isActive: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
+});
+
+export const citySchema = z.object({
+  regionId: z.string().trim().min(1),
+  code: z.string().trim().min(2).max(60),
+  nameRu: textField,
+  nameUz: textField,
+  nameKaa: textField,
+  timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  isActive: z.boolean().optional(),
+  isLaunchCity: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
+});
+
+export const pickupPointSchema = z.object({
+  cityId: z.string().trim().min(1),
+  name: textField,
+  address: optionalTextField,
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  type: z.enum(pickupPointTypes).default("CUSTOM"),
+  isActive: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).optional(),
+});
+
+export const routeSchema = z.object({
+  originCityId: z.string().trim().min(1),
+  destinationCityId: z.string().trim().min(1),
+  distanceKm: z.coerce.number().int().positive().max(5000).optional().nullable(),
+  estimatedDurationMinutes: z.coerce.number().int().positive().max(10080).optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const tripStopSchema = z.object({
+  cityId: z.string().trim().min(1),
+  pickupPointId: z.string().trim().min(1).optional().nullable(),
+  order: z.coerce.number().int().min(0).max(50),
+  type: z.enum(tripStopTypes),
+  plannedAtUtc: z.coerce.date().optional().nullable(),
+  label: optionalTextField,
+  address: optionalTextField,
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+});
+
+export const tripDraftSchema = z.object({
+  vehicleId: z.string().trim().min(1).optional(),
+  routeId: z.string().trim().min(1).optional().nullable(),
+  originCityId: z.string().trim().min(1).optional().nullable(),
+  destinationCityId: z.string().trim().min(1).optional().nullable(),
+  departureAtUtc: z.coerce.date().optional(),
+  arrivalEstimateAtUtc: z.coerce.date().optional().nullable(),
+  timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
+  passengerSeatCapacity: z.coerce.number().int().min(1).max(16).optional(),
+  pricePerSeatMinor: z.coerce.bigint().nonnegative().optional(),
+  wholeCarPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+  parcelSupported: z.boolean().optional(),
+  parcelPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+  currency: z.literal("UZS").default("UZS"),
+  luggageRules: optionalTextField,
+  comment: z.string().trim().max(1000).optional().nullable(),
+  stops: z.array(tripStopSchema).max(20).optional(),
+});
+
+export const tripCancelSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const tripAdminActionSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
 });

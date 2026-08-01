@@ -163,11 +163,27 @@ enum TripStatus {
   PUBLISHED
   BOOKING_OPEN
   FULL
+  UNPUBLISHED
+  BLOCKED
   BOARDING
   IN_PROGRESS
   COMPLETED
   CANCELLED
   EXPIRED
+}
+
+enum PickupPointType {
+  CITY_CENTER
+  BUS_STATION
+  RAILWAY_STATION
+  AIRPORT
+  CUSTOM
+}
+
+enum TripStopType {
+  ORIGIN
+  INTERMEDIATE
+  DESTINATION
 }
 
 enum SeatStatus {
@@ -452,6 +468,100 @@ model DriverProfile {
   trips                    Trip[]
 }
 
+model Region {
+  id          String   @id @default(cuid())
+  countryCode String
+  code        String   @unique
+  name        String
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  cities      City[]
+
+  @@index([countryCode, isActive, sortOrder])
+}
+
+model City {
+  id           String        @id @default(cuid())
+  regionId     String
+  code         String        @unique
+  nameRu       String
+  nameUz       String
+  nameKaa      String
+  timezone     String        @default("Asia/Tashkent")
+  latitude     Decimal?      @db.Decimal(9, 6)
+  longitude    Decimal?      @db.Decimal(9, 6)
+  isActive     Boolean       @default(true)
+  isLaunchCity Boolean       @default(false)
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  region       Region        @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  pickupPoints PickupPoint[]
+  originRoutes Route[]       @relation("OriginCityRoutes")
+  destinationRoutes Route[]  @relation("DestinationCityRoutes")
+  originTrips  Trip[]        @relation("OriginCityTrips")
+  destinationTrips Trip[]    @relation("DestinationCityTrips")
+  routeStops   RouteStop[]
+  tripStops    TripStop[]
+
+  @@index([regionId, isActive, sortOrder])
+  @@index([isLaunchCity, isActive, sortOrder])
+}
+
+model PickupPoint {
+  id        String          @id @default(cuid())
+  cityId    String
+  name      String
+  address   String?
+  latitude  Decimal?        @db.Decimal(9, 6)
+  longitude Decimal?        @db.Decimal(9, 6)
+  type      PickupPointType @default(CUSTOM)
+  isActive  Boolean         @default(true)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  city      City            @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  tripStops TripStop[]
+
+  @@unique([cityId, name])
+  @@index([cityId, isActive, sortOrder])
+}
+
+model Route {
+  id                       String      @id @default(cuid())
+  originCityId             String
+  destinationCityId        String
+  distanceKm               Int?
+  estimatedDurationMinutes Int?
+  isActive                 Boolean     @default(true)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  originCity               City        @relation("OriginCityRoutes", fields: [originCityId], references: [id], onDelete: Restrict)
+  destinationCity          City        @relation("DestinationCityRoutes", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  stops                    RouteStop[]
+  trips                    Trip[]
+
+  @@unique([originCityId, destinationCityId])
+  @@index([isActive])
+}
+
+model RouteStop {
+  id            String       @id @default(cuid())
+  routeId       String
+  cityId        String
+  order         Int
+  label         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  route         Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  city          City         @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  @@unique([routeId, order])
+  @@index([cityId])
+}
+
 model DriverVerificationApplication {
   id                           String                              @id @default(cuid())
   driverProfileId              String
@@ -699,20 +809,116 @@ model VehicleModerationEvent {
 }
 
 model Trip {
-  id              String         @id @default(cuid())
-  driverProfileId String
-  vehicleId       String
-  originCity      String
-  destinationCity String
-  departureAtUtc  DateTime
-  status          TripStatus     @default(DRAFT)
-  version         Int            @default(1)
-  createdAt       DateTime       @default(now())
-  driverProfile   DriverProfile  @relation(fields: [driverProfileId], references: [id])
-  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id])
-  execution       TripExecution?
-  seats           TripSeat[]
-  bookings        Booking[]
+  id                            String                  @id @default(cuid())
+  driverProfileId               String
+  vehicleId                     String
+  routeId                       String?
+  originCityId                  String?
+  destinationCityId             String?
+  originCity                    String
+  destinationCity               String
+  departureAtUtc                DateTime
+  arrivalEstimateAtUtc          DateTime?
+  timezone                      String                  @default("Asia/Tashkent")
+  status                        TripStatus              @default(DRAFT)
+  passengerSeatCapacity         Int                     @default(1)
+  availableSeatCount            Int                     @default(1)
+  pricePerSeatMinor             BigInt                  @default(0)
+  wholeCarPriceMinor            BigInt?
+  parcelSupported               Boolean                 @default(false)
+  parcelPriceMinor              BigInt?
+  currency                      String                  @default("UZS")
+  luggageRules                  String?
+  comment                       String?
+  publicationValidationSnapshot Json?
+  publishedAt                   DateTime?
+  unpublishedAt                 DateTime?
+  cancelledAt                   DateTime?
+  cancellationReason            String?
+  blockedAt                     DateTime?
+  blockReason                   String?
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  version                       Int                     @default(1)
+  driverProfile                 DriverProfile           @relation(fields: [driverProfileId], references: [id])
+  vehicle                       Vehicle                 @relation(fields: [vehicleId], references: [id])
+  route                         Route?                  @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  origin                        City?                   @relation("OriginCityTrips", fields: [originCityId], references: [id], onDelete: Restrict)
+  destination                   City?                   @relation("DestinationCityTrips", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  stops                         TripStop[]
+  seatSnapshot                  TripSeatSnapshot?
+  moderationEvents              TripModerationEvent[]
+  timelineEvents                TripTimelineEvent[]
+  execution                     TripExecution?
+  seats                         TripSeat[]
+  bookings                      Booking[]
+
+  @@index([driverProfileId, status, departureAtUtc])
+  @@index([vehicleId, status, departureAtUtc])
+  @@index([originCityId, destinationCityId, departureAtUtc])
+  @@index([status, departureAtUtc])
+  @@index([routeId])
+}
+
+model TripStop {
+  id            String       @id @default(cuid())
+  tripId        String
+  cityId        String
+  pickupPointId String?
+  order         Int
+  type          TripStopType
+  plannedAtUtc  DateTime?
+  label         String?
+  address       String?
+  latitude      Decimal?     @db.Decimal(9, 6)
+  longitude     Decimal?     @db.Decimal(9, 6)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  trip          Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city          City         @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  pickupPoint   PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+
+  @@unique([tripId, order])
+  @@index([cityId])
+  @@index([pickupPointId])
+}
+
+model TripSeatSnapshot {
+  id                    String   @id @default(cuid())
+  tripId                String   @unique
+  vehicleId             String
+  passengerSeatCapacity Int
+  availableSeatCount    Int
+  seatLabels            Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  trip                  Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model TripModerationEvent {
+  id          String   @id @default(cuid())
+  tripId      String
+  actorUserId String?
+  action      String
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
+  @@index([action, createdAt])
+}
+
+model TripTimelineEvent {
+  id        String   @id @default(cuid())
+  tripId    String
+  type      String
+  payload   Json?
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
+  @@index([type, createdAt])
 }
 
 model TripExecution {

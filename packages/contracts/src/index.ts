@@ -6,11 +6,13 @@ export type TripStatus =
   | "PUBLISHED"
   | "BOOKING_OPEN"
   | "FULL"
+  | "UNPUBLISHED"
   | "BOARDING"
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "BLOCKED";
 
 export type SeatStatus =
   | "AVAILABLE"
@@ -182,4 +184,18 @@ export interface VehicleCompletion {
   canSubmit: boolean;
   missing: string[];
   overallPercentage: number;
+}
+
+export type PickupPointType =
+  | "CITY_CENTER"
+  | "BUS_STATION"
+  | "RAILWAY_STATION"
+  | "AIRPORT"
+  | "CUSTOM";
+
+export type TripStopType = "ORIGIN" | "INTERMEDIATE" | "DESTINATION";
+
+export interface TripPublicationValidation {
+  canPublish: boolean;
+  errors: Array<{ code: string; field?: string; message: string }>;
 }

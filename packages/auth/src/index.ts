@@ -135,9 +135,28 @@ export function defineAbilityFor(roles: string[]) {
     can("restore", "Vehicle");
     can("readAdmin", "Vehicle");
     can("auditRead", "Vehicle");
+    can("read", "Region");
+    can("manage", "Region");
+    can("read", "City");
+    can("manage", "City");
+    can("read", "PickupPoint");
+    can("manage", "PickupPoint");
+    can("read", "Route");
+    can("manage", "Route");
+    can("readAdmin", "Trip");
+    can("block", "Trip");
+    can("unblock", "Trip");
+    can("cancelAdmin", "Trip");
+    can("auditRead", "Trip");
   }
   if (roles.includes("DRIVER")) {
     can("create", "Trip");
+    can("createOwn", "Trip");
+    can("readOwn", "Trip");
+    can("updateOwnDraft", "Trip");
+    can("publishOwn", "Trip");
+    can("unpublishOwn", "Trip");
+    can("cancelOwn", "Trip");
     can("readOwn", "DriverVerification");
     can("updateOwn", "DriverVerification");
     can("submitOwn", "DriverVerification");

@@ -39,6 +39,25 @@ const permissions = [
   "vehicle:restore",
   "vehicle:read-admin",
   "vehicle:audit-read",
+  "region:read",
+  "region:manage",
+  "city:read",
+  "city:manage",
+  "pickup-point:read",
+  "pickup-point:manage",
+  "route:read",
+  "route:manage",
+  "trip:create-own",
+  "trip:read-own",
+  "trip:update-own-draft",
+  "trip:publish-own",
+  "trip:unpublish-own",
+  "trip:cancel-own",
+  "trip:read-admin",
+  "trip:block",
+  "trip:unblock",
+  "trip:cancel-admin",
+  "trip:audit-read",
 ];
 
 async function main() {
@@ -105,6 +124,7 @@ async function main() {
   });
   await seedDriverVerificationFixtures();
   await seedVehicleFixtures();
+  await seedTripSupplyFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -524,6 +544,245 @@ async function seedVehicleFixtures() {
           metadata: { fixture: true },
         },
       });
+    }
+  }
+}
+
+async function seedTripSupplyFixtures() {
+  const regionRows = [
+    { code: "uz-qr", name: "Republic of Karakalpakstan", sortOrder: 10 },
+    { code: "uz-xo", name: "Khorezm Region", sortOrder: 20 },
+    { code: "uz-bu", name: "Bukhara Region", sortOrder: 30 },
+    { code: "uz-nw", name: "Navoiy Region", sortOrder: 40 },
+  ];
+  const regions = new Map<string, Awaited<ReturnType<typeof prisma.region.upsert>>>();
+  for (const region of regionRows) {
+    const saved = await prisma.region.upsert({
+      where: { code: region.code },
+      create: { countryCode: "UZ", ...region },
+      update: { name: region.name, isActive: true, sortOrder: region.sortOrder },
+    });
+    regions.set(region.code, saved);
+  }
+
+  const cityRows = [
+    ["nukus", "uz-qr", "Nukus", "Nukus", "No'kis", 42.4619, 59.6166, true, 10],
+    ["kungrad", "uz-qr", "Kungrad", "Qo'ng'irot", "Qon'ırat", 43.0707, 58.9037, true, 20],
+    ["khodjeyli", "uz-qr", "Khodjeyli", "Xo'jayli", "Xojeli", 42.4004, 59.4454, true, 30],
+    ["takhiatash", "uz-qr", "Takhiatash", "Taxiatosh", "Taqıyatas", 42.3313, 59.5757, true, 40],
+    ["chimbay", "uz-qr", "Chimbay", "Chimboy", "Shımbay", 42.9302, 59.7708, true, 50],
+    ["muynak", "uz-qr", "Muynak", "Mo'ynoq", "Moynaq", 43.7683, 59.0214, true, 60],
+    ["turtkul", "uz-qr", "Turtkul", "To'rtko'l", "Tortkul", 41.5504, 61.0018, true, 70],
+    ["beruni", "uz-qr", "Beruni", "Beruniy", "Biruniy", 41.6911, 60.7525, true, 80],
+    ["urgench", "uz-xo", "Urgench", "Urganch", "Urgench", 41.5506, 60.6316, true, 90],
+    ["khiva", "uz-xo", "Khiva", "Xiva", "Xiywa", 41.3783, 60.3639, true, 100],
+    ["bukhara", "uz-bu", "Bukhara", "Buxoro", "Buxara", 39.7747, 64.4286, true, 110],
+    ["navoiy", "uz-nw", "Navoiy", "Navoiy", "Nawayı", 40.0844, 65.3792, true, 120],
+  ] as const;
+  const cities = new Map<string, Awaited<ReturnType<typeof prisma.city.upsert>>>();
+  for (const [
+    code,
+    regionCode,
+    nameRu,
+    nameUz,
+    nameKaa,
+    latitude,
+    longitude,
+    isLaunchCity,
+    sortOrder,
+  ] of cityRows) {
+    const region = regions.get(regionCode)!;
+    const saved = await prisma.city.upsert({
+      where: { code },
+      create: {
+        regionId: region.id,
+        code,
+        nameRu,
+        nameUz,
+        nameKaa,
+        timezone: "Asia/Tashkent",
+        latitude,
+        longitude,
+        isActive: true,
+        isLaunchCity,
+        sortOrder,
+      },
+      update: {
+        regionId: region.id,
+        nameRu,
+        nameUz,
+        nameKaa,
+        latitude,
+        longitude,
+        isActive: true,
+        isLaunchCity,
+        sortOrder,
+      },
+    });
+    cities.set(code, saved);
+  }
+
+  for (const city of cities.values()) {
+    const pointRows = [
+      ["City center", "Central pickup point", "CITY_CENTER", 10],
+      ["Bus station", "Main bus station", "BUS_STATION", 20],
+      ["Railway station", "Railway station area", "RAILWAY_STATION", 30],
+    ] as const;
+    for (const [name, address, type, sortOrder] of pointRows) {
+      const existing = await prisma.pickupPoint.findFirst({ where: { cityId: city.id, name } });
+      const data = {
+        cityId: city.id,
+        name,
+        address,
+        latitude: city.latitude,
+        longitude: city.longitude,
+        type,
+        isActive: true,
+        sortOrder,
+      };
+      if (existing) await prisma.pickupPoint.update({ where: { id: existing.id }, data });
+      else await prisma.pickupPoint.create({ data });
+    }
+  }
+
+  const routeRows = [
+    ["nukus", "urgench", 170, 180],
+    ["nukus", "khiva", 190, 210],
+    ["nukus", "bukhara", 550, 510],
+    ["nukus", "navoiy", 710, 650],
+    ["kungrad", "nukus", 115, 110],
+    ["turtkul", "urgench", 85, 95],
+  ] as const;
+  const routes = [];
+  for (const [originCode, destinationCode, distanceKm, estimatedDurationMinutes] of routeRows) {
+    const origin = cities.get(originCode)!;
+    const destination = cities.get(destinationCode)!;
+    const route = await prisma.route.upsert({
+      where: {
+        originCityId_destinationCityId: {
+          originCityId: origin.id,
+          destinationCityId: destination.id,
+        },
+      },
+      create: {
+        originCityId: origin.id,
+        destinationCityId: destination.id,
+        distanceKm,
+        estimatedDurationMinutes,
+        isActive: true,
+      },
+      update: { distanceKm, estimatedDurationMinutes, isActive: true },
+    });
+    routes.push(route);
+  }
+
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const driverProfile = await prisma.driverProfile.findUniqueOrThrow({
+    where: { userId: driver.id },
+  });
+  const vehicle = await prisma.vehicle.findFirstOrThrow({
+    where: { driverProfileId: driverProfile.id, status: "APPROVED", archivedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
+  const tripRows = [
+    { route: routes[0]!, status: "DRAFT", offsetDays: 7, seats: 3, price: 8500000n },
+    { route: routes[1]!, status: "PUBLISHED", offsetDays: 9, seats: 4, price: 9500000n },
+    { route: routes[2]!, status: "UNPUBLISHED", offsetDays: 11, seats: 4, price: 18000000n },
+  ] as const;
+  for (const row of tripRows) {
+    const origin = await prisma.city.findUniqueOrThrow({ where: { id: row.route.originCityId } });
+    const destination = await prisma.city.findUniqueOrThrow({
+      where: { id: row.route.destinationCityId },
+    });
+    const departureAtUtc = new Date(Date.UTC(2026, 7, 1 + row.offsetDays, 5, 0, 0));
+    const existing = await prisma.trip.findFirst({
+      where: { driverProfileId: driverProfile.id, routeId: row.route.id, departureAtUtc },
+    });
+    const data = {
+      driverProfileId: driverProfile.id,
+      vehicleId: vehicle.id,
+      routeId: row.route.id,
+      originCityId: origin.id,
+      destinationCityId: destination.id,
+      originCity: origin.nameRu,
+      destinationCity: destination.nameRu,
+      departureAtUtc,
+      arrivalEstimateAtUtc: new Date(
+        departureAtUtc.getTime() + (row.route.estimatedDurationMinutes ?? 180) * 60_000,
+      ),
+      timezone: origin.timezone,
+      status: row.status,
+      passengerSeatCapacity: row.seats,
+      availableSeatCount: row.seats,
+      pricePerSeatMinor: row.price,
+      wholeCarPriceMinor: row.price * BigInt(row.seats),
+      parcelSupported: true,
+      parcelPriceMinor: 2500000n,
+      currency: "UZS",
+      luggageRules: "One suitcase and one small bag per passenger",
+      comment: "Phase 4 seed trip",
+      publishedAt: row.status === "PUBLISHED" ? new Date("2026-08-01T10:00:00.000Z") : null,
+      unpublishedAt: row.status === "UNPUBLISHED" ? new Date("2026-08-01T11:00:00.000Z") : null,
+      publicationValidationSnapshot: { fixture: true, errors: [] },
+    };
+    const trip = existing
+      ? await prisma.trip.update({ where: { id: existing.id }, data })
+      : await prisma.trip.create({ data });
+    await prisma.tripSeatSnapshot.upsert({
+      where: { tripId: trip.id },
+      create: {
+        tripId: trip.id,
+        vehicleId: vehicle.id,
+        passengerSeatCapacity: row.seats,
+        availableSeatCount: row.seats,
+        seatLabels: ["1", "2", "3", "4"].slice(0, row.seats),
+      },
+      update: {
+        vehicleId: vehicle.id,
+        passengerSeatCapacity: row.seats,
+        availableSeatCount: row.seats,
+      },
+    });
+    const originPoint = await prisma.pickupPoint.findFirst({
+      where: { cityId: origin.id, type: "BUS_STATION" },
+    });
+    const destinationPoint = await prisma.pickupPoint.findFirst({
+      where: { cityId: destination.id, type: "BUS_STATION" },
+    });
+    for (const stop of [
+      {
+        city: origin,
+        point: originPoint,
+        order: 0,
+        type: "ORIGIN" as const,
+        plannedAtUtc: departureAtUtc,
+      },
+      {
+        city: destination,
+        point: destinationPoint,
+        order: 1,
+        type: "DESTINATION" as const,
+        plannedAtUtc: data.arrivalEstimateAtUtc,
+      },
+    ]) {
+      const existingStop = await prisma.tripStop.findFirst({
+        where: { tripId: trip.id, order: stop.order },
+      });
+      const stopData = {
+        tripId: trip.id,
+        cityId: stop.city.id,
+        pickupPointId: stop.point?.id ?? null,
+        order: stop.order,
+        type: stop.type,
+        plannedAtUtc: stop.plannedAtUtc,
+        label: stop.point?.name ?? stop.city.nameRu,
+        address: stop.point?.address ?? null,
+        latitude: stop.point?.latitude ?? stop.city.latitude,
+        longitude: stop.point?.longitude ?? stop.city.longitude,
+      };
+      if (existingStop)
+        await prisma.tripStop.update({ where: { id: existingStop.id }, data: stopData });
+      else await prisma.tripStop.create({ data: stopData });
     }
   }
 }
