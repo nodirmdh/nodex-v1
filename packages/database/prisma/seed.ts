@@ -103,6 +103,21 @@ const permissions = [
   "parcel:mark-damaged-admin",
   "parcel:dispute-admin",
   "parcel:audit-read",
+  "conversation:read-own",
+  "conversation:message-own",
+  "conversation:report-message-own",
+  "notification:read-own",
+  "notification:manage-own",
+  "notification:deliver-worker",
+  "support-ticket:create-own",
+  "support-ticket:read-own",
+  "support-ticket:message-own",
+  "support-ticket:read-admin",
+  "support-ticket:reply-admin",
+  "support-ticket:assign-admin",
+  "support-ticket:status-admin",
+  "support-ticket:internal-note-admin",
+  "support-ticket:audit-read",
 ];
 
 async function main() {
@@ -167,12 +182,20 @@ async function main() {
     lastName: "Mock",
     roleCode: "ADMIN",
   });
+  await seedIdentity({
+    telegramUserId: 900000004n,
+    username: "nodex_support",
+    firstName: "Support",
+    lastName: "Mock",
+    roleCode: "SUPPORT",
+  });
   await seedDriverVerificationFixtures();
   await seedVehicleFixtures();
   await seedTripSupplyFixtures();
   await seedBookingFixtures();
   await seedTripOperationsFixtures();
   await seedParcelFixtures();
+  await seedCommunicationSupportFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -1506,6 +1529,235 @@ async function seedParcelFixtures() {
         },
       });
     }
+  }
+}
+
+async function seedCommunicationSupportFixtures() {
+  const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const support = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000004n } });
+  const booking = await prisma.booking.findUniqueOrThrow({
+    where: { id: "phase6-booking-confirmed" },
+  });
+  const parcel = await prisma.parcelOrder.findUniqueOrThrow({
+    where: { id: "phase8-parcel-accepted" },
+  });
+
+  for (const policy of [
+    { priority: "LOW" as const, firstResponseMinutes: 720, resolutionMinutes: 4320 },
+    { priority: "NORMAL" as const, firstResponseMinutes: 240, resolutionMinutes: 1440 },
+    { priority: "HIGH" as const, firstResponseMinutes: 60, resolutionMinutes: 480 },
+    { priority: "URGENT" as const, firstResponseMinutes: 15, resolutionMinutes: 120 },
+  ]) {
+    await prisma.supportSlaPolicy.upsert({
+      where: { priority: policy.priority },
+      create: policy,
+      update: policy,
+    });
+  }
+
+  for (const template of [
+    {
+      channel: "TELEGRAM" as const,
+      type: "CHAT_MESSAGE" as const,
+      version: "phase9-v1",
+      title: "Новое сообщение",
+      body: "У вас новое сообщение в Nodex.",
+    },
+    {
+      channel: "IN_APP" as const,
+      type: "SUPPORT_TICKET_UPDATED" as const,
+      version: "phase9-v1",
+      title: "Обращение обновлено",
+      body: "Команда поддержки обновила ваше обращение.",
+    },
+  ]) {
+    await prisma.notificationTemplate.upsert({
+      where: {
+        type_channel_version: {
+          type: template.type,
+          channel: template.channel,
+          version: template.version,
+        },
+      },
+      create: template,
+      update: template,
+    });
+  }
+
+  const bookingConversation = await prisma.conversation.upsert({
+    where: { bookingId: booking.id },
+    create: {
+      type: "BOOKING",
+      bookingId: booking.id,
+      tripId: booking.tripId,
+      retentionUntil: new Date("2026-09-01T00:00:00.000Z"),
+      participants: {
+        create: [
+          { userId: client.id, role: "CLIENT" },
+          { userId: driver.id, role: "DRIVER" },
+        ],
+      },
+    },
+    update: {},
+  });
+  const parcelConversation = await prisma.conversation.upsert({
+    where: { parcelOrderId: parcel.id },
+    create: {
+      type: "PARCEL",
+      parcelOrderId: parcel.id,
+      tripId: parcel.tripId,
+      retentionUntil: new Date("2026-09-01T00:00:00.000Z"),
+      participants: {
+        create: [
+          { userId: client.id, role: "CLIENT" },
+          { userId: driver.id, role: "DRIVER" },
+        ],
+      },
+    },
+    update: {},
+  });
+
+  const seededMessages = [
+    {
+      conversationId: bookingConversation.id,
+      senderUserId: client.id,
+      clientMessageId: "phase9-booking-client-hello",
+      text: "Здравствуйте, я буду у pickup point за 10 минут.",
+    },
+    {
+      conversationId: bookingConversation.id,
+      senderUserId: driver.id,
+      clientMessageId: "phase9-booking-driver-reply",
+      text: "Хорошо, напишу перед прибытием.",
+    },
+    {
+      conversationId: parcelConversation.id,
+      senderUserId: driver.id,
+      clientMessageId: "phase9-parcel-driver-status",
+      text: "Посылка принята, еду по маршруту.",
+    },
+  ];
+  for (const seeded of seededMessages) {
+    const message = await prisma.chatMessage.upsert({
+      where: {
+        conversationId_clientMessageId: {
+          conversationId: seeded.conversationId,
+          clientMessageId: seeded.clientMessageId,
+        },
+      },
+      create: { ...seeded, type: "TEXT" },
+      update: { text: seeded.text },
+    });
+    await prisma.chatMessageReceipt.upsert({
+      where: { messageId_recipientUserId: { messageId: message.id, recipientUserId: client.id } },
+      create: {
+        messageId: message.id,
+        recipientUserId: client.id,
+        status: "READ",
+        deliveredAt: new Date("2026-08-01T09:20:00.000Z"),
+        readAt: new Date("2026-08-01T09:21:00.000Z"),
+      },
+      update: {},
+    });
+  }
+
+  const notification = await prisma.notification.upsert({
+    where: { deduplicationKey: "phase9:support:update:client" },
+    create: {
+      recipientUserId: client.id,
+      type: "SUPPORT_TICKET_UPDATED",
+      title: "Support ticket updated",
+      body: "Your support ticket has a new response.",
+      entityType: "SupportTicket",
+      deduplicationKey: "phase9:support:update:client",
+    },
+    update: {},
+  });
+  await prisma.notificationDelivery.upsert({
+    where: { notificationId_channel: { notificationId: notification.id, channel: "IN_APP" } },
+    create: {
+      notificationId: notification.id,
+      recipientUserId: client.id,
+      channel: "IN_APP",
+      status: "DELIVERED",
+      deliveredAt: new Date("2026-08-01T09:22:00.000Z"),
+    },
+    update: {},
+  });
+
+  let ticket = await prisma.supportTicket.findFirst({
+    where: { requesterUserId: client.id, subject: "Phase 9 seeded support ticket" },
+  });
+  if (!ticket) {
+    ticket = await prisma.supportTicket.create({
+      data: {
+        requesterUserId: client.id,
+        type: "BOOKING",
+        subject: "Phase 9 seeded support ticket",
+        description: "Need help coordinating the pickup time.",
+        status: "IN_PROGRESS",
+        priority: "NORMAL",
+        bookingId: booking.id,
+        tripId: booking.tripId,
+        assignedToUserId: support.id,
+        firstResponseAt: new Date("2026-08-01T09:30:00.000Z"),
+        slaDueAt: new Date("2026-08-01T17:00:00.000Z"),
+        retentionUntil: new Date("2026-09-01T00:00:00.000Z"),
+        participants: {
+          create: [
+            { userId: client.id, role: "REQUESTER" },
+            { userId: support.id, role: "ASSIGNEE" },
+          ],
+        },
+        messages: {
+          create: [
+            { senderUserId: client.id, text: "Need help coordinating the pickup time." },
+            {
+              senderUserId: support.id,
+              text: "We contacted the driver and will monitor the trip.",
+            },
+          ],
+        },
+        internalNotes: {
+          create: {
+            authorUserId: support.id,
+            text: "Seeded internal support note for admin workspace.",
+          },
+        },
+        assignments: {
+          create: {
+            assigneeUserId: support.id,
+            assignedByUserId: support.id,
+            reason: "Seed fixture assignment",
+          },
+        },
+        statusEvents: {
+          create: [
+            { actorUserId: client.id, toStatus: "NEW", reason: "Ticket opened" },
+            {
+              actorUserId: support.id,
+              fromStatus: "NEW",
+              toStatus: "IN_PROGRESS",
+              reason: "Support started review",
+            },
+          ],
+        },
+      },
+    });
+  }
+  const existingTimeline = await prisma.communicationTimelineEvent.findFirst({
+    where: { ticketId: ticket.id, type: "SUPPORT_TICKET_SEEDED" },
+  });
+  if (!existingTimeline) {
+    await prisma.communicationTimelineEvent.create({
+      data: {
+        ticketId: ticket.id,
+        actorUserId: support.id,
+        type: "SUPPORT_TICKET_SEEDED",
+        payload: { seed: true },
+      },
+    });
   }
 }
 
