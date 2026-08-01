@@ -100,6 +100,32 @@ export const tripStatuses = [
   "BLOCKED",
 ] as const;
 
+export const operationalTripStatuses = [
+  "PUBLISHED",
+  "BOOKING_OPEN",
+  "FULL",
+  "BOARDING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+  "EXPIRED",
+  "BLOCKED",
+] as const;
+
+export const operationalBookingStatuses = [
+  "PENDING_CONFIRMATION",
+  "CONFIRMED",
+  "BOARDING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "NO_SHOW_CLIENT",
+  "NO_SHOW_DRIVER",
+  "CANCELLED_BY_CLIENT",
+  "CANCELLED_BY_DRIVER",
+  "CANCELLED_BY_ADMIN",
+  "EXPIRED",
+] as const;
+
 export const pickupPointTypes = [
   "CITY_CENTER",
   "BUS_STATION",
@@ -424,3 +450,100 @@ export const bookingCancelSchema = z.object({
 export const driverBookingDecisionSchema = z.object({
   reason: z.string().trim().min(3).max(1000).optional(),
 });
+
+export const boardingCodeVerifySchema = z.object({
+  code: z.string().trim().regex(/^\d{4,6}$/),
+});
+
+export const boardingCodeRegenerateSchema = z.object({
+  reason: z.string().trim().min(3).max(1000).optional(),
+});
+
+export const operationReasonSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const tripStartSchema = z.object({
+  allowUnresolvedPassengers: z.boolean().optional().default(false),
+});
+
+export const tripCompleteSchema = z.object({
+  notes: z.string().trim().max(1000).optional(),
+});
+
+export type TripOperationAction =
+  | "START_BOARDING"
+  | "START_TRIP"
+  | "COMPLETE_TRIP"
+  | "CANCEL_TRIP"
+  | "EXPIRE_TRIP"
+  | "BLOCK_TRIP"
+  | "UNBLOCK_TRIP";
+
+export type TripOperationStatus = (typeof tripStatuses)[number];
+
+export type TripTransitionResult =
+  | { ok: true; toStatus: TripOperationStatus; idempotent: boolean }
+  | { ok: false; code: string; message: string };
+
+const tripTransitionTargets = {
+  START_BOARDING: "BOARDING",
+  START_TRIP: "IN_PROGRESS",
+  COMPLETE_TRIP: "COMPLETED",
+  CANCEL_TRIP: "CANCELLED",
+  EXPIRE_TRIP: "EXPIRED",
+  BLOCK_TRIP: "BLOCKED",
+  UNBLOCK_TRIP: "PUBLISHED",
+} as const satisfies Record<TripOperationAction, TripOperationStatus>;
+
+const tripAllowedTransitions = {
+  START_BOARDING: ["PUBLISHED", "BOOKING_OPEN", "FULL"],
+  START_TRIP: ["BOARDING"],
+  COMPLETE_TRIP: ["IN_PROGRESS"],
+  CANCEL_TRIP: ["PUBLISHED", "BOOKING_OPEN", "FULL", "BOARDING"],
+  EXPIRE_TRIP: ["PUBLISHED", "BOOKING_OPEN"],
+  BLOCK_TRIP: ["PUBLISHED", "BOOKING_OPEN", "FULL", "BOARDING"],
+  UNBLOCK_TRIP: ["BLOCKED"],
+} as const satisfies Record<TripOperationAction, readonly TripOperationStatus[]>;
+
+export function evaluateTripTransition(
+  currentStatus: TripOperationStatus,
+  action: TripOperationAction,
+): TripTransitionResult {
+  const toStatus = tripTransitionTargets[action];
+  if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true };
+  const allowedStatuses: readonly TripOperationStatus[] = tripAllowedTransitions[action];
+  if (!allowedStatuses.includes(currentStatus)) {
+    return {
+      ok: false,
+      code: "TRIP_INVALID_TRANSITION",
+      message: `${currentStatus} cannot transition via ${action}`,
+    };
+  }
+  return { ok: true, toStatus, idempotent: false };
+}
+
+export function boardingCodeIsExpired(expiresAt: Date, now = new Date()) {
+  return expiresAt.getTime() <= now.getTime();
+}
+
+export function boardingCodeCanAttempt(input: {
+  status: string;
+  expiresAt: Date;
+  attemptsCount: number;
+  maxAttempts: number;
+  lockedAt?: Date | null;
+  verifiedAt?: Date | null;
+  now?: Date;
+}) {
+  if (input.status !== "ACTIVE") return { ok: false, code: "BOARDING_CODE_INACTIVE" };
+  if (input.verifiedAt) return { ok: false, code: "BOARDING_CODE_USED" };
+  if (input.lockedAt) return { ok: false, code: "BOARDING_CODE_LOCKED" };
+  if (boardingCodeIsExpired(input.expiresAt, input.now)) {
+    return { ok: false, code: "BOARDING_CODE_EXPIRED" };
+  }
+  if (input.attemptsCount >= input.maxAttempts) {
+    return { ok: false, code: "BOARDING_CODE_MAX_ATTEMPTS" };
+  }
+  return { ok: true, code: "BOARDING_CODE_ATTEMPT_ALLOWED" };
+}

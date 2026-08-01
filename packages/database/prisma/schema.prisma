@@ -190,6 +190,7 @@ enum SeatStatus {
   AVAILABLE
   HELD
   BOOKED
+  OCCUPIED
   BLOCKED
   UNAVAILABLE
 }
@@ -204,6 +205,8 @@ enum BookingStatus {
   BOARDING
   IN_PROGRESS
   COMPLETED
+  NO_SHOW_CLIENT
+  NO_SHOW_DRIVER
   CANCELLED_BY_CLIENT
   CANCELLED_BY_DRIVER
   CANCELLED_BY_ADMIN
@@ -295,6 +298,13 @@ model User {
   bookings                                Booking[]                       @relation("ClientBookings")
   seatHolds                               SeatHold[]                      @relation("ClientSeatHolds")
   bookingTimelineEvents                   BookingTimelineEvent[]
+  boardingAttempts                        BoardingAttempt[]               @relation("BoardingAttemptActor")
+  tripOperationEvents                     TripOperationEvent[]            @relation("TripOperationEventActor")
+  tripStatusTransitions                   TripStatusTransition[]          @relation("TripStatusTransitionActor")
+  bookingOperationEvents                  BookingOperationEvent[]         @relation("BookingOperationEventActor")
+  noShowRecords                           NoShowRecord[]                  @relation("NoShowRecordActor")
+  tripCancellations                       TripCancellation[]              @relation("TripCancellationActor")
+  completedTripSummaries                  TripCompletionSummary[]         @relation("TripCompletionSummaryActor")
 
   @@index([status])
   @@index([phone])
@@ -911,6 +921,11 @@ model Trip {
   bookings                      Booking[]
   seatHolds                     SeatHold[]
   searchEvents                  SearchEvent[]
+  operationEvents               TripOperationEvent[]
+  statusTransitions             TripStatusTransition[]
+  cancellations                 TripCancellation[]
+  completionSummary             TripCompletionSummary?
+  noShowRecords                 NoShowRecord[]
 
   @@index([driverProfileId, status, departureAtUtc])
   @@index([vehicleId, status, departureAtUtc])
@@ -1069,6 +1084,9 @@ model Booking {
   baggage                   BookingBaggage[]
   timelineEvents            BookingTimelineEvent[]
   cancellations             BookingCancellation[]
+  boardingCodes             BoardingCode[]
+  operationEvents           BookingOperationEvent[]
+  noShowRecords             NoShowRecord[]
 
   @@index([clientId, status, createdAt])
   @@index([tripId, status])
@@ -1178,4 +1196,130 @@ model BookingCancellation {
   booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
+}
+
+model BoardingCode {
+  id             String            @id @default(cuid())
+  bookingId      String
+  codeHash       String
+  codeLength     Int               @default(6)
+  status         String            @default("ACTIVE")
+  expiresAt      DateTime
+  attemptsCount  Int               @default(0)
+  maxAttempts    Int               @default(5)
+  lockedAt       DateTime?
+  verifiedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  attempts       BoardingAttempt[]
+
+  @@index([bookingId, status, expiresAt])
+}
+
+model BoardingAttempt {
+  id             String       @id @default(cuid())
+  boardingCodeId String
+  actorUserId    String?
+  success        Boolean      @default(false)
+  reason         String?
+  createdAt      DateTime     @default(now())
+  boardingCode   BoardingCode @relation(fields: [boardingCodeId], references: [id], onDelete: Cascade)
+  actor          User?        @relation("BoardingAttemptActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([boardingCodeId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model TripOperationEvent {
+  id          String   @id @default(cuid())
+  tripId      String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("TripOperationEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+  @@index([type, createdAt])
+}
+
+model TripStatusTransition {
+  id          String     @id @default(cuid())
+  tripId      String
+  actorUserId String?
+  fromStatus  TripStatus
+  toStatus    TripStatus
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  trip        Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor       User?      @relation("TripStatusTransitionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+  @@index([toStatus, createdAt])
+}
+
+model BookingOperationEvent {
+  id          String   @id @default(cuid())
+  bookingId   String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("BookingOperationEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@index([type, createdAt])
+}
+
+model NoShowRecord {
+  id          String   @id @default(cuid())
+  tripId      String
+  bookingId   String?
+  actorUserId String?
+  actorRole   String
+  type        String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("NoShowRecordActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+  @@index([bookingId, createdAt])
+  @@index([type, createdAt])
+}
+
+model TripCancellation {
+  id          String   @id @default(cuid())
+  tripId      String
+  actorUserId String?
+  actorRole   String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("TripCancellationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+}
+
+model TripCompletionSummary {
+  id                 String   @id @default(cuid())
+  tripId             String   @unique
+  completedByUserId  String?
+  completedAt        DateTime @default(now())
+  boardedCount       Int      @default(0)
+  noShowClientCount  Int      @default(0)
+  cancelledCount     Int      @default(0)
+  totalBookingsCount Int      @default(0)
+  notes              String?
+  trip               Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  completedBy        User?    @relation("TripCompletionSummaryActor", fields: [completedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([completedAt])
 }
