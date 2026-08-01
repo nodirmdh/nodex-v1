@@ -4,7 +4,15 @@ import { useMemo, useState } from "react";
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
 import { Badge, Button, Panel, Timeline } from "@nodex/ui";
 
-type TripStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "CANCELLED" | "BLOCKED";
+type TripStatus =
+  | "DRAFT"
+  | "PUBLISHED"
+  | "BOARDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "UNPUBLISHED"
+  | "CANCELLED"
+  | "BLOCKED";
 
 type TripRow = {
   id: string;
@@ -31,6 +39,28 @@ const rows: TripRow[] = [
     status: "PUBLISHED",
   },
   {
+    id: "trip-boarding",
+    route: "Nukus -> Urgench",
+    departure: "2026-08-08 08:30",
+    driver: "Driver Mock",
+    vehicle: "Chevrolet Cobalt",
+    seats: "3 / 4",
+    price: "85 000 UZS",
+    parcel: false,
+    status: "BOARDING",
+  },
+  {
+    id: "trip-progress",
+    route: "Nukus -> Tashkent",
+    departure: "2026-08-08 07:00",
+    driver: "Route partner",
+    vehicle: "Chevrolet Tracker",
+    seats: "4 / 4",
+    price: "250 000 UZS",
+    parcel: false,
+    status: "IN_PROGRESS",
+  },
+  {
     id: "trip-draft",
     route: "Nukus -> Urgench",
     departure: "Draft",
@@ -55,7 +85,8 @@ const rows: TripRow[] = [
 ];
 
 function statusTone(status: TripStatus) {
-  if (status === "PUBLISHED") return "success";
+  if (status === "PUBLISHED" || status === "COMPLETED") return "success";
+  if (status === "BOARDING" || status === "IN_PROGRESS") return "info";
   if (status === "CANCELLED" || status === "BLOCKED") return "danger";
   if (status === "UNPUBLISHED") return "warning";
   return "info";
@@ -102,6 +133,9 @@ export default function AdminTripsPage() {
             <select className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm">
               <option>All statuses</option>
               <option>Published</option>
+              <option>Boarding</option>
+              <option>In progress</option>
+              <option>Completed</option>
               <option>Draft</option>
               <option>Blocked</option>
             </select>
@@ -175,6 +209,28 @@ export default function AdminTripsPage() {
           </div>
         </Panel>
 
+        <Panel className="space-y-3" aria-label="Trip operation detail">
+          <h2 className="m-0 text-base font-bold">Operations</h2>
+          <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
+              <strong>3</strong>
+              <span className="block text-xs text-slate-500">Booked</span>
+            </div>
+            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
+              <strong>1</strong>
+              <span className="block text-xs text-slate-500">Boarded</span>
+            </div>
+            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
+              <strong>1</strong>
+              <span className="block text-xs text-slate-500">No-show</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary">Admin cancel</Button>
+            <Button variant="secondary">Driver no-show</Button>
+          </div>
+        </Panel>
+
         <Panel>
           <h2 className="m-0 mb-3 text-base font-bold">Moderation</h2>
           <textarea
@@ -195,6 +251,8 @@ export default function AdminTripsPage() {
             items={[
               { label: "Trip draft created", time: "Driver", active: true },
               { label: "Publication validation", time: selected.status },
+              { label: "Boarding code generated", time: "Operation" },
+              { label: "Passenger boarded or no-show", time: "Operation" },
               { label: "Latest moderation action", time: "Reason required" },
             ]}
           />

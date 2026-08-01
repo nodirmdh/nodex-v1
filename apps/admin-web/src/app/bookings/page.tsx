@@ -7,29 +7,29 @@ const bookings = [
     client: "A. Karimov",
     driver: "Phase Driver",
     seats: ["Front", "1L"],
-    status: "CONFIRMED",
+    status: "BOARDING",
     payment: "Cash",
     totalMinor: 17000000,
     createdAt: "2026-08-01 09:04 UTC",
   },
   {
-    id: "booking-hold",
+    id: "booking-progress",
     route: "Nukus to Khiva",
     client: "M. Seitov",
     driver: "Route partner",
     seats: ["1R"],
-    status: "HOLD",
+    status: "IN_PROGRESS",
     payment: "Manual transfer",
     totalMinor: 9500000,
     createdAt: "2026-08-01 09:10 UTC",
   },
   {
-    id: "booking-cancelled",
+    id: "booking-no-show",
     route: "Nukus to Bukhara",
     client: "D. Allamuratov",
     driver: "Verified driver",
     seats: ["2R"],
-    status: "CANCELLED_BY_CLIENT",
+    status: "NO_SHOW_CLIENT",
     payment: "Cash",
     totalMinor: 18000000,
     createdAt: "2026-08-01 08:44 UTC",
@@ -37,9 +37,10 @@ const bookings = [
 ];
 
 function tone(status: string) {
-  if (status === "CONFIRMED") return "success";
+  if (status === "CONFIRMED" || status === "COMPLETED") return "success";
+  if (status === "BOARDING" || status === "IN_PROGRESS") return "info";
+  if (status.startsWith("NO_SHOW") || status.startsWith("CANCELLED")) return "danger";
   if (status === "HOLD") return "warning";
-  if (status.startsWith("CANCELLED")) return "danger";
   return "info";
 }
 
@@ -53,7 +54,7 @@ export default function BookingsPage() {
           <div>
             <h1 className="m-0 text-lg font-black">Booking operations</h1>
             <div className="text-sm text-slate-500">
-              Holds, confirmed seats, cancellations, and audit history.
+              Holds, boarding, in-progress trips, no-shows, cancellations, and audit history.
             </div>
           </div>
           <Badge tone="info">{bookings.length} records</Badge>
@@ -61,15 +62,15 @@ export default function BookingsPage() {
         <div className="grid grid-cols-4 gap-2 text-sm">
           <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
             <strong>2</strong>
-            <span className="block text-slate-500">Active</span>
+            <span className="block text-slate-500">Operational</span>
           </div>
           <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
             <strong>1</strong>
-            <span className="block text-slate-500">Held</span>
+            <span className="block text-slate-500">Boarding</span>
           </div>
           <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
             <strong>1</strong>
-            <span className="block text-slate-500">Cancelled</span>
+            <span className="block text-slate-500">No-show</span>
           </div>
           <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
             <strong>{formatUzs(26500000)}</strong>
@@ -126,7 +127,7 @@ export default function BookingsPage() {
           <div>
             <h2 className="m-0 text-base font-bold">Selected booking</h2>
             <p className="m-0 text-sm text-slate-500">
-              {selected.client} В· {selected.route}
+              {selected.client} - {selected.route}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -137,10 +138,10 @@ export default function BookingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant="secondary">
-              Cancel booking
+              Admin cancel
             </Button>
             <Button type="button" variant="secondary">
-              View audit
+              View operations
             </Button>
           </div>
           <div>
@@ -150,6 +151,8 @@ export default function BookingsPage() {
                 { label: "Hold created", time: "09:01", active: true },
                 { label: "Passenger details saved", time: "09:03", active: true },
                 { label: "Booking confirmed", time: "09:04", active: true },
+                { label: "Boarding code generated", time: "09:10", active: true },
+                { label: "Operational status updated", time: selected.status },
               ]}
             />
           </div>
