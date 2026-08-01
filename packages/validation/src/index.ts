@@ -113,6 +113,11 @@ export const tripStopTypes = ["ORIGIN", "INTERMEDIATE", "DESTINATION"] as const;
 const textField = z.string().trim().min(1).max(160);
 const optionalTextField = z.string().trim().max(240).optional().nullable();
 const dateField = z.coerce.date().optional().nullable();
+const queryBoolean = z.preprocess((value) => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return value;
+}, z.boolean());
 
 export const driverVerificationDraftSchema = z.object({
   legalFirstName: optionalTextField,
@@ -290,4 +295,57 @@ export const tripCancelSchema = z.object({
 
 export const tripAdminActionSchema = z.object({
   reason: z.string().trim().min(3).max(1000),
+});
+
+export const tripSearchSorts = [
+  "departure_asc",
+  "price_asc",
+  "price_desc",
+  "available_seats_desc",
+] as const;
+
+export const searchEventTypes = [
+  "SEARCH_PERFORMED",
+  "TRIP_RESULT_OPENED",
+  "SHARE_CLICKED",
+  "BOOKING_CTA_CLICKED",
+] as const;
+
+export const tripSearchQuerySchema = z
+  .object({
+    originCityId: z.string().trim().min(1),
+    destinationCityId: z.string().trim().min(1),
+    date: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/),
+    passengers: z.coerce.number().int().min(1).max(16).default(1),
+    page: z.coerce.number().int().min(1).max(1000).default(1),
+    pageSize: z.coerce.number().int().min(1).max(50).default(20),
+    sort: z.enum(tripSearchSorts).default("departure_asc"),
+    departureWindow: z.enum(["morning", "afternoon", "evening", "night"]).optional(),
+    minPriceMinor: z.coerce.bigint().nonnegative().optional(),
+    maxPriceMinor: z.coerce.bigint().nonnegative().optional(),
+    parcelSupported: queryBoolean.optional(),
+    wholeCarAvailable: queryBoolean.optional(),
+    luggageRequired: queryBoolean.optional(),
+    vehicleBodyType: z.string().trim().min(1).max(80).optional(),
+    sessionId: z.string().trim().min(8).max(128).optional(),
+  })
+  .refine((value) => value.originCityId !== value.destinationCityId, {
+    path: ["destinationCityId"],
+    message: "Origin and destination must differ",
+  });
+
+export const searchEventSchema = z.object({
+  type: z.enum(searchEventTypes),
+  tripId: z.string().trim().min(1).optional(),
+  originCityId: z.string().trim().min(1).optional(),
+  destinationCityId: z.string().trim().min(1).optional(),
+  queryDate: z.coerce.date().optional(),
+  passengers: z.coerce.number().int().min(1).max(16).default(1),
+  sort: z.enum(tripSearchSorts).optional(),
+  selectedResultRank: z.coerce.number().int().min(1).max(1000).optional(),
+  sessionId: z.string().trim().min(8).max(128).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
 });

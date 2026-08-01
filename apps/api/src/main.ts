@@ -22,9 +22,11 @@ import {
   pickupPointSchema,
   regionSchema,
   routeSchema,
+  searchEventSchema,
   tripAdminActionSchema,
   tripCancelSchema,
   tripDraftSchema,
+  tripSearchQuerySchema,
   tripStopSchema,
   vehicleDocumentCompleteSchema,
   vehicleDocumentPresignSchema,
@@ -1195,6 +1197,43 @@ function phase4OpenApiPaths() {
   };
 }
 
+function phase5OpenApiPaths() {
+  const json = { "application/json": { schema: { type: "object" } } };
+  const tripId = { name: "tripId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/trips/search": {
+      get: {
+        operationId: "searchPublicTrips",
+        tags: ["Public Trip Search"],
+        parameters: [
+          { name: "originCityId", in: "query", required: true, schema: { type: "string" } },
+          { name: "destinationCityId", in: "query", required: true, schema: { type: "string" } },
+          { name: "date", in: "query", required: true, schema: { type: "string" } },
+          { name: "passengers", in: "query", required: false, schema: { type: "integer" } },
+          { name: "sort", in: "query", required: false, schema: { type: "string" } },
+        ],
+        responses: { 200: { description: "Search results", content: json } },
+      },
+    },
+    "/api/v1/trips/public/{tripId}": {
+      get: {
+        operationId: "getPublicTrip",
+        tags: ["Public Trip Search"],
+        parameters: [tripId],
+        responses: { 200: { description: "Public trip detail", content: json } },
+      },
+    },
+    "/api/v1/search-events": {
+      post: {
+        operationId: "recordSearchEvent",
+        tags: ["Public Trip Search"],
+        requestBody: { required: true, content: json },
+        responses: { 202: { description: "Search event accepted", content: json } },
+      },
+    },
+  };
+}
+
 const editableVerificationStatuses = ["DRAFT", "CHANGES_REQUESTED"] as const;
 const requiredDocumentTypes = [
   "IDENTITY_FRONT",
@@ -1624,6 +1663,190 @@ function cleanObject<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
 }
 
+const publicTripInclude = {
+  driverProfile: { include: { user: true } },
+  vehicle: true,
+  route: true,
+  origin: true,
+  destination: true,
+  stops: { include: { city: true, pickupPoint: true }, orderBy: { order: "asc" as const } },
+} satisfies Prisma.TripInclude;
+
+type PublicTripWithInclude = Prisma.TripGetPayload<{ include: typeof publicTripInclude }>;
+
+function citySummary(city: PublicTripWithInclude["origin"]) {
+  if (!city) return null;
+  return {
+    id: city.id,
+    code: city.code,
+    nameRu: city.nameRu,
+    nameUz: city.nameUz,
+    nameKaa: city.nameKaa,
+    timezone: city.timezone,
+  };
+}
+
+function publicTripDto(trip: PublicTripWithInclude) {
+  return serializeBigInt({
+    id: trip.id,
+    origin: citySummary(trip.origin),
+    destination: citySummary(trip.destination),
+    originCity: trip.originCity,
+    destinationCity: trip.destinationCity,
+    departureAtUtc: trip.departureAtUtc,
+    arrivalEstimateAtUtc: trip.arrivalEstimateAtUtc,
+    timezone: trip.timezone,
+    availableSeatCount: trip.availableSeatCount,
+    passengerSeatCapacity: trip.passengerSeatCapacity,
+    pricePerSeatMinor: trip.pricePerSeatMinor,
+    wholeCarPriceMinor: trip.wholeCarPriceMinor,
+    parcelSupported: trip.parcelSupported,
+    parcelPriceMinor: trip.parcelPriceMinor,
+    currency: trip.currency,
+    luggageRules: trip.luggageRules,
+    route: trip.route
+      ? {
+          id: trip.route.id,
+          distanceKm: trip.route.distanceKm,
+          estimatedDurationMinutes: trip.route.estimatedDurationMinutes,
+        }
+      : null,
+    stops: trip.stops.map((stop) => ({
+      id: stop.id,
+      city: citySummary(stop.city),
+      order: stop.order,
+      type: stop.type,
+      plannedAtUtc: stop.plannedAtUtc,
+      label: stop.label ?? stop.pickupPoint?.name ?? stop.city.nameRu,
+      address: stop.address ?? stop.pickupPoint?.address ?? null,
+    })),
+    driver: {
+      displayName: trip.driverProfile.user.displayName ?? "Verified driver",
+      verified: trip.driverProfile.verificationStatus === "APPROVED",
+      reliabilityScore: trip.driverProfile.reliabilityScore,
+    },
+    vehicle: {
+      make: trip.vehicle.make,
+      model: trip.vehicle.model,
+      year: trip.vehicle.year,
+      color: trip.vehicle.color,
+      bodyType: trip.vehicle.bodyType,
+      passengerSeatCount: trip.vehicle.passengerSeatCount,
+      amenities: trip.vehicle.amenities,
+      verified: trip.vehicle.status === "APPROVED",
+    },
+  });
+}
+
+function tashkentDayRange(date: string) {
+  const [year = 1970, month = 1, day = 1] = date.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(year, month - 1, day, -5, 0, 0)),
+    end: new Date(Date.UTC(year, month - 1, day + 1, -5, 0, 0)),
+  };
+}
+
+function departureWindowRange(window: string | undefined) {
+  if (window === "morning") return [5, 12] as const;
+  if (window === "afternoon") return [12, 17] as const;
+  if (window === "evening") return [17, 22] as const;
+  if (window === "night") return [22, 29] as const;
+  return null;
+}
+
+function stableTripSort(sort: string) {
+  return (left: PublicTripWithInclude, right: PublicTripWithInclude) => {
+    const stable =
+      left.departureAtUtc.getTime() - right.departureAtUtc.getTime() ||
+      left.id.localeCompare(right.id);
+    if (sort === "price_asc") {
+      return Number(left.pricePerSeatMinor - right.pricePerSeatMinor) || stable;
+    }
+    if (sort === "price_desc") {
+      return Number(right.pricePerSeatMinor - left.pricePerSeatMinor) || stable;
+    }
+    if (sort === "available_seats_desc") {
+      return right.availableSeatCount - left.availableSeatCount || stable;
+    }
+    return stable;
+  };
+}
+
+async function searchPublicTrips(rawQuery: unknown) {
+  const query = tripSearchQuerySchema.parse(rawQuery);
+  const { start, end } = tashkentDayRange(query.date);
+  const now = new Date();
+  const trips = await prisma.trip.findMany({
+    where: {
+      originCityId: query.originCityId,
+      destinationCityId: query.destinationCityId,
+      status: { in: ["PUBLISHED", "BOOKING_OPEN"] },
+      cancelledAt: null,
+      blockedAt: null,
+      departureAtUtc: { gte: start > now ? start : now, lt: end },
+      availableSeatCount: { gte: query.passengers },
+      currency: "UZS",
+      driverProfile: { verificationStatus: "APPROVED" },
+      vehicle: {
+        status: "APPROVED",
+        archivedAt: null,
+        suspendedAt: null,
+        ...(query.vehicleBodyType ? { bodyType: query.vehicleBodyType } : {}),
+      },
+      ...(query.minPriceMinor !== undefined
+        ? { pricePerSeatMinor: { gte: query.minPriceMinor } }
+        : {}),
+      ...(query.maxPriceMinor !== undefined
+        ? { pricePerSeatMinor: { lte: query.maxPriceMinor } }
+        : {}),
+      ...(query.parcelSupported !== undefined ? { parcelSupported: query.parcelSupported } : {}),
+      ...(query.wholeCarAvailable ? { wholeCarPriceMinor: { not: null } } : {}),
+      ...(query.luggageRequired ? { luggageRules: { not: null } } : {}),
+    },
+    include: publicTripInclude,
+  });
+  const windowRange = departureWindowRange(query.departureWindow);
+  const filtered = windowRange
+    ? trips.filter((trip) => {
+        const localHour = (trip.departureAtUtc.getUTCHours() + 5) % 24;
+        const expandedHour = localHour < windowRange[0] ? localHour + 24 : localHour;
+        return expandedHour >= windowRange[0] && expandedHour < windowRange[1];
+      })
+    : trips;
+  const sorted = [...filtered].sort(stableTripSort(query.sort));
+  const startIndex = (query.page - 1) * query.pageSize;
+  const pageTrips = sorted.slice(startIndex, startIndex + query.pageSize);
+  await prisma.searchEvent.create({
+    data: {
+      sessionId: query.sessionId ?? null,
+      originCityId: query.originCityId,
+      destinationCityId: query.destinationCityId,
+      queryDate: start,
+      passengers: query.passengers,
+      sort: query.sort,
+      filtersJson: cleanObject({
+        departureWindow: query.departureWindow,
+        minPriceMinor: query.minPriceMinor?.toString(),
+        maxPriceMinor: query.maxPriceMinor?.toString(),
+        parcelSupported: query.parcelSupported,
+        wholeCarAvailable: query.wholeCarAvailable,
+        luggageRequired: query.luggageRequired,
+        vehicleBodyType: query.vehicleBodyType,
+      }) as Prisma.InputJsonValue,
+      resultCount: sorted.length,
+    },
+  });
+  return {
+    trips: pageTrips.map(publicTripDto),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: sorted.length,
+      hasMore: startIndex + query.pageSize < sorted.length,
+    },
+  };
+}
+
 async function writeTripTimeline(
   tx: Prisma.TransactionClient,
   tripId: string,
@@ -1851,6 +2074,58 @@ async function registerTripSupplyRoutes(http: {
       return;
     }
     res.json({ route });
+  });
+
+  http.get("/api/v1/trips/search", async (req, res) => {
+    try {
+      res.json(await searchPublicTrips(req.query));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/trips/public/:tripId", async (req, res) => {
+    const trip = await prisma.trip.findFirst({
+      where: {
+        id: String(req.params.tripId),
+        status: { in: ["PUBLISHED", "BOOKING_OPEN"] },
+        cancelledAt: null,
+        blockedAt: null,
+        departureAtUtc: { gt: new Date() },
+        availableSeatCount: { gt: 0 },
+        driverProfile: { verificationStatus: "APPROVED" },
+        vehicle: { status: "APPROVED", archivedAt: null, suspendedAt: null },
+      },
+      include: publicTripInclude,
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("PUBLIC_TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ trip: publicTripDto(trip) });
+  });
+
+  http.post("/api/v1/search-events", async (req, res) => {
+    try {
+      const parsed = searchEventSchema.parse(req.body ?? {});
+      await prisma.searchEvent.create({
+        data: {
+          sessionId: parsed.sessionId ?? null,
+          tripId: parsed.tripId ?? null,
+          originCityId: parsed.originCityId ?? null,
+          destinationCityId: parsed.destinationCityId ?? null,
+          queryDate: parsed.queryDate ?? null,
+          passengers: parsed.passengers,
+          sort: parsed.sort ?? null,
+          selectedResultRank: parsed.selectedResultRank ?? null,
+          type: parsed.type,
+          filtersJson: (parsed.filters ?? {}) as Prisma.InputJsonValue,
+        },
+      });
+      res.status(202).json({ accepted: true });
+    } catch (error) {
+      handleError(res, req, error);
+    }
   });
 
   http.get("/api/v1/trips/mine", async (req, res) => {
@@ -4415,6 +4690,7 @@ async function bootstrap() {
     ...(phase2OpenApiPaths() as typeof document.paths),
     ...(phase3OpenApiPaths() as typeof document.paths),
     ...(phase4OpenApiPaths() as typeof document.paths),
+    ...(phase5OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));

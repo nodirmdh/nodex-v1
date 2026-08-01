@@ -242,6 +242,7 @@ model User {
   reviewedDriverVerificationApplications  DriverVerificationApplication[] @relation("DriverVerificationReviewedBy")
   driverVerificationReviews               DriverVerificationReview[]
   vehicleModerationReviews                VehicleModerationReview[]
+  searchEvents                            SearchEvent[]
 
   @@index([status])
   @@index([phone])
@@ -501,10 +502,12 @@ model City {
   pickupPoints PickupPoint[]
   originRoutes Route[]       @relation("OriginCityRoutes")
   destinationRoutes Route[]  @relation("DestinationCityRoutes")
-  originTrips  Trip[]        @relation("OriginCityTrips")
-  destinationTrips Trip[]    @relation("DestinationCityTrips")
-  routeStops   RouteStop[]
-  tripStops    TripStop[]
+  originTrips             Trip[]        @relation("OriginCityTrips")
+  destinationTrips        Trip[]        @relation("DestinationCityTrips")
+  originSearchEvents      SearchEvent[] @relation("OriginCitySearchEvents")
+  destinationSearchEvents SearchEvent[] @relation("DestinationCitySearchEvents")
+  routeStops              RouteStop[]
+  tripStops               TripStop[]
 
   @@index([regionId, isActive, sortOrder])
   @@index([isLaunchCity, isActive, sortOrder])
@@ -852,12 +855,39 @@ model Trip {
   execution                     TripExecution?
   seats                         TripSeat[]
   bookings                      Booking[]
+  searchEvents                  SearchEvent[]
 
   @@index([driverProfileId, status, departureAtUtc])
   @@index([vehicleId, status, departureAtUtc])
   @@index([originCityId, destinationCityId, departureAtUtc])
   @@index([status, departureAtUtc])
   @@index([routeId])
+}
+
+model SearchEvent {
+  id                  String   @id @default(cuid())
+  sessionId           String?
+  userId              String?
+  originCityId        String?
+  destinationCityId   String?
+  tripId              String?
+  queryDate           DateTime?
+  passengers          Int      @default(1)
+  sort                String?
+  filtersJson         Json?
+  resultCount         Int      @default(0)
+  selectedResultRank  Int?
+  type                String   @default("SEARCH_PERFORMED")
+  createdAt           DateTime @default(now())
+  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  originCity          City?    @relation("OriginCitySearchEvents", fields: [originCityId], references: [id], onDelete: SetNull)
+  destinationCity     City?    @relation("DestinationCitySearchEvents", fields: [destinationCityId], references: [id], onDelete: SetNull)
+  trip                Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([originCityId, destinationCityId, createdAt])
+  @@index([tripId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model TripStop {

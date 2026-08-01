@@ -199,3 +199,78 @@ export interface TripPublicationValidation {
   canPublish: boolean;
   errors: Array<{ code: string; field?: string; message: string }>;
 }
+
+export type TripSearchSort = "departure_asc" | "price_asc" | "price_desc" | "available_seats_desc";
+
+export interface PublicCitySummary {
+  id: string;
+  code: string;
+  nameRu: string;
+  nameUz: string;
+  nameKaa: string;
+  timezone: string;
+}
+
+export interface PublicTripStop {
+  id: string;
+  city: PublicCitySummary;
+  order: number;
+  type: TripStopType;
+  plannedAtUtc: string | null;
+  label: string | null;
+  address: string | null;
+}
+
+export interface PublicTripDriver {
+  displayName: string;
+  verified: boolean;
+  reliabilityScore: number;
+}
+
+export interface PublicTripVehicle {
+  make: string;
+  model: string;
+  year: number | null;
+  color: string | null;
+  bodyType: string | null;
+  passengerSeatCount: number;
+  amenities: unknown;
+  verified: boolean;
+}
+
+export interface PublicTripDto {
+  id: string;
+  origin: PublicCitySummary | null;
+  destination: PublicCitySummary | null;
+  originCity: string;
+  destinationCity: string;
+  departureAtUtc: string;
+  arrivalEstimateAtUtc: string | null;
+  timezone: string;
+  availableSeatCount: number;
+  passengerSeatCapacity: number;
+  pricePerSeatMinor: string;
+  wholeCarPriceMinor: string | null;
+  parcelSupported: boolean;
+  parcelPriceMinor: string | null;
+  currency: CurrencyCode;
+  luggageRules: string | null;
+  route: {
+    id: string;
+    distanceKm: number | null;
+    estimatedDurationMinutes: number | null;
+  } | null;
+  stops: PublicTripStop[];
+  driver: PublicTripDriver;
+  vehicle: PublicTripVehicle;
+}
+
+export interface TripSearchResponse {
+  trips: PublicTripDto[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
