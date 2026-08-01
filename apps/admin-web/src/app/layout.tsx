@@ -15,6 +15,7 @@ const nav: Array<[string, string]> = [
   ["Routes", "/routes"],
   ["Trips", "/trips"],
   ["Bookings", "/bookings"],
+  ["Parcels", "/parcels"],
   ["Support", "/support"],
   ["Design", "/design-system"],
 ];
