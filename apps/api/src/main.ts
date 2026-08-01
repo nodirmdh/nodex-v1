@@ -18,6 +18,9 @@ import {
   bookingCancelSchema,
   bookingConfirmSchema,
   bookingHoldSchema,
+  boardingCodeCanAttempt,
+  boardingCodeRegenerateSchema,
+  boardingCodeVerifySchema,
   driverBookingDecisionSchema,
   driverDocumentCompleteSchema,
   driverDocumentPresignSchema,
@@ -27,11 +30,15 @@ import {
   generateSeatLayout,
   pickupPointSchema,
   regionSchema,
+  operationReasonSchema,
   routeSchema,
   searchEventSchema,
   tripAdminActionSchema,
   tripCancelSchema,
+  tripCompleteSchema,
   tripDraftSchema,
+  tripStartSchema,
+  evaluateTripTransition,
   tripSearchQuerySchema,
   tripStopSchema,
   vehicleDocumentCompleteSchema,
@@ -60,6 +67,9 @@ const accessTokenSecret = env.AUTH_ACCESS_TOKEN_SECRET || env.JWT_SECRET;
 const refreshCookieName = "nodex_refresh";
 const bookingHoldTtlMs = durationToMs(process.env.BOOKING_HOLD_TTL ?? "10m");
 const bookingLockTtlMs = durationToMs(process.env.BOOKING_LOCK_TTL ?? "15s");
+const boardingCodeTtlMs = durationToMs(process.env.BOARDING_CODE_TTL ?? "2h");
+const boardingCodeLength = Number(process.env.BOARDING_CODE_LENGTH ?? 6);
+const boardingCodeMaxAttempts = Number(process.env.BOARDING_CODE_MAX_ATTEMPTS ?? 5);
 const appContextRoles: Record<AppContext, RoleCode> = {
   CLIENT_APP: "CLIENT",
   DRIVER_APP: "DRIVER",
@@ -2302,6 +2312,477 @@ async function enqueueBookingEvent(
   await tx.outboxEvent.create({ data: { type, payload: { bookingId, ...payload } } });
 }
 
+async function writeTripOperationEvent(
+  tx: Prisma.TransactionClient,
+  tripId: string,
+  actorUserId: string | null,
+  type: string,
+  payload?: unknown,
+) {
+  await tx.tripOperationEvent.create({
+    data: { tripId, actorUserId, type, payload: payload as Prisma.InputJsonValue },
+  });
+  await tx.tripTimelineEvent.create({
+    data: { tripId, type, payload: payload as Prisma.InputJsonValue },
+  });
+}
+
+async function writeBookingOperationEvent(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  actorUserId: string | null,
+  type: string,
+  payload?: unknown,
+) {
+  await tx.bookingOperationEvent.create({
+    data: { bookingId, actorUserId, type, payload: payload as Prisma.InputJsonValue },
+  });
+  await writeBookingEvent(tx, bookingId, actorUserId, type, payload);
+}
+
+async function writeTripOperationAudit(
+  tx: Prisma.TransactionClient,
+  action: string,
+  tripId: string,
+  actor: BookingActor,
+  payload?: unknown,
+) {
+  const data: Prisma.AuditEventUncheckedCreateInput = {
+    actorUserId: actor.userId,
+    action,
+    entityType: "Trip",
+    entityId: tripId,
+    requestId: actor.requestId ?? null,
+  };
+  if (payload !== undefined) data.newValueJson = payload as Prisma.InputJsonValue;
+  await tx.auditEvent.create({ data });
+}
+
+async function enqueueTripEvent(
+  tx: Prisma.TransactionClient,
+  type: string,
+  tripId: string,
+  payload: Record<string, unknown> = {},
+) {
+  await tx.outboxEvent.create({ data: { type, payload: { tripId, ...payload } } });
+}
+
+function boardingCodePlain(length = boardingCodeLength) {
+  const safeLength = Math.max(4, Math.min(6, Math.floor(length)));
+  const max = 10 ** safeLength;
+  const value = Number.parseInt(randomBytes(4).toString("hex"), 16) % max;
+  return value.toString().padStart(safeLength, "0");
+}
+
+function serializeBoardingCodeForClient(
+  code: {
+    id: string;
+    bookingId: string;
+    status: string;
+    codeLength: number;
+    expiresAt: Date;
+    attemptsCount: number;
+    maxAttempts: number;
+    lockedAt: Date | null;
+    verifiedAt: Date | null;
+  },
+  plainCode?: string,
+) {
+  return {
+    id: code.id,
+    bookingId: code.bookingId,
+    code: plainCode,
+    status: code.status,
+    codeLength: code.codeLength,
+    expiresAt: code.expiresAt,
+    attemptsRemaining: Math.max(0, code.maxAttempts - code.attemptsCount),
+    lockedAt: code.lockedAt,
+    verifiedAt: code.verifiedAt,
+  };
+}
+
+async function createBoardingCode(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  actorUserId: string | null,
+  now = new Date(),
+) {
+  const plain = boardingCodePlain();
+  const expiresAt = new Date(now.getTime() + boardingCodeTtlMs);
+  await tx.boardingCode.updateMany({
+    where: { bookingId, status: "ACTIVE", verifiedAt: null },
+    data: { status: "REPLACED" },
+  });
+  const code = await tx.boardingCode.create({
+    data: {
+      bookingId,
+      codeHash: hashSecret(plain),
+      codeLength: plain.length,
+      expiresAt,
+      maxAttempts: boardingCodeMaxAttempts,
+    },
+  });
+  await writeBookingOperationEvent(tx, bookingId, actorUserId, "BOARDING_CODE_GENERATED", {
+    expiresAt,
+  });
+  await enqueueBookingEvent(tx, "boarding.code.generated", bookingId, { expiresAt });
+  return { code, plain };
+}
+
+async function activeBoardingCodeForBooking(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  actorUserId: string | null,
+) {
+  const now = new Date();
+  const existing = await tx.boardingCode.findFirst({
+    where: { bookingId, status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+  });
+  if (
+    existing &&
+    boardingCodeCanAttempt({
+      status: existing.status,
+      expiresAt: existing.expiresAt,
+      attemptsCount: existing.attemptsCount,
+      maxAttempts: existing.maxAttempts,
+      lockedAt: existing.lockedAt,
+      verifiedAt: existing.verifiedAt,
+      now,
+    }).ok
+  ) {
+    return { code: existing, plain: undefined };
+  }
+  return createBoardingCode(tx, bookingId, actorUserId, now);
+}
+
+function activeBookingWhere(): Prisma.BookingWhereInput {
+  return {
+    status: {
+      in: ["PENDING_CONFIRMATION", "CONFIRMED", "BOARDING", "IN_PROGRESS"],
+    },
+  } as Prisma.BookingWhereInput;
+}
+
+async function driverOwnTripForOperation(tx: Prisma.TransactionClient, userId: string, tripId: string) {
+  const profile = await tx.driverProfile.findUnique({
+    where: { userId },
+    include: { user: true },
+  });
+  if (!profile || profile.verificationStatus !== "APPROVED") return null;
+  return tx.trip.findFirst({
+    where: { id: tripId, driverProfileId: profile.id, vehicle: { status: "APPROVED" } },
+    include: { bookings: { include: { seats: true, passengers: true } }, vehicle: true },
+  });
+}
+
+async function transitionTripStatus(
+  tx: Prisma.TransactionClient,
+  trip: { id: string; status: string; version: number },
+  action: Parameters<typeof evaluateTripTransition>[1],
+  actor: BookingActor,
+  reason?: string,
+) {
+  const result = evaluateTripTransition(
+    trip.status as Parameters<typeof evaluateTripTransition>[0],
+    action,
+  );
+  if (!result.ok) {
+    throw Object.assign(new Error(result.message), { statusCode: 409, code: result.code });
+  }
+  if (result.idempotent) return { status: result.toStatus, idempotent: true };
+  const tripData: Prisma.TripUpdateManyMutationInput = {
+    status: result.toStatus,
+    version: { increment: 1 },
+  };
+  if (result.toStatus === "CANCELLED") {
+    tripData.cancelledAt = new Date();
+    tripData.cancellationReason = reason ?? null;
+  }
+  const saved = await tx.trip.updateMany({
+    where: { id: trip.id, version: trip.version },
+    data: tripData,
+  });
+  if (saved.count !== 1) {
+    throw Object.assign(new Error("Trip was modified concurrently"), {
+      statusCode: 409,
+      code: "TRIP_VERSION_CONFLICT",
+    });
+  }
+  await tx.tripStatusTransition.create({
+    data: {
+      tripId: trip.id,
+      actorUserId: actor.userId,
+      fromStatus: trip.status as never,
+      toStatus: result.toStatus as never,
+      reason: reason ?? null,
+    },
+  });
+  await writeTripOperationEvent(tx, trip.id, actor.userId, `TRIP_${result.toStatus}`, {
+    fromStatus: trip.status,
+    toStatus: result.toStatus,
+    reason,
+  });
+  await writeTripOperationAudit(tx, `TRIP_${result.toStatus}`, trip.id, actor, { reason });
+  await enqueueTripEvent(tx, `trip.${result.toStatus.toLowerCase()}`, trip.id, { reason });
+  return { status: result.toStatus, idempotent: false };
+}
+
+async function startBoardingTrip(tripId: string, actor: BookingActor) {
+  return prisma.$transaction(async (tx) => {
+    const trip = await driverOwnTripForOperation(tx, actor.userId, tripId);
+    if (!trip) {
+      throw Object.assign(new Error("Trip not found"), { statusCode: 404, code: "TRIP_NOT_FOUND" });
+    }
+    await transitionTripStatus(tx, trip, "START_BOARDING", actor);
+    const confirmed = trip.bookings.filter((booking) => booking.status === "CONFIRMED");
+    for (const booking of confirmed) {
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: "BOARDING", version: { increment: 1 } },
+      });
+      await activeBoardingCodeForBooking(tx, booking.id, actor.userId);
+      await writeBookingOperationEvent(tx, booking.id, actor.userId, "BOOKING_BOARDING_READY", {
+        tripId,
+      });
+    }
+    return tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: tripInclude });
+  });
+}
+
+async function boardBooking(bookingId: string, code: string, actor: BookingActor) {
+  return prisma.$transaction(async (tx) => {
+    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
+      include: { trip: true, seats: true },
+    });
+    if (!booking) {
+      throw Object.assign(new Error("Booking not found"), {
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+      });
+    }
+    if (booking.trip.status !== "BOARDING" || booking.status !== "BOARDING") {
+      throw Object.assign(new Error("Booking is not ready for boarding"), {
+        statusCode: 409,
+        code: "BOARDING_NOT_ALLOWED",
+      });
+    }
+    const boardingCode = await tx.boardingCode.findFirst({
+      where: { bookingId: booking.id, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!boardingCode) {
+      throw Object.assign(new Error("Boarding code not found"), {
+        statusCode: 404,
+        code: "BOARDING_CODE_NOT_FOUND",
+      });
+    }
+    const guard = boardingCodeCanAttempt({ ...boardingCode, now: new Date() });
+    if (!guard.ok) {
+      throw Object.assign(new Error(guard.code), { statusCode: 409, code: guard.code });
+    }
+    const success = boardingCode.codeHash === hashSecret(code);
+    const attemptsCount = boardingCode.attemptsCount + 1;
+    await tx.boardingAttempt.create({
+      data: { boardingCodeId: boardingCode.id, actorUserId: actor.userId, success },
+    });
+    if (!success) {
+      const failedCodeData: Prisma.BoardingCodeUpdateInput = {
+        attemptsCount,
+        status: attemptsCount >= boardingCode.maxAttempts ? "LOCKED" : "ACTIVE",
+      };
+      if (attemptsCount >= boardingCode.maxAttempts) failedCodeData.lockedAt = new Date();
+      await tx.boardingCode.update({
+        where: { id: boardingCode.id },
+        data: failedCodeData,
+      });
+      throw Object.assign(new Error("Invalid boarding code"), {
+        statusCode: 400,
+        code: "BOARDING_CODE_INVALID",
+      });
+    }
+    await tx.boardingCode.update({
+      where: { id: boardingCode.id },
+      data: { attemptsCount, verifiedAt: new Date(), status: "VERIFIED" },
+    });
+    await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: "BOARDING", version: { increment: 1 } },
+    });
+    await tx.tripSeat.updateMany({
+      where: { tripId: booking.tripId, seatKey: { in: booking.seats.map((seat) => seat.seatKey) } },
+      data: { status: "OCCUPIED", version: { increment: 1 } },
+    });
+    await tx.bookingSeat.updateMany({
+      where: { bookingId: booking.id, status: "BOOKED" },
+      data: { status: "OCCUPIED" },
+    });
+    await writeBookingOperationEvent(tx, booking.id, actor.userId, "BOOKING_BOARDED", {
+      tripId: booking.tripId,
+    });
+    await writeBookingAudit(tx, "BOOKING_BOARDED", booking.id, actor, { tripId: booking.tripId });
+    await enqueueBookingEvent(tx, "boarding.confirmed", booking.id, { tripId: booking.tripId });
+    return tx.booking.findUniqueOrThrow({ where: { id: booking.id }, include: bookingInclude });
+  });
+}
+
+async function markClientNoShow(bookingId: string, actor: BookingActor, reason: string) {
+  return prisma.$transaction(async (tx) => {
+    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const booking = await tx.booking.findFirst({
+      where: {
+        id: bookingId,
+        trip: { driverProfileId: profile?.id ?? "", status: "BOARDING" },
+        status: { in: ["CONFIRMED", "PENDING_CONFIRMATION", "BOARDING"] },
+      },
+      include: { seats: true, trip: true },
+    });
+    if (!booking) {
+      throw Object.assign(new Error("Booking not found"), {
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+      });
+    }
+    if (booking.status === "NO_SHOW_CLIENT") {
+      return tx.booking.findUniqueOrThrow({ where: { id: booking.id }, include: bookingInclude });
+    }
+    await tx.noShowRecord.create({
+      data: {
+        tripId: booking.tripId,
+        bookingId: booking.id,
+        actorUserId: actor.userId,
+        actorRole: actor.role,
+        type: "CLIENT",
+        reason,
+      },
+    });
+    await tx.tripSeat.updateMany({
+      where: { tripId: booking.tripId, seatKey: { in: booking.seats.map((seat) => seat.seatKey) } },
+      data: { status: "AVAILABLE", version: { increment: 1 } },
+    });
+    await tx.bookingSeat.updateMany({
+      where: { bookingId: booking.id },
+      data: { status: "RELEASED" },
+    });
+    const saved = await tx.booking.update({
+      where: { id: booking.id },
+      data: { status: "NO_SHOW_CLIENT", cancellationReason: reason, version: { increment: 1 } },
+      include: bookingInclude,
+    });
+    await writeBookingOperationEvent(tx, booking.id, actor.userId, "BOOKING_NO_SHOW_CLIENT", {
+      reason,
+    });
+    await writeBookingAudit(tx, "BOOKING_NO_SHOW_CLIENT", booking.id, actor, { reason });
+    await enqueueBookingEvent(tx, "booking.no_show_client", booking.id, { tripId: booking.tripId });
+    return saved;
+  });
+}
+
+async function startTripOperation(tripId: string, actor: BookingActor, allowUnresolvedPassengers: boolean) {
+  return prisma.$transaction(async (tx) => {
+    const trip = await driverOwnTripForOperation(tx, actor.userId, tripId);
+    if (!trip) {
+      throw Object.assign(new Error("Trip not found"), { statusCode: 404, code: "TRIP_NOT_FOUND" });
+    }
+    const unresolved = trip.bookings.filter((booking) => booking.status === "BOARDING");
+    const boarded = trip.bookings.filter((booking) =>
+      booking.seats.some((seat) => seat.status === "OCCUPIED"),
+    );
+    if (!allowUnresolvedPassengers && unresolved.length !== boarded.length) {
+      throw Object.assign(new Error("Unresolved passengers must be boarded or marked no-show"), {
+        statusCode: 409,
+        code: "TRIP_UNRESOLVED_PASSENGERS",
+      });
+    }
+    await transitionTripStatus(tx, trip, "START_TRIP", actor);
+    await tx.booking.updateMany({
+      where: { tripId, status: "BOARDING", seats: { some: { status: "OCCUPIED" } } },
+      data: { status: "IN_PROGRESS", version: { increment: 1 } },
+    });
+    await tx.tripExecution.upsert({
+      where: { tripId },
+      create: { tripId, status: "IN_PROGRESS", startedAt: new Date() },
+      update: { status: "IN_PROGRESS", startedAt: new Date() },
+    });
+    await enqueueTripEvent(tx, "trip.started", tripId);
+    return tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: tripInclude });
+  });
+}
+
+async function completeTripOperation(tripId: string, actor: BookingActor, notes?: string) {
+  return prisma.$transaction(async (tx) => {
+    const trip = await driverOwnTripForOperation(tx, actor.userId, tripId);
+    if (!trip) {
+      throw Object.assign(new Error("Trip not found"), { statusCode: 404, code: "TRIP_NOT_FOUND" });
+    }
+    await transitionTripStatus(tx, trip, "COMPLETE_TRIP", actor);
+    await tx.booking.updateMany({
+      where: { tripId, status: { in: ["IN_PROGRESS", "BOARDING"] } },
+      data: { status: "COMPLETED", version: { increment: 1 } },
+    });
+    await tx.tripExecution.upsert({
+      where: { tripId },
+      create: { tripId, status: "COMPLETED", startedAt: new Date(), endedAt: new Date() },
+      update: { status: "COMPLETED", endedAt: new Date() },
+    });
+    const bookings = await tx.booking.findMany({ where: { tripId } });
+    const summaryCreate: Prisma.TripCompletionSummaryUncheckedCreateInput = {
+      tripId,
+      completedByUserId: actor.userId,
+      boardedCount: bookings.filter((booking) => booking.status === "COMPLETED").length,
+      noShowClientCount: bookings.filter((booking) => booking.status === "NO_SHOW_CLIENT").length,
+      cancelledCount: bookings.filter((booking) => String(booking.status).startsWith("CANCELLED")).length,
+      totalBookingsCount: bookings.length,
+    };
+    if (notes) summaryCreate.notes = notes;
+    const summaryUpdate: Prisma.TripCompletionSummaryUncheckedUpdateInput = {
+      completedByUserId: actor.userId,
+      completedAt: new Date(),
+    };
+    if (notes) summaryUpdate.notes = notes;
+    await tx.tripCompletionSummary.upsert({
+      where: { tripId },
+      create: summaryCreate,
+      update: summaryUpdate,
+    });
+    await enqueueTripEvent(tx, "trip.completed", tripId);
+    return tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: tripInclude });
+  });
+}
+
+async function cancelTripOperational(
+  tripId: string,
+  actor: BookingActor,
+  reason: string,
+  bookingStatus: "CANCELLED_BY_DRIVER" | "CANCELLED_BY_ADMIN",
+) {
+  return prisma.$transaction(async (tx) => {
+    const trip =
+      actor.role === "ADMIN"
+        ? await tx.trip.findUnique({ where: { id: tripId }, include: { bookings: { include: { seats: true } } } })
+        : await driverOwnTripForOperation(tx, actor.userId, tripId);
+    if (!trip) {
+      throw Object.assign(new Error("Trip not found"), { statusCode: 404, code: "TRIP_NOT_FOUND" });
+    }
+    await transitionTripStatus(tx, trip, "CANCEL_TRIP", actor, reason);
+    await tx.tripCancellation.create({
+      data: { tripId, actorUserId: actor.userId, actorRole: actor.role, reason },
+    });
+    await tx.booking.updateMany({
+      where: { tripId, ...activeBookingWhere() },
+      data: { status: bookingStatus, cancelledAt: new Date(), cancellationReason: reason, version: { increment: 1 } },
+    });
+    await tx.tripSeat.updateMany({
+      where: { tripId, status: { in: ["HELD", "BOOKED", "OCCUPIED"] } },
+      data: { status: "AVAILABLE", version: { increment: 1 } },
+    });
+    await enqueueTripEvent(tx, "trip.cancelled", tripId, { actorRole: actor.role, reason });
+    return tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: tripInclude });
+  });
+}
+
 function requestHash(value: unknown) {
   return createHash("sha256")
     .update(JSON.stringify(value ?? {}))
@@ -3318,52 +3799,18 @@ async function registerTripSupplyRoutes(http: {
 
   http.post("/api/v1/admin/trips/:tripId/cancel", async (req, res) => {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
-    const parsed = tripAdminActionSchema.parse(req.body ?? {});
-    const trip = await prisma.trip.findUnique({
-      where: { id: String(req.params.tripId) },
-      include: tripInclude,
-    });
-    if (!trip) {
-      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
-      return;
-    }
-    if (trip.status === "CANCELLED") {
-      res.json({ trip: serializeTrip(trip) });
-      return;
-    }
-    const updated = await prisma.$transaction(async (tx) => {
-      const saved = await tx.trip.update({
-        where: { id: trip.id },
-        data: {
-          status: "CANCELLED",
-          cancelledAt: new Date(),
-          cancellationReason: parsed.reason,
-          version: { increment: 1 },
-        },
-      });
-      await tx.tripModerationEvent.create({
-        data: {
-          tripId: saved.id,
-          actorUserId: req.auth!.userId,
-          action: "CANCEL",
-          reason: parsed.reason,
-        },
-      });
-      await writeTripTimeline(tx, saved.id, "TRIP_CANCELLED_BY_ADMIN", { reason: parsed.reason });
-      await writeTripAudit(
-        tx,
-        "TRIP_CANCELLED_BY_ADMIN",
-        saved.id,
-        req.auth!.userId,
-        req.requestId,
+    try {
+      const parsed = tripAdminActionSchema.parse(req.body ?? {});
+      const trip = await cancelTripOperational(
+        String(req.params.tripId),
+        { userId: req.auth!.userId, role: "ADMIN", requestId: req.requestId },
         parsed.reason,
+        "CANCELLED_BY_ADMIN",
       );
-      await tx.outboxEvent.create({
-        data: { type: "trip.cancelled", payload: { tripId: saved.id, reason: parsed.reason } },
-      });
-      return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
-    });
-    res.json({ trip: serializeTrip(updated) });
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
   });
 
   http.get("/api/v1/admin/trips/:tripId/history", async (req, res) => {
@@ -3777,6 +4224,94 @@ async function registerBookingRoutes(http: {
     res.json({ booking: serializeBooking(booking) });
   });
 
+  http.get("/api/v1/bookings/:bookingId/boarding-code", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findFirst({
+          where: { id: String(req.params.bookingId), clientId: req.auth!.userId },
+          include: { trip: true },
+        });
+        if (!booking) {
+          throw Object.assign(new Error("Booking not found"), {
+            statusCode: 404,
+            code: "BOOKING_NOT_FOUND",
+          });
+        }
+        if (booking.trip.status !== "BOARDING" || booking.status !== "BOARDING") {
+          throw Object.assign(new Error("Boarding code is not available"), {
+            statusCode: 409,
+            code: "BOARDING_CODE_NOT_AVAILABLE",
+          });
+        }
+        const code = await activeBoardingCodeForBooking(tx, booking.id, req.auth!.userId);
+        return code;
+      });
+      res.json({ boardingCode: serializeBoardingCodeForClient(result.code, result.plain) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/bookings/:bookingId/boarding-code/regenerate", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      boardingCodeRegenerateSchema.parse(req.body ?? {});
+      const result = await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findFirst({
+          where: { id: String(req.params.bookingId), clientId: req.auth!.userId },
+          include: { trip: true },
+        });
+        if (!booking) {
+          throw Object.assign(new Error("Booking not found"), {
+            statusCode: 404,
+            code: "BOOKING_NOT_FOUND",
+          });
+        }
+        if (booking.trip.status !== "BOARDING" || booking.status !== "BOARDING") {
+          throw Object.assign(new Error("Boarding code cannot be regenerated"), {
+            statusCode: 409,
+            code: "BOARDING_CODE_REGENERATE_NOT_ALLOWED",
+          });
+        }
+        return createBoardingCode(tx, booking.id, req.auth!.userId);
+      });
+      res.json({ boardingCode: serializeBoardingCodeForClient(result.code, result.plain) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/bookings/:bookingId/operation-status", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const booking = await prisma.booking.findFirst({
+      where: { id: String(req.params.bookingId), clientId: req.auth!.userId },
+      include: {
+        trip: true,
+        seats: true,
+        timelineEvents: { orderBy: { createdAt: "desc" }, take: 20 },
+        boardingCodes: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+    if (!booking) {
+      res.status(404).json(errorBody("BOOKING_NOT_FOUND", "Booking not found", req));
+      return;
+    }
+    res.json({
+      status: {
+        bookingId: booking.id,
+        tripId: booking.tripId,
+        tripStatus: booking.trip.status,
+        bookingStatus: booking.status,
+        seats: booking.seats,
+        boardingCode: booking.boardingCodes[0]
+          ? serializeBoardingCodeForClient(booking.boardingCodes[0])
+          : null,
+        timeline: booking.timelineEvents,
+      },
+    });
+  });
+
   http.post("/api/v1/bookings/:bookingId/cancel", async (req, res) => {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
     try {
@@ -3806,6 +4341,152 @@ async function registerBookingRoutes(http: {
       orderBy: { createdAt: "desc" },
     });
     res.json({ bookings: bookings.map(serializeBooking) });
+  });
+
+  http.get("/api/v1/driver/trips/:tripId/passengers", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const trip = await prisma.trip.findFirst({
+      where: { id: String(req.params.tripId), driverProfileId: profile?.id ?? "" },
+      include: { bookings: { include: bookingInclude } },
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ trip: serializeBigInt(trip), passengers: trip.bookings.map(serializeBooking) });
+  });
+
+  http.get("/api/v1/driver/trips/:tripId/boarding", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const trip = await prisma.trip.findFirst({
+      where: { id: String(req.params.tripId), driverProfileId: profile?.id ?? "" },
+      include: {
+        bookings: { include: { passengers: true, seats: true, boardingCodes: { take: 1, orderBy: { createdAt: "desc" } } } },
+      },
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({
+      trip: serializeBigInt(trip),
+      boarding: trip.bookings.map((booking) => ({
+        bookingId: booking.id,
+        status: booking.status,
+        passengers: booking.passengers,
+        seats: booking.seats,
+        codeStatus: booking.boardingCodes[0]?.status ?? null,
+      })),
+    });
+  });
+
+  http.post("/api/v1/driver/trips/:tripId/start-boarding", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const trip = await startBoardingTrip(String(req.params.tripId), {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      });
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/bookings/:bookingId/board", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = boardingCodeVerifySchema.parse(req.body ?? {});
+      const booking = await boardBooking(String(req.params.bookingId), parsed.code, {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      });
+      res.json({ booking: serializeBooking(booking) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/bookings/:bookingId/no-show", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = operationReasonSchema.parse(req.body ?? {});
+      const booking = await markClientNoShow(String(req.params.bookingId), {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      }, parsed.reason);
+      res.json({ booking: serializeBooking(booking) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/trips/:tripId/start", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = tripStartSchema.parse(req.body ?? {});
+      const trip = await startTripOperation(String(req.params.tripId), {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      }, parsed.allowUnresolvedPassengers);
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/trips/:tripId/complete", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = tripCompleteSchema.parse(req.body ?? {});
+      const trip = await completeTripOperation(String(req.params.tripId), {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      }, parsed.notes);
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/trips/:tripId/cancel", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = operationReasonSchema.parse(req.body ?? {});
+      const trip = await cancelTripOperational(String(req.params.tripId), {
+        userId: req.auth!.userId,
+        role: "DRIVER",
+        requestId: req.requestId,
+      }, parsed.reason, "CANCELLED_BY_DRIVER");
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/driver/trips/:tripId/operations", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const trip = await prisma.trip.findFirst({
+      where: { id: String(req.params.tripId), driverProfileId: profile?.id ?? "" },
+      include: {
+        operationEvents: { orderBy: { createdAt: "desc" }, take: 50 },
+        statusTransitions: { orderBy: { createdAt: "desc" }, take: 50 },
+        completionSummary: true,
+      },
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ operations: serializeBigInt(trip) });
   });
 
   http.get("/api/v1/driver/bookings/:bookingId", async (req, res) => {
@@ -3910,6 +4591,92 @@ async function registerBookingRoutes(http: {
       return;
     }
     res.json({ timeline: booking.timelineEvents, cancellations: booking.cancellations });
+  });
+
+  http.get("/api/v1/admin/trips/:tripId/operations", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const trip = await prisma.trip.findUnique({
+      where: { id: String(req.params.tripId) },
+      include: {
+        driverProfile: { include: { user: true } },
+        vehicle: true,
+        bookings: true,
+        operationEvents: { orderBy: { createdAt: "desc" }, take: 100 },
+        statusTransitions: { orderBy: { createdAt: "desc" }, take: 100 },
+        noShowRecords: { orderBy: { createdAt: "desc" }, take: 100 },
+        cancellations: { orderBy: { createdAt: "desc" }, take: 20 },
+        completionSummary: true,
+      },
+    });
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({ operations: serializeBigInt(trip) });
+  });
+
+  http.post("/api/v1/admin/trips/:tripId/no-show-driver", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = operationReasonSchema.parse(req.body ?? {});
+      const trip = await prisma.$transaction(async (tx) => {
+        const existing = await tx.trip.findUnique({
+          where: { id: String(req.params.tripId) },
+          include: { bookings: true },
+        });
+        if (!existing) {
+          throw Object.assign(new Error("Trip not found"), {
+            statusCode: 404,
+            code: "TRIP_NOT_FOUND",
+          });
+        }
+        if (existing.status !== "CANCELLED") {
+          await tx.trip.update({
+            where: { id: existing.id },
+            data: {
+              status: "CANCELLED",
+              cancelledAt: new Date(),
+              cancellationReason: parsed.reason,
+              version: { increment: 1 },
+            },
+          });
+        }
+        await tx.noShowRecord.create({
+          data: {
+            tripId: existing.id,
+            actorUserId: req.auth!.userId,
+            actorRole: "ADMIN",
+            type: "DRIVER",
+            reason: parsed.reason,
+          },
+        });
+        await tx.booking.updateMany({
+          where: { tripId: existing.id, ...activeBookingWhere() },
+          data: {
+            status: "NO_SHOW_DRIVER",
+            cancellationReason: parsed.reason,
+            version: { increment: 1 },
+          },
+        });
+        await tx.tripSeat.updateMany({
+          where: { tripId: existing.id, status: { in: ["HELD", "BOOKED", "OCCUPIED"] } },
+          data: { status: "AVAILABLE", version: { increment: 1 } },
+        });
+        await writeTripOperationEvent(tx, existing.id, req.auth!.userId, "TRIP_NO_SHOW_DRIVER", {
+          reason: parsed.reason,
+        });
+        await writeTripOperationAudit(tx, "TRIP_NO_SHOW_DRIVER", existing.id, {
+          userId: req.auth!.userId,
+          role: "ADMIN",
+          requestId: req.requestId,
+        }, { reason: parsed.reason });
+        await enqueueTripEvent(tx, "trip.no_show_driver", existing.id, { reason: parsed.reason });
+        return tx.trip.findUniqueOrThrow({ where: { id: existing.id }, include: tripInclude });
+      });
+      res.json({ trip: serializeBigInt(trip) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
   });
 }
 

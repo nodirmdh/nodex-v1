@@ -244,6 +244,7 @@ enum AgeCategory {
 enum BookingSeatStatus {
   HELD
   BOOKED
+  OCCUPIED
   RELEASED
   CANCELLED
 }
