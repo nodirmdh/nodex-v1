@@ -49,6 +49,15 @@ test.describe("driver mini app foundation", () => {
     await expect(page.getByRole("button", { name: "Continue demo" })).toBeVisible();
   });
 
+  test("renders trip management shell", async ({ page }) => {
+    await page.goto(`${driver}/trips`);
+    await expect(page.getByRole("heading", { name: "Trips" })).toBeVisible();
+    await expect(page.getByLabel("Driver trip list")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Create trip wizard" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create trip" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Trip details" })).toBeVisible();
+  });
+
   test("renders vehicle management shell", async ({ page }) => {
     await page.goto(`${driver}/vehicles`);
     await expect(page.getByRole("heading", { name: "Vehicles" })).toBeVisible();
@@ -90,6 +99,23 @@ test.describe("admin web foundation", () => {
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Photo gallery" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
+  });
+
+  test("renders route directory administration", async ({ page }) => {
+    await page.goto(`${admin}/routes`);
+    await expect(page.getByRole("heading", { name: "Route directory" })).toBeVisible();
+    const routeTable = page.getByRole("region", { name: "Route directory table" });
+    await expect(routeTable).toBeVisible();
+    await expect(routeTable.getByRole("row", { name: /Nukus Urgench/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pickup points" })).toBeVisible();
+  });
+
+  test("renders trip supply administration", async ({ page }) => {
+    await page.goto(`${admin}/trips`);
+    await expect(page.getByRole("heading", { name: "Trip supply" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Admin trips table" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Moderation" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Block", exact: true })).toBeVisible();
   });
 });
 
