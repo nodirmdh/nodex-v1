@@ -147,6 +147,10 @@ export function defineAbilityFor(roles: string[]) {
     can("block", "Trip");
     can("unblock", "Trip");
     can("cancelAdmin", "Trip");
+    can("readOperationsAdmin", "Trip");
+    can("cancelOperationalAdmin", "Trip");
+    can("markDriverNoShow", "Trip");
+    can("forceTransition", "Trip");
     can("auditRead", "Trip");
   }
   if (roles.includes("DRIVER")) {
@@ -157,6 +161,13 @@ export function defineAbilityFor(roles: string[]) {
     can("publishOwn", "Trip");
     can("unpublishOwn", "Trip");
     can("cancelOwn", "Trip");
+    can("startBoardingOwn", "Trip");
+    can("startOwn", "Trip");
+    can("completeOwn", "Trip");
+    can("cancelOperationalOwn", "Trip");
+    can("readOperationsOwn", "Trip");
+    can("board", "Booking");
+    can("markNoShow", "Booking");
     can("readOwn", "DriverVerification");
     can("updateOwn", "DriverVerification");
     can("submitOwn", "DriverVerification");
@@ -170,6 +181,10 @@ export function defineAbilityFor(roles: string[]) {
     can("setPrimaryOwn", "Vehicle");
     can("archiveOwn", "Vehicle");
   }
-  if (roles.includes("CLIENT")) can("create", "Booking");
+  if (roles.includes("CLIENT")) {
+    can("create", "Booking");
+    can("readBoardingCodeOwn", "Booking");
+    can("regenerateBoardingCodeOwn", "Booking");
+  }
   return build();
 }

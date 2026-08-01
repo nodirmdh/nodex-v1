@@ -1406,6 +1406,148 @@ function phase6OpenApiPaths() {
   };
 }
 
+function phase7OpenApiPaths() {
+  const json = { "application/json": { schema: { type: "object" } } };
+  const bearer = [{ bearer: [] }];
+  const tripId = { name: "tripId", in: "path", required: true, schema: { type: "string" } };
+  const bookingId = { name: "bookingId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/bookings/{bookingId}/boarding-code": {
+      get: {
+        operationId: "getMyBoardingCode",
+        tags: ["Trip Operations"],
+        security: bearer,
+        parameters: [bookingId],
+        responses: { 200: { description: "Client boarding code", content: json } },
+      },
+    },
+    "/api/v1/bookings/{bookingId}/boarding-code/regenerate": {
+      post: {
+        operationId: "regenerateMyBoardingCode",
+        tags: ["Trip Operations"],
+        security: bearer,
+        parameters: [bookingId],
+        requestBody: { required: false, content: json },
+        responses: { 200: { description: "Regenerated boarding code", content: json } },
+      },
+    },
+    "/api/v1/bookings/{bookingId}/operation-status": {
+      get: {
+        operationId: "getMyBookingOperationStatus",
+        tags: ["Trip Operations"],
+        security: bearer,
+        parameters: [bookingId],
+        responses: { 200: { description: "Booking operation status", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/start-boarding": {
+      post: {
+        operationId: "startDriverTripBoarding",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Boarding started", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/passengers": {
+      get: {
+        operationId: "listDriverTripPassengers",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Driver passengers", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/boarding": {
+      get: {
+        operationId: "getDriverTripBoarding",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Driver boarding state", content: json } },
+      },
+    },
+    "/api/v1/driver/bookings/{bookingId}/board": {
+      post: {
+        operationId: "boardDriverBooking",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [bookingId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Boarded booking", content: json } },
+      },
+    },
+    "/api/v1/driver/bookings/{bookingId}/no-show": {
+      post: {
+        operationId: "markDriverBookingNoShow",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [bookingId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Client no-show marked", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/start": {
+      post: {
+        operationId: "startDriverTrip",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: false, content: json },
+        responses: { 200: { description: "Trip started", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/complete": {
+      post: {
+        operationId: "completeDriverTrip",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: false, content: json },
+        responses: { 200: { description: "Trip completed", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/cancel": {
+      post: {
+        operationId: "cancelDriverTripOperational",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Trip cancelled by driver", content: json } },
+      },
+    },
+    "/api/v1/driver/trips/{tripId}/operations": {
+      get: {
+        operationId: "getDriverTripOperations",
+        tags: ["Driver Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Driver trip operations", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/operations": {
+      get: {
+        operationId: "getAdminTripOperations",
+        tags: ["Admin Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Admin trip operations", content: json } },
+      },
+    },
+    "/api/v1/admin/trips/{tripId}/no-show-driver": {
+      post: {
+        operationId: "markAdminDriverNoShow",
+        tags: ["Admin Trip Operations"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Driver no-show marked", content: json } },
+      },
+    },
+  };
+}
+
 const editableVerificationStatuses = ["DRAFT", "CHANGES_REQUESTED"] as const;
 const requiredDocumentTypes = [
   "IDENTITY_FRONT",
@@ -6631,6 +6773,7 @@ async function bootstrap() {
     ...(phase4OpenApiPaths() as typeof document.paths),
     ...(phase5OpenApiPaths() as typeof document.paths),
     ...(phase6OpenApiPaths() as typeof document.paths),
+    ...(phase7OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));
