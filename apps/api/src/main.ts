@@ -2606,7 +2606,11 @@ function activeBookingWhere(): Prisma.BookingWhereInput {
   } as Prisma.BookingWhereInput;
 }
 
-async function driverOwnTripForOperation(tx: Prisma.TransactionClient, userId: string, tripId: string) {
+async function driverOwnTripForOperation(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  tripId: string,
+) {
   const profile = await tx.driverProfile.findUnique({
     where: { userId },
     include: { user: true },
@@ -2822,7 +2826,11 @@ async function markClientNoShow(bookingId: string, actor: BookingActor, reason: 
   });
 }
 
-async function startTripOperation(tripId: string, actor: BookingActor, allowUnresolvedPassengers: boolean) {
+async function startTripOperation(
+  tripId: string,
+  actor: BookingActor,
+  allowUnresolvedPassengers: boolean,
+) {
   return prisma.$transaction(async (tx) => {
     const trip = await driverOwnTripForOperation(tx, actor.userId, tripId);
     if (!trip) {
@@ -2875,7 +2883,8 @@ async function completeTripOperation(tripId: string, actor: BookingActor, notes?
       completedByUserId: actor.userId,
       boardedCount: bookings.filter((booking) => booking.status === "COMPLETED").length,
       noShowClientCount: bookings.filter((booking) => booking.status === "NO_SHOW_CLIENT").length,
-      cancelledCount: bookings.filter((booking) => String(booking.status).startsWith("CANCELLED")).length,
+      cancelledCount: bookings.filter((booking) => String(booking.status).startsWith("CANCELLED"))
+        .length,
       totalBookingsCount: bookings.length,
     };
     if (notes) summaryCreate.notes = notes;
@@ -2903,7 +2912,10 @@ async function cancelTripOperational(
   return prisma.$transaction(async (tx) => {
     const trip =
       actor.role === "ADMIN"
-        ? await tx.trip.findUnique({ where: { id: tripId }, include: { bookings: { include: { seats: true } } } })
+        ? await tx.trip.findUnique({
+            where: { id: tripId },
+            include: { bookings: { include: { seats: true } } },
+          })
         : await driverOwnTripForOperation(tx, actor.userId, tripId);
     if (!trip) {
       throw Object.assign(new Error("Trip not found"), { statusCode: 404, code: "TRIP_NOT_FOUND" });
@@ -2914,7 +2926,12 @@ async function cancelTripOperational(
     });
     await tx.booking.updateMany({
       where: { tripId, ...activeBookingWhere() },
-      data: { status: bookingStatus, cancelledAt: new Date(), cancellationReason: reason, version: { increment: 1 } },
+      data: {
+        status: bookingStatus,
+        cancelledAt: new Date(),
+        cancellationReason: reason,
+        version: { increment: 1 },
+      },
     });
     await tx.tripSeat.updateMany({
       where: { tripId, status: { in: ["HELD", "BOOKED", "OCCUPIED"] } },
@@ -4439,7 +4456,8 @@ async function registerBookingRoutes(http: {
       res.status(404).json(errorBody("BOOKING_NOT_FOUND", "Booking not found", req));
       return;
     }
-    res.json({
+    res.json(
+      serializeBigInt({
       status: {
         bookingId: booking.id,
         tripId: booking.tripId,
@@ -4451,7 +4469,8 @@ async function registerBookingRoutes(http: {
           : null,
         timeline: booking.timelineEvents,
       },
-    });
+      }),
+    );
   });
 
   http.post("/api/v1/bookings/:bookingId/cancel", async (req, res) => {
@@ -4505,7 +4524,13 @@ async function registerBookingRoutes(http: {
     const trip = await prisma.trip.findFirst({
       where: { id: String(req.params.tripId), driverProfileId: profile?.id ?? "" },
       include: {
-        bookings: { include: { passengers: true, seats: true, boardingCodes: { take: 1, orderBy: { createdAt: "desc" } } } },
+        bookings: {
+          include: {
+            passengers: true,
+            seats: true,
+            boardingCodes: { take: 1, orderBy: { createdAt: "desc" } },
+          },
+        },
       },
     });
     if (!trip) {
@@ -4557,11 +4582,15 @@ async function registerBookingRoutes(http: {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
       const parsed = operationReasonSchema.parse(req.body ?? {});
-      const booking = await markClientNoShow(String(req.params.bookingId), {
-        userId: req.auth!.userId,
-        role: "DRIVER",
-        requestId: req.requestId,
-      }, parsed.reason);
+      const booking = await markClientNoShow(
+        String(req.params.bookingId),
+        {
+          userId: req.auth!.userId,
+          role: "DRIVER",
+          requestId: req.requestId,
+        },
+        parsed.reason,
+      );
       res.json({ booking: serializeBooking(booking) });
     } catch (error) {
       handleError(res, req, error);
@@ -4572,11 +4601,15 @@ async function registerBookingRoutes(http: {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
       const parsed = tripStartSchema.parse(req.body ?? {});
-      const trip = await startTripOperation(String(req.params.tripId), {
-        userId: req.auth!.userId,
-        role: "DRIVER",
-        requestId: req.requestId,
-      }, parsed.allowUnresolvedPassengers);
+      const trip = await startTripOperation(
+        String(req.params.tripId),
+        {
+          userId: req.auth!.userId,
+          role: "DRIVER",
+          requestId: req.requestId,
+        },
+        parsed.allowUnresolvedPassengers,
+      );
       res.json({ trip: serializeBigInt(trip) });
     } catch (error) {
       handleError(res, req, error);
@@ -4587,11 +4620,15 @@ async function registerBookingRoutes(http: {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
       const parsed = tripCompleteSchema.parse(req.body ?? {});
-      const trip = await completeTripOperation(String(req.params.tripId), {
-        userId: req.auth!.userId,
-        role: "DRIVER",
-        requestId: req.requestId,
-      }, parsed.notes);
+      const trip = await completeTripOperation(
+        String(req.params.tripId),
+        {
+          userId: req.auth!.userId,
+          role: "DRIVER",
+          requestId: req.requestId,
+        },
+        parsed.notes,
+      );
       res.json({ trip: serializeBigInt(trip) });
     } catch (error) {
       handleError(res, req, error);
@@ -4602,11 +4639,16 @@ async function registerBookingRoutes(http: {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
       const parsed = operationReasonSchema.parse(req.body ?? {});
-      const trip = await cancelTripOperational(String(req.params.tripId), {
-        userId: req.auth!.userId,
-        role: "DRIVER",
-        requestId: req.requestId,
-      }, parsed.reason, "CANCELLED_BY_DRIVER");
+      const trip = await cancelTripOperational(
+        String(req.params.tripId),
+        {
+          userId: req.auth!.userId,
+          role: "DRIVER",
+          requestId: req.requestId,
+        },
+        parsed.reason,
+        "CANCELLED_BY_DRIVER",
+      );
       res.json({ trip: serializeBigInt(trip) });
     } catch (error) {
       handleError(res, req, error);
@@ -4807,11 +4849,17 @@ async function registerBookingRoutes(http: {
         await writeTripOperationEvent(tx, existing.id, req.auth!.userId, "TRIP_NO_SHOW_DRIVER", {
           reason: parsed.reason,
         });
-        await writeTripOperationAudit(tx, "TRIP_NO_SHOW_DRIVER", existing.id, {
-          userId: req.auth!.userId,
-          role: "ADMIN",
-          requestId: req.requestId,
-        }, { reason: parsed.reason });
+        await writeTripOperationAudit(
+          tx,
+          "TRIP_NO_SHOW_DRIVER",
+          existing.id,
+          {
+            userId: req.auth!.userId,
+            role: "ADMIN",
+            requestId: req.requestId,
+          },
+          { reason: parsed.reason },
+        );
         await enqueueTripEvent(tx, "trip.no_show_driver", existing.id, { reason: parsed.reason });
         return tx.trip.findUniqueOrThrow({ where: { id: existing.id }, include: tripInclude });
       });

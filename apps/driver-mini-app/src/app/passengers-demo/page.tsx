@@ -46,7 +46,9 @@ function tone(status: string) {
 export default function PassengersDemo() {
   const [code, setCode] = useState("");
   const boardedCount = passengers.filter((passenger) => passenger.status === "BOARDING").length;
-  const noShowCount = passengers.filter((passenger) => passenger.status === "NO_SHOW_CLIENT").length;
+  const noShowCount = passengers.filter(
+    (passenger) => passenger.status === "NO_SHOW_CLIENT",
+  ).length;
   const pendingCount = passengers.filter((passenger) => passenger.status === "CONFIRMED").length;
 
   return (

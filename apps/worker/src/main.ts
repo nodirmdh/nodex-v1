@@ -16,6 +16,7 @@ const connection = {
 const prisma = new PrismaClient();
 const queueName = "nodex.foundation.test";
 const bookingQueueName = "nodex.booking.hold-expiration";
+const operationsQueueName = "nodex.trip.operations";
 const queue = new Queue(queueName, {
   connection,
   defaultJobOptions: {
@@ -26,6 +27,15 @@ const queue = new Queue(queueName, {
   },
 });
 const bookingQueue = new Queue(bookingQueueName, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: 100,
+    removeOnFail: 100,
+  },
+});
+const operationsQueue = new Queue(operationsQueueName, {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -95,9 +105,52 @@ const bookingWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const operationsWorker = new Worker(
+  operationsQueueName,
+  async () => {
+    const now = new Date();
+    const expiredCodes = await prisma.boardingCode.updateMany({
+      where: { status: "ACTIVE", expiresAt: { lte: now }, verifiedAt: null },
+      data: { status: "EXPIRED" },
+    });
+    const staleTrips = await prisma.trip.findMany({
+      where: {
+        status: { in: ["PUBLISHED", "BOOKING_OPEN"] },
+        departureAtUtc: { lt: new Date(now.getTime() - 6 * 60 * 60 * 1000) },
+      },
+      take: 50,
+    });
+    for (const trip of staleTrips) {
+      await prisma.$transaction(async (tx) => {
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: { status: "EXPIRED", version: { increment: 1 } },
+        });
+        await tx.tripOperationEvent.create({
+          data: { tripId: trip.id, type: "TRIP_AUTO_EXPIRED", payload: { worker: true } },
+        });
+        await tx.tripTimelineEvent.create({
+          data: { tripId: trip.id, type: "TRIP_AUTO_EXPIRED", payload: { worker: true } },
+        });
+        await tx.outboxEvent.create({
+          data: { type: "trip.expired", payload: { tripId: trip.id, worker: true } },
+        });
+      });
+    }
+    logger.info(
+      { expiredCodes: expiredCodes.count, staleTrips: staleTrips.length },
+      "processed trip operations job",
+    );
+    return { expiredCodes: expiredCodes.count, staleTrips: staleTrips.length };
+  },
+  { connection, concurrency: 1 },
+);
+
 process.on("SIGTERM", async () => {
   await bookingWorker.close();
   await bookingQueue.close();
+  await operationsWorker.close();
+  await operationsQueue.close();
   await worker.close();
   await queue.close();
   await prisma.$disconnect();
@@ -109,5 +162,11 @@ await bookingQueue.add(
   { createdAt: new Date().toISOString() },
   { jobId: "booking-hold-expiration-health", repeat: { every: 60_000 } },
 );
+await operationsQueue.add(
+  "expire-operations",
+  { createdAt: new Date().toISOString() },
+  { jobId: "trip-operations-health", repeat: { every: 60_000 } },
+);
 logger.info({ queueName }, "worker foundation started");
 logger.info({ queueName: bookingQueueName }, "worker booking hold expiration started");
+logger.info({ queueName: operationsQueueName }, "worker trip operations started");

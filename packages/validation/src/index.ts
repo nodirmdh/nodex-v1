@@ -452,7 +452,10 @@ export const driverBookingDecisionSchema = z.object({
 });
 
 export const boardingCodeVerifySchema = z.object({
-  code: z.string().trim().regex(/^\d{4,6}$/),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{4,6}$/),
 });
 
 export const boardingCodeRegenerateSchema = z.object({
