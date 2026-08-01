@@ -775,7 +775,12 @@ export function parcelCodeCanAttempt(input: {
   return { ok: true, code: "PARCEL_CODE_ATTEMPT_ALLOWED" };
 }
 
-export const conversationTypes = ["BOOKING", "PARCEL", "SUPPORT_ESCALATION", "SYSTEM_ONLY"] as const;
+export const conversationTypes = [
+  "BOOKING",
+  "PARCEL",
+  "SUPPORT_ESCALATION",
+  "SYSTEM_ONLY",
+] as const;
 export const chatMessageTypes = ["TEXT", "IMAGE", "LOCATION", "SYSTEM", "VOICE", "FILE"] as const;
 export const messageReceiptStatuses = ["SENT", "DELIVERED", "READ"] as const;
 export const notificationTypes = [
@@ -905,12 +910,7 @@ export const supportAssignmentSchema = z.object({
   reason: z.string().trim().max(1000).optional(),
 });
 
-export type BookingChatStatus =
-  | "CONFIRMED"
-  | "BOARDING"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | string;
+export type BookingChatStatus = "CONFIRMED" | "BOARDING" | "IN_PROGRESS" | "COMPLETED" | string;
 export type ParcelChatStatus = ParcelStatus;
 export type SupportTicketStatus = (typeof supportTicketStatuses)[number];
 export type SupportAction =
@@ -923,12 +923,20 @@ export type SupportAction =
   | "REJECT"
   | "REOPEN";
 
-export function bookingChatEligible(status: BookingChatStatus, retentionUntil?: Date | null, now = new Date()) {
+export function bookingChatEligible(
+  status: BookingChatStatus,
+  retentionUntil?: Date | null,
+  now = new Date(),
+) {
   if (["CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) return true;
   return status === "COMPLETED" && Boolean(retentionUntil && retentionUntil > now);
 }
 
-export function parcelChatEligible(status: ParcelChatStatus, retentionUntil?: Date | null, now = new Date()) {
+export function parcelChatEligible(
+  status: ParcelChatStatus,
+  retentionUntil?: Date | null,
+  now = new Date(),
+) {
   if (["ACCEPTED", "HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"].includes(status)) {
     return true;
   }
@@ -957,7 +965,10 @@ const supportAllowedTransitions = {
   REOPEN: ["RESOLVED", "CLOSED"],
 } as const satisfies Record<SupportAction, readonly SupportTicketStatus[]>;
 
-export function evaluateSupportTransition(currentStatus: SupportTicketStatus, action: SupportAction) {
+export function evaluateSupportTransition(
+  currentStatus: SupportTicketStatus,
+  action: SupportAction,
+) {
   const toStatus = supportTransitionTargets[action];
   if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true } as const;
   const allowed: readonly SupportTicketStatus[] = supportAllowedTransitions[action];
@@ -972,6 +983,7 @@ export function evaluateSupportTransition(currentStatus: SupportTicketStatus, ac
 }
 
 export function calculateSlaDueAt(priority: (typeof supportPriorities)[number], now = new Date()) {
-  const minutes = priority === "URGENT" ? 30 : priority === "HIGH" ? 120 : priority === "LOW" ? 1440 : 480;
+  const minutes =
+    priority === "URGENT" ? 30 : priority === "HIGH" ? 120 : priority === "LOW" ? 1440 : 480;
   return new Date(now.getTime() + minutes * 60_000);
 }

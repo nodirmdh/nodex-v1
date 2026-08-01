@@ -15,9 +15,7 @@ describe("conversation eligibility", () => {
 
   it("allows active booking and retained completed booking chats", () => {
     expect(bookingChatEligible("CONFIRMED", null, now)).toBe(true);
-    expect(bookingChatEligible("COMPLETED", new Date("2026-08-03T09:00:00.000Z"), now)).toBe(
-      true,
-    );
+    expect(bookingChatEligible("COMPLETED", new Date("2026-08-03T09:00:00.000Z"), now)).toBe(true);
     expect(bookingChatEligible("CANCELLED_BY_CLIENT", null, now)).toBe(false);
   });
 
