@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 const nav: Array<[string, string]> = [
   ["Dashboard", "/"],
   ["Drivers", "/drivers"],
+  ["Vehicles", "/vehicles"],
   ["Trips", "/trips"],
   ["Bookings", "/bookings"],
   ["Support", "/support"],

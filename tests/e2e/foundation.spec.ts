@@ -48,6 +48,16 @@ test.describe("driver mini app foundation", () => {
     await expect(page.getByText("Chevrolet Cobalt")).toBeVisible();
     await expect(page.getByRole("button", { name: "Continue demo" })).toBeVisible();
   });
+
+  test("renders vehicle management shell", async ({ page }) => {
+    await page.goto(`${driver}/vehicles`);
+    await expect(page.getByRole("heading", { name: "Vehicles" })).toBeVisible();
+    const vehicleList = page.getByLabel("Driver vehicle list");
+    await expect(vehicleList).toBeVisible();
+    await expect(vehicleList.getByRole("button", { name: /Chevrolet Tracker/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add vehicle" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review status" })).toBeVisible();
+  });
 });
 
 test.describe("admin web foundation", () => {
@@ -69,6 +79,17 @@ test.describe("admin web foundation", () => {
     await expect(page.getByRole("heading", { name: "Decision" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
     await expect(page.getByText("Application submitted")).toBeVisible();
+  });
+
+  test("renders vehicle moderation queue and detail panel", async ({ page }) => {
+    await page.goto(`${admin}/vehicles`);
+    await expect(page.getByRole("heading", { name: "Vehicle moderation" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Vehicle moderation queue" })).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("row", { name: /Chevrolet Lacetti/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Photo gallery" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
   });
 });
 
