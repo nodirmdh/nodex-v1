@@ -21,6 +21,9 @@ import {
   boardingCodeCanAttempt,
   boardingCodeRegenerateSchema,
   boardingCodeVerifySchema,
+  calculateSlaDueAt,
+  chatMessageEditSchema,
+  chatMessageSchema,
   driverBookingDecisionSchema,
   driverDocumentCompleteSchema,
   driverDocumentPresignSchema,
@@ -28,12 +31,18 @@ import {
   driverVerificationDraftSchema,
   citySchema,
   generateSeatLayout,
+  createConversationSchema,
   pickupPointSchema,
   regionSchema,
   operationReasonSchema,
+  bookingChatEligible,
   calculateParcelPriceMinor,
+  defaultChatLimits,
   defaultParcelLimits,
+  evaluateSupportTransition,
   evaluateParcelTransition,
+  messageReportSchema,
+  notificationCreateSchema,
   parcelCodeCanAttempt,
   parcelCodeVerifySchema,
   parcelDraftSchema,
@@ -41,8 +50,13 @@ import {
   parcelReasonSchema,
   parcelSubmitSchema,
   parcelStatuses,
+  parcelChatEligible,
   routeSchema,
   searchEventSchema,
+  supportAssignmentSchema,
+  supportTicketCreateSchema,
+  supportTicketMessageSchema,
+  supportTicketStatusSchema,
   tripAdminActionSchema,
   tripCancelSchema,
   tripCompleteSchema,
@@ -1690,6 +1704,241 @@ function phase8OpenApiPaths() {
         security: bearer,
         parameters: [parcelId],
         responses: { 200: { description: "Parcel history", content: json } },
+      },
+    },
+  };
+}
+
+function phase9OpenApiPaths() {
+  const json = { "application/json": { schema: { type: "object" } } };
+  const bearer = [{ bearer: [] }];
+  const conversationId = {
+    name: "conversationId",
+    in: "path",
+    required: true,
+    schema: { type: "string" },
+  };
+  const messageId = { name: "messageId", in: "path", required: true, schema: { type: "string" } };
+  const notificationId = { name: "id", in: "path", required: true, schema: { type: "string" } };
+  const ticketId = { name: "ticketId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/conversations": {
+      get: {
+        operationId: "listConversations",
+        tags: ["Communications"],
+        security: bearer,
+        responses: { 200: { description: "Conversations", content: json } },
+      },
+      post: {
+        operationId: "createConversation",
+        tags: ["Communications"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Conversation", content: json } },
+      },
+    },
+    "/api/v1/conversations/{conversationId}": {
+      get: {
+        operationId: "getConversation",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [conversationId],
+        responses: { 200: { description: "Conversation", content: json } },
+      },
+    },
+    "/api/v1/conversations/{conversationId}/messages": {
+      get: {
+        operationId: "listConversationMessages",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [conversationId],
+        responses: { 200: { description: "Messages", content: json } },
+      },
+      post: {
+        operationId: "sendConversationMessage",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [conversationId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Message", content: json } },
+      },
+    },
+    "/api/v1/conversations/{conversationId}/read": {
+      post: {
+        operationId: "markConversationRead",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [conversationId],
+        responses: { 200: { description: "Read receipt", content: json } },
+      },
+    },
+    "/api/v1/messages/{messageId}": {
+      patch: {
+        operationId: "editChatMessage",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [messageId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Message", content: json } },
+      },
+      delete: {
+        operationId: "deleteChatMessage",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [messageId],
+        responses: { 200: { description: "Message", content: json } },
+      },
+    },
+    "/api/v1/messages/{messageId}/report": {
+      post: {
+        operationId: "reportChatMessage",
+        tags: ["Communications"],
+        security: bearer,
+        parameters: [messageId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Report", content: json } },
+      },
+    },
+    "/api/v1/notifications": {
+      get: {
+        operationId: "listNotifications",
+        tags: ["Notifications"],
+        security: bearer,
+        responses: { 200: { description: "Notifications", content: json } },
+      },
+    },
+    "/api/v1/notifications/unread-count": {
+      get: {
+        operationId: "getUnreadNotificationCount",
+        tags: ["Notifications"],
+        security: bearer,
+        responses: { 200: { description: "Unread count", content: json } },
+      },
+    },
+    "/api/v1/notifications/{id}/read": {
+      post: {
+        operationId: "markNotificationRead",
+        tags: ["Notifications"],
+        security: bearer,
+        parameters: [notificationId],
+        responses: { 200: { description: "Notification", content: json } },
+      },
+    },
+    "/api/v1/notifications/read-all": {
+      post: {
+        operationId: "markAllNotificationsRead",
+        tags: ["Notifications"],
+        security: bearer,
+        responses: { 200: { description: "Read count", content: json } },
+      },
+    },
+    "/api/v1/notifications/{id}/archive": {
+      post: {
+        operationId: "archiveNotification",
+        tags: ["Notifications"],
+        security: bearer,
+        parameters: [notificationId],
+        responses: { 200: { description: "Notification", content: json } },
+      },
+    },
+    "/api/v1/support/tickets": {
+      get: {
+        operationId: "listMySupportTickets",
+        tags: ["Support"],
+        security: bearer,
+        responses: { 200: { description: "Tickets", content: json } },
+      },
+      post: {
+        operationId: "createSupportTicket",
+        tags: ["Support"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/support/tickets/{ticketId}": {
+      get: {
+        operationId: "getMySupportTicket",
+        tags: ["Support"],
+        security: bearer,
+        parameters: [ticketId],
+        responses: { 200: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/support/tickets/{ticketId}/messages": {
+      post: {
+        operationId: "sendSupportTicketMessage",
+        tags: ["Support"],
+        security: bearer,
+        parameters: [ticketId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets": {
+      get: {
+        operationId: "listAdminSupportTickets",
+        tags: ["Admin Support"],
+        security: bearer,
+        responses: { 200: { description: "Admin tickets", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}": {
+      get: {
+        operationId: "getAdminSupportTicket",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        responses: { 200: { description: "Admin ticket", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}/reply": {
+      post: {
+        operationId: "replyAdminSupportTicket",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}/internal-notes": {
+      post: {
+        operationId: "createSupportInternalNote",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Internal note", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}/assign": {
+      post: {
+        operationId: "assignSupportTicket",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}/status": {
+      post: {
+        operationId: "updateSupportTicketStatus",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Ticket", content: json } },
+      },
+    },
+    "/api/v1/admin/support/tickets/{ticketId}/history": {
+      get: {
+        operationId: "getSupportTicketHistory",
+        tags: ["Admin Support"],
+        security: bearer,
+        parameters: [ticketId],
+        responses: { 200: { description: "History", content: json } },
       },
     },
   };
@@ -3428,6 +3677,413 @@ async function driverOwnParcel(tx: Prisma.TransactionClient, userId: string, par
   });
 }
 
+const conversationInclude = {
+  booking: { include: { trip: true, client: true } },
+  parcelOrder: { include: { trip: true, sender: true } },
+  participants: { include: { user: true } },
+  messages: { orderBy: { sentAt: "desc" as const }, take: 1 },
+};
+
+type ConversationWithInclude = Prisma.ConversationGetPayload<{
+  include: typeof conversationInclude;
+}>;
+
+function publicUser(user: {
+  id: string;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+}) {
+  return {
+    id: user.id,
+    displayName:
+      user.displayName ??
+      [user.firstName, user.lastName].filter(Boolean).join(" ") ??
+      user.username ??
+      "Nodex user",
+    avatarUrl: user.avatarUrl,
+  };
+}
+
+function serializeConversation(conversation: ConversationWithInclude, viewerUserId: string) {
+  const counterpart = conversation.participants.find(
+    (participant) => participant.userId !== viewerUserId,
+  );
+  return serializeBigInt({
+    id: conversation.id,
+    type: conversation.type,
+    status: conversation.status,
+    bookingId: conversation.bookingId,
+    parcelOrderId: conversation.parcelOrderId,
+    tripId: conversation.tripId,
+    lastMessageAt: conversation.lastMessageAt,
+    retentionUntil: conversation.retentionUntil,
+    counterpart: counterpart ? publicUser(counterpart.user) : null,
+    participants: conversation.participants.map((participant) => ({
+      user: publicUser(participant.user),
+      role: participant.role,
+      lastReadAt: participant.lastReadAt,
+    })),
+    context: conversation.booking
+      ? {
+          type: "BOOKING",
+          route: `${conversation.booking.trip.originCity} to ${conversation.booking.trip.destinationCity}`,
+          status: conversation.booking.status,
+        }
+      : conversation.parcelOrder
+        ? {
+            type: "PARCEL",
+            title: conversation.parcelOrder.title,
+            status: conversation.parcelOrder.status,
+          }
+        : { type: conversation.type },
+    lastMessage: conversation.messages[0]
+      ? {
+          id: conversation.messages[0].id,
+          type: conversation.messages[0].type,
+          text: conversation.messages[0].deletedAt ? null : conversation.messages[0].text,
+          sentAt: conversation.messages[0].sentAt,
+        }
+      : null,
+  });
+}
+
+function serializeMessage(
+  message: Prisma.ChatMessageGetPayload<{
+    include: { attachments: true; receipts: true; sender: true };
+  }>,
+) {
+  return serializeBigInt({
+    id: message.id,
+    conversationId: message.conversationId,
+    sender: message.sender ? publicUser(message.sender) : null,
+    type: message.type,
+    status: message.status,
+    text: message.deletedAt ? null : message.text,
+    locationLat: message.locationLat,
+    locationLng: message.locationLng,
+    locationLabel: message.locationLabel,
+    replyToMessageId: message.replyToMessageId,
+    clientMessageId: message.clientMessageId,
+    sentAt: message.sentAt,
+    editedAt: message.editedAt,
+    deletedAt: message.deletedAt,
+    moderationStatus: message.moderationStatus,
+    receipts: message.receipts,
+    attachments: message.attachments.map((attachment) => ({
+      id: attachment.id,
+      type: attachment.type,
+      originalFileName: attachment.originalFileName,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      status: attachment.status,
+    })),
+  });
+}
+
+async function ensureNotification(
+  tx: Prisma.TransactionClient,
+  input: {
+    recipientUserId: string;
+    type: Prisma.NotificationCreateInput["type"];
+    title: string;
+    body: string;
+    deduplicationKey: string;
+    entityType?: string | null;
+    entityId?: string | null;
+    deepLink?: string | null;
+    payloadJson?: Prisma.InputJsonValue;
+  },
+) {
+  const notification = await tx.notification.upsert({
+    where: { deduplicationKey: input.deduplicationKey },
+    create: {
+      recipientUserId: input.recipientUserId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+      entityType: input.entityType ?? null,
+      entityId: input.entityId ?? null,
+      deepLink: input.deepLink ?? null,
+      deduplicationKey: input.deduplicationKey,
+      ...(input.payloadJson === undefined ? {} : { payloadJson: input.payloadJson }),
+    },
+    update: {},
+  });
+  await tx.notificationDelivery.upsert({
+    where: { notificationId_channel: { notificationId: notification.id, channel: "IN_APP" } },
+    create: {
+      notificationId: notification.id,
+      recipientUserId: input.recipientUserId,
+      channel: "IN_APP",
+      status: "DELIVERED",
+      deliveredAt: new Date(),
+    },
+    update: {},
+  });
+  await tx.notificationDelivery.upsert({
+    where: { notificationId_channel: { notificationId: notification.id, channel: "TELEGRAM" } },
+    create: {
+      notificationId: notification.id,
+      recipientUserId: input.recipientUserId,
+      channel: "TELEGRAM",
+      status: "PENDING",
+    },
+    update: {},
+  });
+  await tx.outboxEvent.create({
+    data: {
+      type: "notification.delivery.requested",
+      payload: { notificationId: notification.id },
+    },
+  });
+  return notification;
+}
+
+async function participantConversation(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  conversationId: string,
+) {
+  return tx.conversation.findFirst({
+    where: { id: conversationId, participants: { some: { userId, leftAt: null } } },
+    include: conversationInclude,
+  });
+}
+
+async function createOrGetConversation(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: { bookingId?: string; parcelOrderId?: string },
+) {
+  const retentionUntil = new Date(
+    Date.now() + defaultChatLimits.retentionDays * 24 * 60 * 60 * 1000,
+  );
+  if (input.bookingId) {
+    const booking = await tx.booking.findFirst({
+      where: { id: input.bookingId },
+      include: { trip: { include: { driverProfile: true } } },
+    });
+    if (!booking || booking.clientId !== userId) {
+      throw Object.assign(new Error("Booking is not available for chat"), {
+        statusCode: 403,
+        code: "CHAT_BOOKING_FORBIDDEN",
+      });
+    }
+    if (!bookingChatEligible(booking.status, retentionUntil)) {
+      throw Object.assign(new Error("Booking is not eligible for chat"), {
+        statusCode: 409,
+        code: "CHAT_BOOKING_NOT_ELIGIBLE",
+      });
+    }
+    const driverUserId = booking.trip.driverProfile.userId;
+    const conversation = await tx.conversation.upsert({
+      where: { bookingId: booking.id },
+      create: {
+        type: "BOOKING",
+        bookingId: booking.id,
+        tripId: booking.tripId,
+        retentionUntil,
+        participants: {
+          create: [
+            { userId, role: "CLIENT" },
+            { userId: driverUserId, role: "DRIVER" },
+          ],
+        },
+      },
+      update: {},
+      include: conversationInclude,
+    });
+    return conversation;
+  }
+  const parcel = await tx.parcelOrder.findFirst({
+    where: { id: input.parcelOrderId ?? "" },
+    include: { driverProfile: true, trip: true },
+  });
+  if (
+    !parcel ||
+    parcel.senderUserId !== userId ||
+    !parcel.driverProfileId ||
+    !parcel.driverProfile
+  ) {
+    throw Object.assign(new Error("Parcel is not available for chat"), {
+      statusCode: 403,
+      code: "CHAT_PARCEL_FORBIDDEN",
+    });
+  }
+  if (!parcelChatEligible(parcel.status, retentionUntil)) {
+    throw Object.assign(new Error("Parcel is not eligible for chat"), {
+      statusCode: 409,
+      code: "CHAT_PARCEL_NOT_ELIGIBLE",
+    });
+  }
+  return tx.conversation.upsert({
+    where: { parcelOrderId: parcel.id },
+    create: {
+      type: "PARCEL",
+      parcelOrderId: parcel.id,
+      tripId: parcel.tripId,
+      retentionUntil,
+      participants: {
+        create: [
+          { userId, role: "CLIENT" },
+          { userId: parcel.driverProfile.userId, role: "DRIVER" },
+        ],
+      },
+    },
+    update: {},
+    include: conversationInclude,
+  });
+}
+
+const supportTicketInclude = {
+  requester: true,
+  assignedTo: true,
+  participants: { include: { user: true } },
+  messages: { include: { sender: true, attachments: true }, orderBy: { createdAt: "asc" } },
+  internalNotes: { include: { author: true }, orderBy: { createdAt: "asc" } },
+  assignments: { orderBy: { createdAt: "desc" } },
+  statusEvents: { include: { actor: true }, orderBy: { createdAt: "asc" } },
+} satisfies Prisma.SupportTicketInclude;
+
+type SupportTicketWithInclude = Prisma.SupportTicketGetPayload<{
+  include: typeof supportTicketInclude;
+}>;
+
+function serializeSupportTicket(
+  ticket: SupportTicketWithInclude,
+  options: { includeInternal?: boolean } = {},
+) {
+  return serializeBigInt({
+    id: ticket.id,
+    type: ticket.type,
+    subject: ticket.subject,
+    description: ticket.description,
+    status: ticket.status,
+    priority: ticket.priority,
+    bookingId: ticket.bookingId,
+    tripId: ticket.tripId,
+    parcelOrderId: ticket.parcelOrderId,
+    driverId: ticket.driverId,
+    requester: publicUser(ticket.requester),
+    assignedTo: ticket.assignedTo ? publicUser(ticket.assignedTo) : null,
+    firstResponseAt: ticket.firstResponseAt,
+    resolvedAt: ticket.resolvedAt,
+    closedAt: ticket.closedAt,
+    slaDueAt: ticket.slaDueAt,
+    retentionUntil: ticket.retentionUntil,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+    participants: ticket.participants.map((participant) => ({
+      user: publicUser(participant.user),
+      role: participant.role,
+      joinedAt: participant.joinedAt,
+    })),
+    messages: ticket.messages.map((message) => ({
+      id: message.id,
+      sender: publicUser(message.sender),
+      text: message.deletedAt ? null : message.text,
+      createdAt: message.createdAt,
+      editedAt: message.editedAt,
+      deletedAt: message.deletedAt,
+      attachments: message.attachments.map((attachment) => ({
+        id: attachment.id,
+        originalFileName: attachment.originalFileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        status: attachment.status,
+      })),
+    })),
+    internalNotes: options.includeInternal
+      ? ticket.internalNotes.map((note) => ({
+          id: note.id,
+          author: publicUser(note.author),
+          text: note.text,
+          createdAt: note.createdAt,
+        }))
+      : undefined,
+    assignments: options.includeInternal ? ticket.assignments : undefined,
+    statusEvents: ticket.statusEvents.map((event) => ({
+      id: event.id,
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      reason: event.reason,
+      actor: event.actor ? publicUser(event.actor) : null,
+      createdAt: event.createdAt,
+    })),
+  });
+}
+
+async function userCanAccessSupportTicket(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  ticketId: string,
+) {
+  return tx.supportTicket.findFirst({
+    where: {
+      id: ticketId,
+      OR: [{ requesterUserId: userId }, { participants: { some: { userId, leftAt: null } } }],
+    },
+    include: supportTicketInclude,
+  });
+}
+
+async function ensureSupportEntityAccess(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: { bookingId?: string | null; tripId?: string | null; parcelOrderId?: string | null },
+) {
+  if (input.bookingId) {
+    const booking = await tx.booking.findFirst({
+      where: { id: input.bookingId, clientId: userId },
+    });
+    if (!booking)
+      throw Object.assign(new Error("Booking is not available for support"), {
+        statusCode: 403,
+        code: "SUPPORT_BOOKING_FORBIDDEN",
+      });
+  }
+  if (input.parcelOrderId) {
+    const parcel = await tx.parcelOrder.findFirst({
+      where: { id: input.parcelOrderId, senderUserId: userId },
+    });
+    if (!parcel)
+      throw Object.assign(new Error("Parcel is not available for support"), {
+        statusCode: 403,
+        code: "SUPPORT_PARCEL_FORBIDDEN",
+      });
+  }
+  if (input.tripId) {
+    const trip = await tx.trip.findFirst({
+      where: {
+        id: input.tripId,
+        OR: [
+          { driverProfile: { userId } },
+          { bookings: { some: { clientId: userId } } },
+          { parcelOrders: { some: { senderUserId: userId } } },
+        ],
+      },
+    });
+    if (!trip)
+      throw Object.assign(new Error("Trip is not available for support"), {
+        statusCode: 403,
+        code: "SUPPORT_TRIP_FORBIDDEN",
+      });
+  }
+}
+
+function supportActionForStatus(status: Prisma.SupportTicketCreateInput["status"]) {
+  if (status === "IN_PROGRESS") return "START_PROGRESS";
+  if (status === "WAITING_FOR_USER") return "WAIT_FOR_USER";
+  if (status === "UNDER_REVIEW") return "REVIEW";
+  if (status === "RESOLVED") return "RESOLVE";
+  if (status === "CLOSED") return "CLOSE";
+  if (status === "REJECTED") return "REJECT";
+  return "START_PROGRESS";
+}
+
 async function expireSeatHolds(tx: Prisma.TransactionClient, tripId?: string) {
   const now = new Date();
   const holds = await tx.seatHold.findMany({
@@ -5054,6 +5710,759 @@ async function registerParcelRoutes(http: {
   http.post("/api/v1/admin/parcels/:parcelId/dispute", (req, res) =>
     adminParcelAction(req, res, "DISPUTE"),
   );
+}
+
+async function registerCommunicationRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  patch: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  delete: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.post("/api/v1/conversations", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = createConversationSchema.parse(req.body ?? {});
+      const conversation = await prisma.$transaction((tx) =>
+        createOrGetConversation(tx, req.auth!.userId, {
+          ...(parsed.bookingId ? { bookingId: parsed.bookingId } : {}),
+          ...(parsed.parcelOrderId ? { parcelOrderId: parsed.parcelOrderId } : {}),
+        }),
+      );
+      res.status(201).json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/conversations", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        participants: { some: { userId: req.auth!.userId, leftAt: null, isArchived: false } },
+      },
+      include: conversationInclude,
+      orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
+      take: 100,
+    });
+    res.json({
+      conversations: conversations.map((item) => serializeConversation(item, req.auth!.userId)),
+    });
+  });
+
+  http.get("/api/v1/conversations/:conversationId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const conversation = await prisma.$transaction((tx) =>
+      participantConversation(tx, req.auth!.userId, String(req.params.conversationId ?? "")),
+    );
+    if (!conversation) {
+      res.status(404).json(errorBody("CONVERSATION_NOT_FOUND", "Conversation not found", req));
+      return;
+    }
+    res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+  });
+
+  http.get("/api/v1/conversations/:conversationId/messages", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: String(req.params.conversationId ?? ""),
+        participants: { some: { userId: req.auth!.userId } },
+      },
+    });
+    if (!conversation) {
+      res.status(404).json(errorBody("CONVERSATION_NOT_FOUND", "Conversation not found", req));
+      return;
+    }
+    const messages = await prisma.chatMessage.findMany({
+      where: { conversationId: conversation.id },
+      include: { attachments: true, receipts: true, sender: true },
+      orderBy: { sentAt: "asc" },
+      take: 100,
+    });
+    res.json({ messages: messages.map(serializeMessage) });
+  });
+
+  http.post("/api/v1/conversations/:conversationId/messages", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = chatMessageSchema.parse(req.body ?? {});
+      const message = await prisma.$transaction(async (tx) => {
+        const conversation = await participantConversation(
+          tx,
+          req.auth!.userId,
+          String(req.params.conversationId ?? ""),
+        );
+        if (!conversation || conversation.status !== "ACTIVE") {
+          throw Object.assign(new Error("Conversation not found"), {
+            statusCode: 404,
+            code: "CONVERSATION_NOT_FOUND",
+          });
+        }
+        const existing = await tx.chatMessage.findUnique({
+          where: {
+            conversationId_clientMessageId: {
+              conversationId: conversation.id,
+              clientMessageId: parsed.clientMessageId,
+            },
+          },
+          include: { attachments: true, receipts: true, sender: true },
+        });
+        if (existing) return existing;
+        const created = await tx.chatMessage.create({
+          data: {
+            conversationId: conversation.id,
+            senderUserId: req.auth!.userId,
+            clientMessageId: parsed.clientMessageId,
+            type: parsed.type,
+            text: parsed.text ?? null,
+            locationLat: parsed.locationLat ?? null,
+            locationLng: parsed.locationLng ?? null,
+            locationLabel: parsed.locationLabel ?? null,
+            replyToMessageId: parsed.replyToMessageId ?? null,
+          },
+          include: { attachments: true, receipts: true, sender: true },
+        });
+        const recipients = conversation.participants.filter(
+          (participant) => participant.userId !== req.auth!.userId,
+        );
+        for (const participant of recipients) {
+          await tx.chatMessageReceipt.create({
+            data: {
+              messageId: created.id,
+              recipientUserId: participant.userId,
+              status: "SENT",
+              deliveredAt: new Date(),
+            },
+          });
+          await ensureNotification(tx, {
+            recipientUserId: participant.userId,
+            type: "CHAT_MESSAGE",
+            title: "New message",
+            body:
+              parsed.type === "TEXT"
+                ? (parsed.text ?? "New message")
+                : `New ${parsed.type.toLowerCase()} message`,
+            entityType: "Conversation",
+            entityId: conversation.id,
+            deepLink: `/messages/${conversation.id}`,
+            deduplicationKey: `chat:${created.id}:${participant.userId}`,
+          });
+        }
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: { lastMessageAt: created.sentAt, version: { increment: 1 } },
+        });
+        await tx.communicationTimelineEvent.create({
+          data: {
+            conversationId: conversation.id,
+            actorUserId: req.auth!.userId,
+            type: "CHAT_MESSAGE_SENT",
+            payload: { messageId: created.id },
+          },
+        });
+        return tx.chatMessage.findUniqueOrThrow({
+          where: { id: created.id },
+          include: { attachments: true, receipts: true, sender: true },
+        });
+      });
+      res.status(201).json({ message: serializeMessage(message) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/conversations/:conversationId/read", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const conversationId = String(req.params.conversationId ?? "");
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      const conversation = await participantConversation(tx, req.auth!.userId, conversationId);
+      if (!conversation)
+        throw Object.assign(new Error("Conversation not found"), {
+          statusCode: 404,
+          code: "CONVERSATION_NOT_FOUND",
+        });
+      const latest = await tx.chatMessage.findFirst({
+        where: { conversationId },
+        orderBy: { sentAt: "desc" },
+      });
+      await tx.chatMessageReceipt.updateMany({
+        where: { recipientUserId: req.auth!.userId, message: { conversationId } },
+        data: { status: "READ", readAt: now },
+      });
+      await tx.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId: req.auth!.userId } },
+        data: { lastReadAt: now, lastReadMessageId: latest?.id ?? null },
+      });
+    });
+    res.json({ readAt: now });
+  });
+
+  http.patch("/api/v1/messages/:messageId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = chatMessageEditSchema.parse(req.body ?? {});
+      const existing = await prisma.chatMessage.findFirst({
+        where: { id: String(req.params.messageId ?? ""), senderUserId: req.auth!.userId },
+      });
+      if (!existing) {
+        res.status(404).json(errorBody("MESSAGE_NOT_FOUND", "Message not found", req));
+        return;
+      }
+      const message = await prisma.chatMessage.update({
+        where: { id: existing.id },
+        data: { text: parsed.text, editedAt: new Date() },
+        include: { attachments: true, receipts: true, sender: true },
+      });
+      res.json({ message: serializeMessage(message) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/messages/:messageId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const existing = await prisma.chatMessage.findFirst({
+      where: { id: String(req.params.messageId ?? ""), senderUserId: req.auth!.userId },
+    });
+    if (!existing) {
+      res.status(404).json(errorBody("MESSAGE_NOT_FOUND", "Message not found", req));
+      return;
+    }
+    const message = await prisma.chatMessage.update({
+      where: { id: existing.id },
+      data: { deletedAt: new Date(), status: "DELETED" },
+      include: { attachments: true, receipts: true, sender: true },
+    });
+    res.json({ message: serializeMessage(message) });
+  });
+
+  http.post("/api/v1/messages/:messageId/report", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = messageReportSchema.parse(req.body ?? {});
+      const report = await prisma.$transaction(async (tx) => {
+        const message = await tx.chatMessage.findFirst({
+          where: {
+            id: String(req.params.messageId ?? ""),
+            conversation: { participants: { some: { userId: req.auth!.userId } } },
+          },
+        });
+        if (!message)
+          throw Object.assign(new Error("Message not found"), {
+            statusCode: 404,
+            code: "MESSAGE_NOT_FOUND",
+          });
+        await tx.chatMessage.update({
+          where: { id: message.id },
+          data: { status: "REPORTED", moderationStatus: "REPORTED" },
+        });
+        return tx.messageReport.create({
+          data: {
+            conversationId: message.conversationId,
+            messageId: message.id,
+            reporterUserId: req.auth!.userId,
+            reason: parsed.reason,
+          },
+        });
+      });
+      res.status(201).json({ report });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/bookings/:bookingId/conversation", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const conversation = await prisma.$transaction((tx) =>
+      createOrGetConversation(tx, req.auth!.userId, {
+        bookingId: String(req.params.bookingId ?? ""),
+      }),
+    );
+    res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+  });
+
+  http.get("/api/v1/parcels/:parcelId/conversation", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const conversation = await prisma.$transaction((tx) =>
+      createOrGetConversation(tx, req.auth!.userId, {
+        parcelOrderId: String(req.params.parcelId ?? ""),
+      }),
+    );
+    res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+  });
+
+  http.get("/api/v1/notifications", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const notifications = await prisma.notification.findMany({
+      where: { recipientUserId: req.auth!.userId, archivedAt: null },
+      include: { deliveries: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ notifications });
+  });
+
+  http.get("/api/v1/notifications/unread-count", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const count = await prisma.notification.count({
+      where: { recipientUserId: req.auth!.userId, status: "UNREAD" },
+    });
+    res.json({ count });
+  });
+
+  http.post("/api/v1/notifications/:id/read", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const existing = await prisma.notification.findFirst({
+      where: { id: String(req.params.id ?? ""), recipientUserId: req.auth!.userId },
+    });
+    if (!existing) {
+      res.status(404).json(errorBody("NOTIFICATION_NOT_FOUND", "Notification not found", req));
+      return;
+    }
+    const notification = await prisma.notification.update({
+      where: { id: existing.id },
+      data: { status: "READ", readAt: new Date() },
+    });
+    res.json({ notification });
+  });
+
+  http.post("/api/v1/notifications/read-all", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const result = await prisma.notification.updateMany({
+      where: { recipientUserId: req.auth!.userId, status: "UNREAD" },
+      data: { status: "READ", readAt: new Date() },
+    });
+    res.json({ updated: result.count });
+  });
+
+  http.post("/api/v1/notifications/:id/archive", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const existing = await prisma.notification.findFirst({
+      where: { id: String(req.params.id ?? ""), recipientUserId: req.auth!.userId },
+    });
+    if (!existing) {
+      res.status(404).json(errorBody("NOTIFICATION_NOT_FOUND", "Notification not found", req));
+      return;
+    }
+    const notification = await prisma.notification.update({
+      where: { id: existing.id },
+      data: { status: "ARCHIVED", archivedAt: new Date() },
+    });
+    res.json({ notification });
+  });
+
+  http.post("/api/v1/admin/notifications", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = notificationCreateSchema.parse(req.body ?? {});
+      const notification = await prisma.$transaction((tx) =>
+        ensureNotification(tx, {
+          recipientUserId: parsed.recipientUserId,
+          type: parsed.type,
+          title: parsed.title,
+          body: parsed.body,
+          entityType: parsed.entityType ?? null,
+          entityId: parsed.entityId ?? null,
+          deepLink: parsed.deepLink ?? null,
+          deduplicationKey: parsed.deduplicationKey,
+        }),
+      );
+      await writeAudit(
+        "NOTIFICATION_CREATED",
+        "Notification",
+        notification.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ notification });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/support/tickets", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = supportTicketCreateSchema.parse(req.body ?? {});
+      const ticket = await prisma.$transaction(async (tx) => {
+        await ensureSupportEntityAccess(tx, req.auth!.userId, {
+          bookingId: parsed.bookingId ?? null,
+          tripId: parsed.tripId ?? null,
+          parcelOrderId: parsed.parcelOrderId ?? null,
+        });
+        const created = await tx.supportTicket.create({
+          data: {
+            requesterUserId: req.auth!.userId,
+            type: parsed.type,
+            subject: parsed.subject,
+            description: parsed.description,
+            priority: parsed.priority,
+            bookingId: parsed.bookingId ?? null,
+            tripId: parsed.tripId ?? null,
+            parcelOrderId: parsed.parcelOrderId ?? null,
+            slaDueAt: calculateSlaDueAt(parsed.priority),
+            retentionUntil: new Date(
+              Date.now() + defaultChatLimits.retentionDays * 24 * 60 * 60 * 1000,
+            ),
+            participants: { create: { userId: req.auth!.userId, role: "REQUESTER" } },
+            messages: { create: { senderUserId: req.auth!.userId, text: parsed.description } },
+            statusEvents: {
+              create: { actorUserId: req.auth!.userId, toStatus: "NEW", reason: "Ticket opened" },
+            },
+          },
+          include: supportTicketInclude,
+        });
+        await tx.communicationTimelineEvent.create({
+          data: {
+            ticketId: created.id,
+            actorUserId: req.auth!.userId,
+            type: "SUPPORT_TICKET_CREATED",
+            payload: { priority: parsed.priority, type: parsed.type },
+          },
+        });
+        return created;
+      });
+      await writeAudit(
+        "SUPPORT_TICKET_CREATED",
+        "SupportTicket",
+        ticket.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ ticket: serializeSupportTicket(ticket) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/support/tickets", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const tickets = await prisma.supportTicket.findMany({
+      where: {
+        OR: [
+          { requesterUserId: req.auth!.userId },
+          { participants: { some: { userId: req.auth!.userId, leftAt: null } } },
+        ],
+      },
+      include: supportTicketInclude,
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    });
+    res.json({ tickets: tickets.map((ticket) => serializeSupportTicket(ticket)) });
+  });
+
+  http.get("/api/v1/support/tickets/:ticketId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const ticket = await prisma.$transaction((tx) =>
+      userCanAccessSupportTicket(tx, req.auth!.userId, String(req.params.ticketId ?? "")),
+    );
+    if (!ticket) {
+      res.status(404).json(errorBody("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found", req));
+      return;
+    }
+    res.json({ ticket: serializeSupportTicket(ticket) });
+  });
+
+  http.post("/api/v1/support/tickets/:ticketId/messages", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = supportTicketMessageSchema.parse(req.body ?? {});
+      const ticket = await prisma.$transaction(async (tx) => {
+        const current = await userCanAccessSupportTicket(
+          tx,
+          req.auth!.userId,
+          String(req.params.ticketId ?? ""),
+        );
+        if (!current)
+          throw Object.assign(new Error("Support ticket not found"), {
+            statusCode: 404,
+            code: "SUPPORT_TICKET_NOT_FOUND",
+          });
+        await tx.ticketMessage.create({
+          data: { ticketId: current.id, senderUserId: req.auth!.userId, text: parsed.text },
+        });
+        const transition =
+          current.status === "WAITING_FOR_USER"
+            ? evaluateSupportTransition(current.status, "USER_REPLY")
+            : null;
+        if (transition?.ok && !transition.idempotent) {
+          await tx.supportTicket.update({
+            where: { id: current.id },
+            data: { status: transition.toStatus, version: { increment: 1 } },
+          });
+          await tx.ticketStatusEvent.create({
+            data: {
+              ticketId: current.id,
+              actorUserId: req.auth!.userId,
+              fromStatus: current.status,
+              toStatus: transition.toStatus,
+              reason: "User replied",
+            },
+          });
+        } else {
+          await tx.supportTicket.update({
+            where: { id: current.id },
+            data: { updatedAt: new Date(), version: { increment: 1 } },
+          });
+        }
+        await tx.communicationTimelineEvent.create({
+          data: {
+            ticketId: current.id,
+            actorUserId: req.auth!.userId,
+            type: "SUPPORT_MESSAGE_SENT",
+          },
+        });
+        return tx.supportTicket.findUniqueOrThrow({
+          where: { id: current.id },
+          include: supportTicketInclude,
+        });
+      });
+      res.status(201).json({ ticket: serializeSupportTicket(ticket) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/support/tickets", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const tickets = await prisma.supportTicket.findMany({
+      include: supportTicketInclude,
+      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+      take: 100,
+    });
+    res.json({
+      tickets: tickets.map((ticket) => serializeSupportTicket(ticket, { includeInternal: true })),
+    });
+  });
+
+  http.get("/api/v1/admin/support/tickets/:ticketId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: String(req.params.ticketId ?? "") },
+      include: supportTicketInclude,
+    });
+    if (!ticket) {
+      res.status(404).json(errorBody("SUPPORT_TICKET_NOT_FOUND", "Support ticket not found", req));
+      return;
+    }
+    res.json({ ticket: serializeSupportTicket(ticket, { includeInternal: true }) });
+  });
+
+  http.post("/api/v1/admin/support/tickets/:ticketId/reply", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = supportTicketMessageSchema.parse(req.body ?? {});
+      const ticket = await prisma.$transaction(async (tx) => {
+        const current = await tx.supportTicket.findUnique({
+          where: { id: String(req.params.ticketId ?? "") },
+        });
+        if (!current)
+          throw Object.assign(new Error("Support ticket not found"), {
+            statusCode: 404,
+            code: "SUPPORT_TICKET_NOT_FOUND",
+          });
+        await tx.ticketMessage.create({
+          data: { ticketId: current.id, senderUserId: req.auth!.userId, text: parsed.text },
+        });
+        await tx.supportTicket.update({
+          where: { id: current.id },
+          data: {
+            firstResponseAt: current.firstResponseAt ?? new Date(),
+            updatedAt: new Date(),
+            version: { increment: 1 },
+          },
+        });
+        await tx.communicationTimelineEvent.create({
+          data: {
+            ticketId: current.id,
+            actorUserId: req.auth!.userId,
+            type: "SUPPORT_AGENT_REPLIED",
+          },
+        });
+        return tx.supportTicket.findUniqueOrThrow({
+          where: { id: current.id },
+          include: supportTicketInclude,
+        });
+      });
+      await writeAudit(
+        "SUPPORT_TICKET_REPLIED",
+        "SupportTicket",
+        ticket.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ ticket: serializeSupportTicket(ticket, { includeInternal: true }) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/support/tickets/:ticketId/internal-notes", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = supportTicketMessageSchema.parse(req.body ?? {});
+      const note = await prisma.ticketInternalNote.create({
+        data: {
+          ticketId: String(req.params.ticketId ?? ""),
+          authorUserId: req.auth!.userId,
+          text: parsed.text,
+        },
+      });
+      await writeAudit(
+        "SUPPORT_INTERNAL_NOTE_CREATED",
+        "SupportTicket",
+        String(req.params.ticketId ?? ""),
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ note });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/support/tickets/:ticketId/assign", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = supportAssignmentSchema.parse(req.body ?? {});
+      const ticket = await prisma.$transaction(async (tx) => {
+        const current = await tx.supportTicket.findUnique({
+          where: { id: String(req.params.ticketId ?? "") },
+        });
+        if (!current)
+          throw Object.assign(new Error("Support ticket not found"), {
+            statusCode: 404,
+            code: "SUPPORT_TICKET_NOT_FOUND",
+          });
+        await tx.ticketAssignment.create({
+          data: {
+            ticketId: current.id,
+            assigneeUserId: parsed.assigneeUserId ?? null,
+            assignedByUserId: req.auth!.userId,
+            reason: parsed.reason ?? null,
+          },
+        });
+        if (parsed.assigneeUserId) {
+          await tx.supportTicketParticipant.upsert({
+            where: { ticketId_userId: { ticketId: current.id, userId: parsed.assigneeUserId } },
+            create: { ticketId: current.id, userId: parsed.assigneeUserId, role: "ASSIGNEE" },
+            update: { leftAt: null },
+          });
+        }
+        await tx.supportTicket.update({
+          where: { id: current.id },
+          data: { assignedToUserId: parsed.assigneeUserId ?? null, version: { increment: 1 } },
+        });
+        return tx.supportTicket.findUniqueOrThrow({
+          where: { id: current.id },
+          include: supportTicketInclude,
+        });
+      });
+      await writeAudit(
+        "SUPPORT_TICKET_ASSIGNED",
+        "SupportTicket",
+        ticket.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.json({ ticket: serializeSupportTicket(ticket, { includeInternal: true }) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/support/tickets/:ticketId/status", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = supportTicketStatusSchema.parse(req.body ?? {});
+      const ticket = await prisma.$transaction(async (tx) => {
+        const current = await tx.supportTicket.findUnique({
+          where: { id: String(req.params.ticketId ?? "") },
+        });
+        if (!current)
+          throw Object.assign(new Error("Support ticket not found"), {
+            statusCode: 404,
+            code: "SUPPORT_TICKET_NOT_FOUND",
+          });
+        const transition = evaluateSupportTransition(
+          current.status,
+          supportActionForStatus(parsed.status),
+        );
+        if (!transition.ok)
+          throw Object.assign(new Error(transition.message), {
+            statusCode: 409,
+            code: transition.code,
+          });
+        if (!transition.idempotent) {
+          await tx.supportTicket.update({
+            where: { id: current.id },
+            data: {
+              status: transition.toStatus,
+              resolvedAt: transition.toStatus === "RESOLVED" ? new Date() : current.resolvedAt,
+              closedAt: transition.toStatus === "CLOSED" ? new Date() : current.closedAt,
+              version: { increment: 1 },
+            },
+          });
+          await tx.ticketStatusEvent.create({
+            data: {
+              ticketId: current.id,
+              actorUserId: req.auth!.userId,
+              fromStatus: current.status,
+              toStatus: transition.toStatus,
+              reason: parsed.reason ?? null,
+            },
+          });
+          await tx.communicationTimelineEvent.create({
+            data: {
+              ticketId: current.id,
+              actorUserId: req.auth!.userId,
+              type: "SUPPORT_STATUS_CHANGED",
+              payload: { fromStatus: current.status, toStatus: transition.toStatus },
+            },
+          });
+        }
+        return tx.supportTicket.findUniqueOrThrow({
+          where: { id: current.id },
+          include: supportTicketInclude,
+        });
+      });
+      await writeAudit(
+        "SUPPORT_TICKET_STATUS_CHANGED",
+        "SupportTicket",
+        ticket.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.json({ ticket: serializeSupportTicket(ticket, { includeInternal: true }) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/support/tickets/:ticketId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const ticketId = String(req.params.ticketId ?? "");
+    const [statusEvents, timeline] = await Promise.all([
+      prisma.ticketStatusEvent.findMany({ where: { ticketId }, orderBy: { createdAt: "asc" } }),
+      prisma.communicationTimelineEvent.findMany({
+        where: { ticketId },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    res.json({ statusEvents, timeline });
+  });
 }
 
 async function registerBookingRoutes(http: {
@@ -7869,6 +9278,7 @@ async function bootstrap() {
 
   await registerTripSupplyRoutes(http);
   await registerParcelRoutes(http);
+  await registerCommunicationRoutes(http);
   await registerBookingRoutes(http);
   await registerVehicleRoutes(http);
   await registerAdminVehicleRoutes(http);
@@ -7894,6 +9304,7 @@ async function bootstrap() {
     ...(phase6OpenApiPaths() as typeof document.paths),
     ...(phase7OpenApiPaths() as typeof document.paths),
     ...(phase8OpenApiPaths() as typeof document.paths),
+    ...(phase9OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));

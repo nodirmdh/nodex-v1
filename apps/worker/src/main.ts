@@ -17,6 +17,7 @@ const prisma = new PrismaClient();
 const queueName = "nodex.foundation.test";
 const bookingQueueName = "nodex.booking.hold-expiration";
 const operationsQueueName = "nodex.trip.operations";
+const communicationQueueName = "nodex.communication.delivery";
 const queue = new Queue(queueName, {
   connection,
   defaultJobOptions: {
@@ -36,6 +37,15 @@ const bookingQueue = new Queue(bookingQueueName, {
   },
 });
 const operationsQueue = new Queue(operationsQueueName, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: 100,
+    removeOnFail: 100,
+  },
+});
+const communicationQueue = new Queue(communicationQueueName, {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -182,7 +192,71 @@ const operationsWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const communicationWorker = new Worker(
+  communicationQueueName,
+  async () => {
+    const now = new Date();
+    const deliveries = await prisma.notificationDelivery.findMany({
+      where: { status: { in: ["PENDING", "RETRYING"] } },
+      include: { notification: true },
+      take: 100,
+      orderBy: { createdAt: "asc" },
+    });
+    for (const delivery of deliveries) {
+      const providerMessageId =
+        delivery.channel === "TELEGRAM" ? `telegram-dev:${delivery.id}` : `in-app:${delivery.id}`;
+      await prisma.notificationDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: "DELIVERED",
+          deliveredAt: now,
+          providerMessageId,
+          attemptCount: { increment: 1 },
+        },
+      });
+      await prisma.outboxEvent.create({
+        data: {
+          type: "notification.delivery.completed",
+          payload: {
+            notificationId: delivery.notificationId,
+            deliveryId: delivery.id,
+            channel: delivery.channel,
+            providerMessageId,
+          },
+        },
+      });
+    }
+
+    const overdueTickets = await prisma.supportTicket.findMany({
+      where: {
+        slaDueAt: { lte: now },
+        status: { notIn: ["RESOLVED", "CLOSED", "REJECTED"] },
+      },
+      select: { id: true, status: true, slaDueAt: true },
+      take: 50,
+    });
+    for (const ticket of overdueTickets) {
+      await prisma.communicationTimelineEvent.create({
+        data: {
+          ticketId: ticket.id,
+          type: "SUPPORT_SLA_OVERDUE",
+          payload: { status: ticket.status, slaDueAt: ticket.slaDueAt?.toISOString() ?? null },
+        },
+      });
+    }
+
+    logger.info(
+      { delivered: deliveries.length, overdueTickets: overdueTickets.length },
+      "processed communication delivery job",
+    );
+    return { delivered: deliveries.length, overdueTickets: overdueTickets.length };
+  },
+  { connection, concurrency: 1 },
+);
+
 process.on("SIGTERM", async () => {
+  await communicationWorker.close();
+  await communicationQueue.close();
   await bookingWorker.close();
   await bookingQueue.close();
   await operationsWorker.close();
@@ -203,6 +277,12 @@ await operationsQueue.add(
   { createdAt: new Date().toISOString() },
   { jobId: "trip-operations-health", repeat: { every: 60_000 } },
 );
+await communicationQueue.add(
+  "deliver-notifications",
+  { createdAt: new Date().toISOString() },
+  { jobId: "communication-delivery-health", repeat: { every: 60_000 } },
+);
 logger.info({ queueName }, "worker foundation started");
 logger.info({ queueName: bookingQueueName }, "worker booking hold expiration started");
 logger.info({ queueName: operationsQueueName }, "worker trip operations started");
+logger.info({ queueName: communicationQueueName }, "worker communication delivery started");
