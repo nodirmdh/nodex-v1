@@ -349,3 +349,78 @@ export const searchEventSchema = z.object({
   sessionId: z.string().trim().min(8).max(128).optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
 });
+
+export const bookingTypes = ["SEAT", "MULTI_SEAT", "WHOLE_CAR"] as const;
+export const bookingPaymentMethods = ["CASH", "MANUAL_TRANSFER"] as const;
+export const ageCategories = ["ADULT", "CHILD", "INFANT"] as const;
+export const baggageTypes = ["CABIN_BAG", "SUITCASE", "OVERSIZED", "OTHER"] as const;
+
+export type SeatLayoutItem = {
+  seatKey: string;
+  label: string;
+  row: number;
+  column: number;
+  seatType: "FRONT" | "REAR" | "STANDARD";
+};
+
+export function generateSeatLayout(passengerSeatCount: number): SeatLayoutItem[] {
+  const count = Math.max(1, Math.min(16, Math.floor(passengerSeatCount)));
+  const seats: SeatLayoutItem[] = [
+    { seatKey: "FRONT_RIGHT", label: "Front right", row: 0, column: 1, seatType: "FRONT" },
+  ];
+  for (let index = 1; index < count; index += 1) {
+    const rearIndex = index - 1;
+    const row = Math.floor(rearIndex / 2) + 1;
+    const column = rearIndex % 2;
+    seats.push({
+      seatKey: `ROW_${row}_${column === 0 ? "LEFT" : "RIGHT"}`,
+      label: `Row ${row} ${column === 0 ? "left" : "right"}`,
+      row,
+      column,
+      seatType: row === 1 ? "REAR" : "STANDARD",
+    });
+  }
+  return seats;
+}
+
+const bookingPassengerSchema = z.object({
+  firstName: textField.max(80),
+  lastName: optionalTextField,
+  phone: optionalTextField,
+  ageCategory: z.enum(ageCategories).default("ADULT"),
+  seatKey: z.string().trim().min(1).max(80).optional(),
+  notes: optionalTextField,
+});
+
+export const bookingBaggageSchema = z.object({
+  type: z.enum(baggageTypes).default("SUITCASE"),
+  quantity: z.coerce.number().int().min(1).max(20).default(1),
+  weightKg: z.coerce.number().min(0).max(200).optional().nullable(),
+  notes: optionalTextField,
+});
+
+export const bookingHoldSchema = z.object({
+  tripId: z.string().trim().min(1),
+  type: z.enum(bookingTypes).default("SEAT"),
+  seatKeys: z.array(z.string().trim().min(1).max(80)).min(1).max(16),
+  passengerCount: z.coerce.number().int().min(1).max(16),
+  pickupPointId: z.string().trim().min(1).optional().nullable(),
+  destinationPickupPointId: z.string().trim().min(1).optional().nullable(),
+  paymentMethod: z.enum(bookingPaymentMethods).default("CASH"),
+});
+
+export const bookingConfirmSchema = z.object({
+  passengers: z.array(bookingPassengerSchema).min(1).max(16),
+  baggage: z.array(bookingBaggageSchema).max(8).default([]),
+  clientComment: z.string().trim().max(1000).optional().nullable(),
+  consentAccepted: z.literal(true),
+  paymentMethod: z.enum(bookingPaymentMethods).default("CASH"),
+});
+
+export const bookingCancelSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const driverBookingDecisionSchema = z.object({
+  reason: z.string().trim().min(3).max(1000).optional(),
+});

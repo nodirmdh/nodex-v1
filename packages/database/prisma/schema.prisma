@@ -190,8 +190,6 @@ enum SeatStatus {
   AVAILABLE
   HELD
   BOOKED
-  PAID
-  OCCUPIED
   BLOCKED
   UNAVAILABLE
 }
@@ -199,14 +197,65 @@ enum SeatStatus {
 enum BookingStatus {
   DRAFT
   HOLD
+  PENDING_CONFIRMATION
   CONFIRMED
   PAYMENT_PENDING
   PAID
+  BOARDING
+  IN_PROGRESS
   COMPLETED
   CANCELLED_BY_CLIENT
   CANCELLED_BY_DRIVER
   CANCELLED_BY_ADMIN
   EXPIRED
+  REFUND_PENDING
+  REFUNDED
+  DISPUTED
+}
+
+enum BookingType {
+  SEAT
+  MULTI_SEAT
+  WHOLE_CAR
+}
+
+enum SeatHoldStatus {
+  ACTIVE
+  CONFIRMED
+  EXPIRED
+  RELEASED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  MANUAL_TRANSFER
+}
+
+enum AgeCategory {
+  ADULT
+  CHILD
+  INFANT
+}
+
+enum BookingSeatStatus {
+  HELD
+  BOOKED
+  RELEASED
+  CANCELLED
+}
+
+enum SeatType {
+  FRONT
+  REAR
+  STANDARD
+}
+
+enum BaggageType {
+  CABIN_BAG
+  SUITCASE
+  OVERSIZED
+  OTHER
 }
 
 model User {
@@ -243,6 +292,9 @@ model User {
   driverVerificationReviews               DriverVerificationReview[]
   vehicleModerationReviews                VehicleModerationReview[]
   searchEvents                            SearchEvent[]
+  bookings                                Booking[]                       @relation("ClientBookings")
+  seatHolds                               SeatHold[]                      @relation("ClientSeatHolds")
+  bookingTimelineEvents                   BookingTimelineEvent[]
 
   @@index([status])
   @@index([phone])
@@ -527,6 +579,8 @@ model PickupPoint {
   updatedAt DateTime        @updatedAt
   city      City            @relation(fields: [cityId], references: [id], onDelete: Restrict)
   tripStops TripStop[]
+  bookingPickups Booking[] @relation("BookingPickupPoint")
+  bookingDropoffs Booking[] @relation("BookingDropoffPoint")
 
   @@unique([cityId, name])
   @@index([cityId, isActive, sortOrder])
@@ -855,6 +909,7 @@ model Trip {
   execution                     TripExecution?
   seats                         TripSeat[]
   bookings                      Booking[]
+  seatHolds                     SeatHold[]
   searchEvents                  SearchEvent[]
 
   @@index([driverProfileId, status, departureAtUtc])
@@ -961,40 +1016,166 @@ model TripExecution {
 }
 
 model TripSeat {
-  id      String     @id @default(cuid())
-  tripId  String
-  seatKey String
-  label   String
-  status  SeatStatus @default(AVAILABLE)
-  trip    Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id           String              @id @default(cuid())
+  tripId       String
+  seatKey      String
+  label        String
+  row          Int                 @default(0)
+  column       Int                 @default(0)
+  seatType     SeatType            @default(STANDARD)
+  status       SeatStatus          @default(AVAILABLE)
+  priceMinor   BigInt              @default(0)
+  version      Int                 @default(1)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  trip         Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  bookingSeats BookingSeat[]
+  holdItems    SeatHoldItem[]
 
   @@unique([tripId, seatKey])
+  @@index([tripId, status])
 }
 
 model Booking {
-  id         String        @id @default(cuid())
-  tripId     String
-  clientId   String?
-  status     BookingStatus @default(DRAFT)
-  totalMinor BigInt        @default(0)
-  currency   String        @default("UZS")
-  createdAt  DateTime      @default(now())
-  trip       Trip          @relation(fields: [tripId], references: [id])
-  holds      SeatHold[]
+  id                        String                 @id @default(cuid())
+  tripId                    String
+  clientId                  String?
+  type                      BookingType            @default(SEAT)
+  status                    BookingStatus          @default(DRAFT)
+  paymentMethod             PaymentMethod          @default(CASH)
+  currency                  String                 @default("UZS")
+  totalMinor                BigInt                 @default(0)
+  passengerCount            Int                    @default(1)
+  pickupPointId             String?
+  destinationPickupPointId  String?
+  clientComment             String?
+  pricingSnapshot           Json?
+  tripSnapshot              Json?
+  termsSnapshot             Json?
+  expiresAt                 DateTime?
+  confirmedAt               DateTime?
+  cancelledAt               DateTime?
+  cancellationReason        String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  version                   Int                    @default(1)
+  trip                      Trip                   @relation(fields: [tripId], references: [id])
+  client                    User?                  @relation("ClientBookings", fields: [clientId], references: [id], onDelete: SetNull)
+  pickupPoint               PickupPoint?           @relation("BookingPickupPoint", fields: [pickupPointId], references: [id], onDelete: SetNull)
+  destinationPickupPoint    PickupPoint?           @relation("BookingDropoffPoint", fields: [destinationPickupPointId], references: [id], onDelete: SetNull)
+  holds                     SeatHold[]
+  passengers                BookingPassenger[]
+  seats                     BookingSeat[]
+  baggage                   BookingBaggage[]
+  timelineEvents            BookingTimelineEvent[]
+  cancellations             BookingCancellation[]
+
+  @@index([clientId, status, createdAt])
+  @@index([tripId, status])
+  @@index([paymentMethod, status])
 }
 
 model SeatHold {
-  id        String         @id @default(cuid())
-  bookingId String
-  expiresAt DateTime
-  status    String         @default("ACTIVE")
-  booking   Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  items     SeatHoldItem[]
+  id             String           @id @default(cuid())
+  tripId         String
+  clientId       String?
+  bookingId      String?
+  status         SeatHoldStatus   @default(ACTIVE)
+  expiresAt      DateTime
+  idempotencyKey String
+  createdAt      DateTime         @default(now())
+  confirmedAt    DateTime?
+  releasedAt     DateTime?
+  version        Int              @default(1)
+  trip           Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  client         User?            @relation("ClientSeatHolds", fields: [clientId], references: [id], onDelete: SetNull)
+  booking        Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  items          SeatHoldItem[]
+
+  @@unique([tripId, idempotencyKey])
+  @@index([status, expiresAt])
+  @@index([clientId, status, createdAt])
+  @@index([bookingId])
 }
 
 model SeatHoldItem {
-  id         String   @id @default(cuid())
-  seatHoldId String
-  seatKey    String
-  seatHold   SeatHold @relation(fields: [seatHoldId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  seatHoldId   String
+  tripSeatId   String?
+  seatKey      String
+  seatHold     SeatHold @relation(fields: [seatHoldId], references: [id], onDelete: Cascade)
+  tripSeat     TripSeat? @relation(fields: [tripSeatId], references: [id], onDelete: SetNull)
+
+  @@unique([seatHoldId, seatKey])
+  @@index([seatKey])
+}
+
+model BookingPassenger {
+  id          String      @id @default(cuid())
+  bookingId   String
+  firstName   String
+  lastName    String?
+  phone       String?
+  ageCategory AgeCategory @default(ADULT)
+  isPrimary   Boolean     @default(false)
+  seatKey     String?
+  notes       String?
+  booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model BookingSeat {
+  id                 String            @id @default(cuid())
+  bookingId          String
+  tripSeatSnapshotId String?
+  tripSeatId         String?
+  seatKey            String
+  priceMinor         BigInt            @default(0)
+  status             BookingSeatStatus @default(HELD)
+  createdAt          DateTime          @default(now())
+  booking            Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  tripSeat           TripSeat?         @relation(fields: [tripSeatId], references: [id], onDelete: SetNull)
+
+  @@unique([bookingId, seatKey])
+  @@index([seatKey, status])
+}
+
+model BookingBaggage {
+  id        String      @id @default(cuid())
+  bookingId String
+  type      BaggageType @default(SUITCASE)
+  quantity  Int         @default(1)
+  weightKg  Decimal?    @db.Decimal(5, 2)
+  notes     String?
+  booking   Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model BookingTimelineEvent {
+  id          String   @id @default(cuid())
+  bookingId   String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@index([type, createdAt])
+}
+
+model BookingCancellation {
+  id          String   @id @default(cuid())
+  bookingId   String
+  actorUserId String?
+  actorRole   String
+  reason      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
 }
