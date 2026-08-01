@@ -297,6 +297,130 @@ enum ParcelAttachmentType {
   OTHER
 }
 
+enum ConversationType {
+  BOOKING
+  PARCEL
+  SUPPORT_ESCALATION
+  SYSTEM_ONLY
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  CLOSED
+  RETAINED
+}
+
+enum ConversationParticipantRole {
+  CLIENT
+  DRIVER
+  ADMIN_OBSERVER
+  SUPPORT_OBSERVER
+  SYSTEM
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  LOCATION
+  SYSTEM
+  VOICE
+  FILE
+}
+
+enum ChatMessageStatus {
+  CREATED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  DELETED
+  REPORTED
+}
+
+enum MessageReceiptStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum ModerationStatus {
+  CLEAN
+  PENDING_REVIEW
+  REPORTED
+  HIDDEN
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  BOARDING_STARTED
+  BOARDING_CONFIRMED
+  TRIP_STARTED
+  TRIP_COMPLETED
+  PARCEL_ACCEPTED
+  PARCEL_REJECTED
+  PARCEL_HANDED_OVER
+  PARCEL_IN_TRANSIT
+  PARCEL_READY
+  PARCEL_DELIVERED
+  PARCEL_ISSUE
+  CHAT_MESSAGE
+  SUPPORT_TICKET_UPDATED
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum NotificationChannel {
+  IN_APP
+  TELEGRAM
+  EMAIL
+  SMS
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+  SKIPPED
+}
+
+enum SupportTicketType {
+  BOOKING
+  TRIP
+  PARCEL
+  PAYMENT_PLACEHOLDER
+  ACCOUNT
+  DRIVER_VERIFICATION
+  VEHICLE
+  SAFETY
+  OTHER
+}
+
+enum SupportTicketStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_FOR_USER
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model User {
   id              String     @id @default(cuid())
   telegramId      BigInt?    @unique
@@ -346,6 +470,21 @@ model User {
   parcelIssues                            ParcelIssue[]                   @relation("ParcelIssueActor")
   parcelCancellations                     ParcelCancellation[]            @relation("ParcelCancellationActor")
   parcelTimelineEvents                    ParcelTimelineEvent[]           @relation("ParcelTimelineActor")
+  conversations                           ConversationParticipant[]
+  sentChatMessages                        ChatMessage[]                   @relation("ChatMessageSender")
+  chatReceipts                            ChatMessageReceipt[]
+  messageReports                          MessageReport[]                 @relation("MessageReportReporter")
+  notifications                           Notification[]                  @relation("NotificationRecipient")
+  notificationDeliveries                  NotificationDelivery[]          @relation("NotificationDeliveryRecipient")
+  supportTickets                          SupportTicket[]                 @relation("SupportTicketRequester")
+  assignedSupportTickets                  SupportTicket[]                 @relation("SupportTicketAssignee")
+  supportParticipants                     SupportTicketParticipant[]
+  ticketMessages                          TicketMessage[]                 @relation("TicketMessageSender")
+  ticketInternalNotes                     TicketInternalNote[]            @relation("TicketInternalNoteAuthor")
+  ticketAssignments                       TicketAssignment[]              @relation("TicketAssignmentAssignee")
+  ticketAssignedBy                        TicketAssignment[]              @relation("TicketAssignmentAssignedBy")
+  ticketStatusEvents                      TicketStatusEvent[]             @relation("TicketStatusEventActor")
+  communicationTimelineEvents             CommunicationTimelineEvent[]    @relation("CommunicationTimelineActor")
 
   @@index([status])
   @@index([phone])
@@ -526,6 +665,8 @@ model FileObject {
   vehicleDocuments            VehicleDocument[]
   vehiclePhotos               VehiclePhoto[]
   parcelAttachments           ParcelAttachment[]
+  messageAttachments          MessageAttachment[]
+  ticketAttachments           TicketAttachment[]
 }
 
 model FileAttachment {
@@ -973,6 +1114,8 @@ model Trip {
   completionSummary             TripCompletionSummary?
   noShowRecords                 NoShowRecord[]
   parcelOrders                  ParcelOrder[]
+  conversations                 Conversation[]
+  supportTickets                SupportTicket[]
 
   @@index([driverProfileId, status, departureAtUtc])
   @@index([vehicleId, status, departureAtUtc])
@@ -1134,6 +1277,8 @@ model Booking {
   boardingCodes            BoardingCode[]
   operationEvents          BookingOperationEvent[]
   noShowRecords            NoShowRecord[]
+  conversations            Conversation[]
+  supportTickets           SupportTicket[]
 
   @@index([clientId, status, createdAt])
   @@index([tripId, status])
@@ -1327,6 +1472,8 @@ model ParcelOrder {
   issues                         ParcelIssue[]
   cancellations                  ParcelCancellation[]
   timelineEvents                 ParcelTimelineEvent[]
+  conversations                  Conversation[]
+  supportTickets                 SupportTicket[]
 
   @@index([senderUserId, status, createdAt])
   @@index([tripId, status])
@@ -1444,6 +1591,345 @@ model ParcelTimelineEvent {
   actor       User?       @relation("ParcelTimelineActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([parcelId, createdAt])
+  @@index([type, createdAt])
+}
+
+model Conversation {
+  id             String                       @id @default(cuid())
+  type           ConversationType
+  bookingId      String?
+  parcelOrderId  String?
+  tripId         String?
+  status         ConversationStatus           @default(ACTIVE)
+  lastMessageAt  DateTime?
+  retentionUntil DateTime?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+  version        Int                          @default(1)
+  booking        Booking?                     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  parcelOrder    ParcelOrder?                 @relation(fields: [parcelOrderId], references: [id], onDelete: Cascade)
+  trip           Trip?                        @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  participants   ConversationParticipant[]
+  messages       ChatMessage[]
+  reports        MessageReport[]
+  timelineEvents CommunicationTimelineEvent[]
+
+  @@unique([bookingId])
+  @@unique([parcelOrderId])
+  @@index([type, status, lastMessageAt])
+  @@index([retentionUntil])
+}
+
+model ConversationParticipant {
+  conversationId    String
+  userId            String
+  role              ConversationParticipantRole
+  joinedAt          DateTime                    @default(now())
+  leftAt            DateTime?
+  lastReadMessageId String?
+  lastReadAt        DateTime?
+  mutedUntil        DateTime?
+  isArchived        Boolean                     @default(false)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  conversation      Conversation                @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user              User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId, isArchived, updatedAt])
+}
+
+model ChatMessage {
+  id               String               @id @default(cuid())
+  conversationId   String
+  senderUserId     String?
+  type             ChatMessageType      @default(TEXT)
+  status           ChatMessageStatus    @default(SENT)
+  text             String?
+  locationLat      Decimal?             @db.Decimal(9, 6)
+  locationLng      Decimal?             @db.Decimal(9, 6)
+  locationLabel    String?
+  replyToMessageId String?
+  clientMessageId  String?
+  sentAt           DateTime             @default(now())
+  editedAt         DateTime?
+  deletedAt        DateTime?
+  moderationStatus ModerationStatus     @default(CLEAN)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  conversation     Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender           User?                @relation("ChatMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  replyTo          ChatMessage?         @relation("ChatMessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          ChatMessage[]        @relation("ChatMessageReplies")
+  receipts         ChatMessageReceipt[]
+  attachments      MessageAttachment[]
+  reports          MessageReport[]
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, sentAt])
+  @@index([senderUserId, sentAt])
+}
+
+model ChatMessageReceipt {
+  id              String               @id @default(cuid())
+  messageId       String
+  recipientUserId String
+  status          MessageReceiptStatus @default(SENT)
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  message         ChatMessage          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient       User                 @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, recipientUserId])
+  @@index([recipientUserId, status])
+}
+
+model MessageAttachment {
+  id               String      @id @default(cuid())
+  messageId        String
+  fileObjectId     String?
+  type             String      @default("CHAT_ATTACHMENT")
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String
+  status           String      @default("UPLOADED")
+  createdAt        DateTime    @default(now())
+  message          ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileObject       FileObject? @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([messageId])
+  @@index([fileObjectId])
+}
+
+model MessageReport {
+  id             String       @id @default(cuid())
+  conversationId String
+  messageId      String
+  reporterUserId String
+  reason         String
+  status         String       @default("OPEN")
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        ChatMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter       User         @relation("MessageReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Notification {
+  id               String                 @id @default(cuid())
+  recipientUserId  String
+  type             NotificationType
+  title            String
+  body             String
+  entityType       String?
+  entityId         String?
+  deepLink         String?
+  status           NotificationStatus     @default(UNREAD)
+  createdAt        DateTime               @default(now())
+  readAt           DateTime?
+  archivedAt       DateTime?
+  deduplicationKey String                 @unique
+  templateVersion  String                 @default("phase9-v1")
+  payloadJson      Json?
+  recipient        User                   @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  deliveries       NotificationDelivery[]
+
+  @@index([recipientUserId, status, createdAt])
+  @@index([type, createdAt])
+  @@index([entityType, entityId])
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(cuid())
+  notificationId    String
+  recipientUserId   String
+  channel           NotificationChannel
+  status            NotificationDeliveryStatus @default(PENDING)
+  attemptCount      Int                        @default(0)
+  lastAttemptAt     DateTime?
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  errorCode         String?
+  providerMessageId String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  notification      Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipient         User                       @relation("NotificationDeliveryRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([status, channel, lastAttemptAt])
+}
+
+model NotificationTemplate {
+  id        String              @id @default(cuid())
+  type      NotificationType
+  channel   NotificationChannel
+  version   String              @default("phase9-v1")
+  title     String
+  body      String
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([type, channel, version])
+}
+
+model SupportTicket {
+  id               String                     @id @default(cuid())
+  requesterUserId  String
+  type             SupportTicketType
+  subject          String
+  description      String
+  status           SupportTicketStatus        @default(NEW)
+  priority         SupportPriority            @default(NORMAL)
+  bookingId        String?
+  tripId           String?
+  parcelOrderId    String?
+  driverId         String?
+  assignedToUserId String?
+  firstResponseAt  DateTime?
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  slaDueAt         DateTime?
+  retentionUntil   DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  version          Int                        @default(1)
+  requester        User                       @relation("SupportTicketRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  assignedTo       User?                      @relation("SupportTicketAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  booking          Booking?                   @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  trip             Trip?                      @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  parcelOrder      ParcelOrder?               @relation(fields: [parcelOrderId], references: [id], onDelete: SetNull)
+  participants     SupportTicketParticipant[]
+  messages         TicketMessage[]
+  attachments      TicketAttachment[]
+  internalNotes    TicketInternalNote[]
+  assignments      TicketAssignment[]
+  statusEvents     TicketStatusEvent[]
+
+  @@index([requesterUserId, status, updatedAt])
+  @@index([status, priority, slaDueAt])
+  @@index([assignedToUserId, status])
+}
+
+model SupportTicketParticipant {
+  ticketId String
+  userId   String
+  role     String
+  joinedAt DateTime      @default(now())
+  leftAt   DateTime?
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, userId])
+  @@index([userId])
+}
+
+model TicketMessage {
+  id           String             @id @default(cuid())
+  ticketId     String
+  senderUserId String
+  text         String
+  createdAt    DateTime           @default(now())
+  editedAt     DateTime?
+  deletedAt    DateTime?
+  ticket       SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender       User               @relation("TicketMessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  attachments  TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketAttachment {
+  id               String         @id @default(cuid())
+  ticketId         String
+  messageId        String?
+  fileObjectId     String?
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String
+  status           String         @default("UPLOADED")
+  createdAt        DateTime       @default(now())
+  ticket           SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message          TicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  fileObject       FileObject?    @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([messageId])
+}
+
+model TicketInternalNote {
+  id           String        @id @default(cuid())
+  ticketId     String
+  authorUserId String
+  text         String
+  createdAt    DateTime      @default(now())
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       User          @relation("TicketInternalNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketAssignment {
+  id               String        @id @default(cuid())
+  ticketId         String
+  assigneeUserId   String?
+  assignedByUserId String?
+  reason           String?
+  createdAt        DateTime      @default(now())
+  ticket           SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignee         User?         @relation("TicketAssignmentAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  assignedBy       User?         @relation("TicketAssignmentAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([assigneeUserId])
+}
+
+model TicketStatusEvent {
+  id          String               @id @default(cuid())
+  ticketId    String
+  actorUserId String?
+  fromStatus  SupportTicketStatus?
+  toStatus    SupportTicketStatus
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime             @default(now())
+  ticket      SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor       User?                @relation("TicketStatusEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([toStatus, createdAt])
+}
+
+model SupportSlaPolicy {
+  id                   String          @id @default(cuid())
+  priority             SupportPriority @unique
+  firstResponseMinutes Int
+  resolutionMinutes    Int
+  isActive             Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+}
+
+model CommunicationTimelineEvent {
+  id             String        @id @default(cuid())
+  conversationId String?
+  ticketId       String?
+  actorUserId    String?
+  type           String
+  payload        Json?
+  createdAt      DateTime      @default(now())
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  actor          User?         @relation("CommunicationTimelineActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([ticketId, createdAt])
   @@index([type, createdAt])
 }
 

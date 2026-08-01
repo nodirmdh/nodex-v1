@@ -774,3 +774,204 @@ export function parcelCodeCanAttempt(input: {
   }
   return { ok: true, code: "PARCEL_CODE_ATTEMPT_ALLOWED" };
 }
+
+export const conversationTypes = ["BOOKING", "PARCEL", "SUPPORT_ESCALATION", "SYSTEM_ONLY"] as const;
+export const chatMessageTypes = ["TEXT", "IMAGE", "LOCATION", "SYSTEM", "VOICE", "FILE"] as const;
+export const messageReceiptStatuses = ["SENT", "DELIVERED", "READ"] as const;
+export const notificationTypes = [
+  "BOOKING_CONFIRMED",
+  "BOOKING_REJECTED",
+  "BOOKING_CANCELLED",
+  "BOARDING_STARTED",
+  "BOARDING_CONFIRMED",
+  "TRIP_STARTED",
+  "TRIP_COMPLETED",
+  "PARCEL_ACCEPTED",
+  "PARCEL_REJECTED",
+  "PARCEL_HANDED_OVER",
+  "PARCEL_IN_TRANSIT",
+  "PARCEL_READY",
+  "PARCEL_DELIVERED",
+  "PARCEL_ISSUE",
+  "CHAT_MESSAGE",
+  "SUPPORT_TICKET_UPDATED",
+  "SYSTEM_ANNOUNCEMENT",
+] as const;
+export const notificationChannels = ["IN_APP", "TELEGRAM", "EMAIL", "SMS"] as const;
+export const supportTicketTypes = [
+  "BOOKING",
+  "TRIP",
+  "PARCEL",
+  "PAYMENT_PLACEHOLDER",
+  "ACCOUNT",
+  "DRIVER_VERIFICATION",
+  "VEHICLE",
+  "SAFETY",
+  "OTHER",
+] as const;
+export const supportTicketStatuses = [
+  "NEW",
+  "IN_PROGRESS",
+  "WAITING_FOR_USER",
+  "UNDER_REVIEW",
+  "RESOLVED",
+  "CLOSED",
+  "REJECTED",
+] as const;
+export const supportPriorities = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+
+export const defaultChatLimits = {
+  maxTextLength: 2000,
+  editWindowMinutes: 15,
+  deleteWindowMinutes: 30,
+  retentionDays: 30,
+} as const;
+
+export const createConversationSchema = z
+  .object({
+    bookingId: z.string().trim().min(1).optional(),
+    parcelOrderId: z.string().trim().min(1).optional(),
+  })
+  .refine((value) => Boolean(value.bookingId) !== Boolean(value.parcelOrderId), {
+    message: "Exactly one conversation entity is required",
+  });
+
+export const chatMessageSchema = z
+  .object({
+    clientMessageId: z.string().trim().min(1).max(120),
+    type: z.enum(chatMessageTypes).default("TEXT"),
+    text: z.string().trim().max(defaultChatLimits.maxTextLength).optional().nullable(),
+    locationLat: z.coerce.number().min(-90).max(90).optional().nullable(),
+    locationLng: z.coerce.number().min(-180).max(180).optional().nullable(),
+    locationLabel: z.string().trim().max(160).optional().nullable(),
+    replyToMessageId: z.string().trim().min(1).optional().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === "TEXT" && !value.text) {
+      ctx.addIssue({ code: "custom", path: ["text"], message: "Text message cannot be empty" });
+    }
+    if (value.type === "LOCATION" && (value.locationLat == null || value.locationLng == null)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["locationLat"],
+        message: "Location messages require coordinates",
+      });
+    }
+    if (value.type === "VOICE") {
+      ctx.addIssue({ code: "custom", path: ["type"], message: "Voice messages are not enabled" });
+    }
+  });
+
+export const chatMessageEditSchema = z.object({
+  text: z.string().trim().min(1).max(defaultChatLimits.maxTextLength),
+});
+
+export const messageReportSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const notificationCreateSchema = z.object({
+  recipientUserId: z.string().trim().min(1),
+  type: z.enum(notificationTypes),
+  title: z.string().trim().min(1).max(160),
+  body: z.string().trim().min(1).max(1000),
+  entityType: z.string().trim().max(80).optional().nullable(),
+  entityId: z.string().trim().max(120).optional().nullable(),
+  deepLink: z.string().trim().max(300).optional().nullable(),
+  deduplicationKey: z.string().trim().min(1).max(200),
+});
+
+export const supportTicketCreateSchema = z.object({
+  type: z.enum(supportTicketTypes),
+  subject: z.string().trim().min(3).max(160),
+  description: z.string().trim().min(5).max(4000),
+  priority: z.enum(supportPriorities).default("NORMAL"),
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  tripId: z.string().trim().min(1).optional().nullable(),
+  parcelOrderId: z.string().trim().min(1).optional().nullable(),
+});
+
+export const supportTicketMessageSchema = z.object({
+  text: z.string().trim().min(1).max(4000),
+});
+
+export const supportTicketStatusSchema = z.object({
+  status: z.enum(supportTicketStatuses),
+  reason: z.string().trim().max(1000).optional(),
+});
+
+export const supportAssignmentSchema = z.object({
+  assigneeUserId: z.string().trim().min(1).optional().nullable(),
+  reason: z.string().trim().max(1000).optional(),
+});
+
+export type BookingChatStatus =
+  | "CONFIRMED"
+  | "BOARDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | string;
+export type ParcelChatStatus = ParcelStatus;
+export type SupportTicketStatus = (typeof supportTicketStatuses)[number];
+export type SupportAction =
+  | "START_PROGRESS"
+  | "WAIT_FOR_USER"
+  | "USER_REPLY"
+  | "REVIEW"
+  | "RESOLVE"
+  | "CLOSE"
+  | "REJECT"
+  | "REOPEN";
+
+export function bookingChatEligible(status: BookingChatStatus, retentionUntil?: Date | null, now = new Date()) {
+  if (["CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) return true;
+  return status === "COMPLETED" && Boolean(retentionUntil && retentionUntil > now);
+}
+
+export function parcelChatEligible(status: ParcelChatStatus, retentionUntil?: Date | null, now = new Date()) {
+  if (["ACCEPTED", "HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"].includes(status)) {
+    return true;
+  }
+  return status === "DELIVERED" && Boolean(retentionUntil && retentionUntil > now);
+}
+
+const supportTransitionTargets = {
+  START_PROGRESS: "IN_PROGRESS",
+  WAIT_FOR_USER: "WAITING_FOR_USER",
+  USER_REPLY: "IN_PROGRESS",
+  REVIEW: "UNDER_REVIEW",
+  RESOLVE: "RESOLVED",
+  CLOSE: "CLOSED",
+  REJECT: "REJECTED",
+  REOPEN: "IN_PROGRESS",
+} as const satisfies Record<SupportAction, SupportTicketStatus>;
+
+const supportAllowedTransitions = {
+  START_PROGRESS: ["NEW", "WAITING_FOR_USER", "UNDER_REVIEW"],
+  WAIT_FOR_USER: ["NEW", "IN_PROGRESS", "UNDER_REVIEW"],
+  USER_REPLY: ["WAITING_FOR_USER"],
+  REVIEW: ["NEW", "IN_PROGRESS"],
+  RESOLVE: ["IN_PROGRESS", "UNDER_REVIEW", "WAITING_FOR_USER"],
+  CLOSE: ["RESOLVED", "REJECTED"],
+  REJECT: ["NEW", "IN_PROGRESS", "UNDER_REVIEW"],
+  REOPEN: ["RESOLVED", "CLOSED"],
+} as const satisfies Record<SupportAction, readonly SupportTicketStatus[]>;
+
+export function evaluateSupportTransition(currentStatus: SupportTicketStatus, action: SupportAction) {
+  const toStatus = supportTransitionTargets[action];
+  if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true } as const;
+  const allowed: readonly SupportTicketStatus[] = supportAllowedTransitions[action];
+  if (!allowed.includes(currentStatus)) {
+    return {
+      ok: false,
+      code: "SUPPORT_INVALID_TRANSITION",
+      message: `${currentStatus} cannot transition via ${action}`,
+    } as const;
+  }
+  return { ok: true, toStatus, idempotent: false } as const;
+}
+
+export function calculateSlaDueAt(priority: (typeof supportPriorities)[number], now = new Date()) {
+  const minutes = priority === "URGENT" ? 30 : priority === "HIGH" ? 120 : priority === "LOW" ? 1440 : 480;
+  return new Date(now.getTime() + minutes * 60_000);
+}
