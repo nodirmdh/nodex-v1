@@ -270,7 +270,7 @@ export default function SearchPage() {
                   className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]"
                   href={`/trips/${trip.id}`}
                 >
-                  View details
+                  View {trip.departure}
                 </Link>
               </div>
             </Panel>
