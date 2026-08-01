@@ -46,10 +46,10 @@ const tripDetails = {
   },
 };
 
-export default function PublicTripPage({ params }: { params: { tripId: string } }) {
+export default async function PublicTripPage({ params }: { params: Promise<{ tripId: string }> }) {
+  const { tripId } = await params;
   const trip =
-    tripDetails[params.tripId as keyof typeof tripDetails] ??
-    tripDetails["phase5-nukus-urgench-morning"];
+    tripDetails[tripId as keyof typeof tripDetails] ?? tripDetails["phase5-nukus-urgench-morning"];
 
   return (
     <main className="nodex-app mobile-shell">

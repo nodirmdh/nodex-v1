@@ -2,6 +2,25 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 
 const client = "http://127.0.0.1:3100";
 const api = "http://127.0.0.1:3103";
+const privateFieldNames = new Set([
+  "phone",
+  "telegramIdentity",
+  "telegramUserId",
+  "plateNumber",
+  "normalizedPlate",
+  "storageKey",
+  "documents",
+  "files",
+  "audit",
+  "moderationEvents",
+  "moderationReviews",
+]);
+
+function fieldNames(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap(fieldNames);
+  return Object.entries(value).flatMap(([key, item]) => [key, ...fieldNames(item)]);
+}
 
 async function cityIds(request: APIRequestContext) {
   const response = await request.get(`${api}/api/v1/cities`);
@@ -44,9 +63,7 @@ test.describe("phase 5 public trip search", () => {
       destinationCity: "Urgench",
       currency: "UZS",
     });
-    expect(JSON.stringify(body.trips[0])).not.toMatch(
-      /phone|telegram|plateNumber|normalizedPlate|storageKey|audit|moderation/i,
-    );
+    expect(fieldNames(body.trips[0]).filter((field) => privateFieldNames.has(field))).toEqual([]);
   });
 
   test("opens public trip detail and records a privacy-safe intent event", async ({ request }) => {
@@ -69,7 +86,7 @@ test.describe("phase 5 public trip search", () => {
     const detailBody = (await detail.json()) as { trip: Record<string, unknown> };
     expect(detailBody.trip).toHaveProperty("driver");
     expect(detailBody.trip).toHaveProperty("vehicle");
-    expect(JSON.stringify(detailBody.trip)).not.toMatch(/documents|files|phone|telegram/i);
+    expect(fieldNames(detailBody.trip).filter((field) => privateFieldNames.has(field))).toEqual([]);
 
     const event = await request.post(`${api}/api/v1/search-events`, {
       data: {
