@@ -18,6 +18,12 @@ import {
   driverDocumentPresignSchema,
   driverReviewDecisionSchema,
   driverVerificationDraftSchema,
+  vehicleDocumentCompleteSchema,
+  vehicleDocumentPresignSchema,
+  vehicleDraftSchema,
+  vehicleModerationDecisionSchema,
+  vehiclePhotoCompleteSchema,
+  vehiclePhotoPresignSchema,
 } from "@nodex/validation";
 import { json } from "express";
 import type { Request, Response } from "express";
@@ -697,6 +703,249 @@ function phase2OpenApiPaths() {
   };
 }
 
+function phase3OpenApiPaths() {
+  const bearer = [{ bearer: [] }];
+  const json = { "application/json": { schema: { type: "object" } } };
+  const vehicleId = {
+    name: "vehicleId",
+    in: "path",
+    required: true,
+    schema: { type: "string" },
+  };
+  const documentId = {
+    name: "documentId",
+    in: "path",
+    required: true,
+    schema: { type: "string" },
+  };
+  const photoId = {
+    name: "photoId",
+    in: "path",
+    required: true,
+    schema: { type: "string" },
+  };
+  return {
+    "/api/v1/vehicles": {
+      get: {
+        operationId: "listDriverVehicles",
+        tags: ["Vehicles"],
+        security: bearer,
+        responses: { 200: { description: "Driver vehicles", content: json } },
+      },
+      post: {
+        operationId: "createDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        requestBody: { required: false, content: json },
+        responses: { 201: { description: "Vehicle draft", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}": {
+      get: {
+        operationId: "getDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Vehicle detail", content: json } },
+      },
+      patch: {
+        operationId: "updateDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Updated vehicle", content: json } },
+      },
+      delete: {
+        operationId: "archiveDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Archived vehicle", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/submit": {
+      post: {
+        operationId: "submitDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Submitted vehicle", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/resubmit": {
+      post: {
+        operationId: "resubmitDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Resubmitted vehicle", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/set-primary": {
+      post: {
+        operationId: "setPrimaryDriverVehicle",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Primary vehicle set", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/documents": {
+      post: {
+        operationId: "completeVehicleDocument",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Vehicle document", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/documents/presign": {
+      post: {
+        operationId: "presignVehicleDocument",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Signed document upload", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/documents/{documentId}": {
+      delete: {
+        operationId: "deleteVehicleDocument",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId, documentId],
+        responses: { 200: { description: "Vehicle document removed", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/photos": {
+      post: {
+        operationId: "completeVehiclePhoto",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Vehicle photo", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/photos/presign": {
+      post: {
+        operationId: "presignVehiclePhoto",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Signed photo upload", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/photos/{photoId}": {
+      delete: {
+        operationId: "deleteVehiclePhoto",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId, photoId],
+        responses: { 200: { description: "Vehicle photo removed", content: json } },
+      },
+    },
+    "/api/v1/vehicles/{vehicleId}/history": {
+      get: {
+        operationId: "getDriverVehicleHistory",
+        tags: ["Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Vehicle history", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles": {
+      get: {
+        operationId: "listAdminVehicles",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        responses: { 200: { description: "Vehicle moderation queue", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}": {
+      get: {
+        operationId: "getAdminVehicle",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Vehicle moderation detail", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/history": {
+      get: {
+        operationId: "getAdminVehicleHistory",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Vehicle moderation history", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/start-review": {
+      post: {
+        operationId: "startAdminVehicleReview",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        responses: { 200: { description: "Vehicle review started", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/approve": {
+      post: {
+        operationId: "approveAdminVehicle",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: false, content: json },
+        responses: { 200: { description: "Vehicle approved", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/request-changes": {
+      post: {
+        operationId: "requestAdminVehicleChanges",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Vehicle changes requested", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/reject": {
+      post: {
+        operationId: "rejectAdminVehicle",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Vehicle rejected", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/suspend": {
+      post: {
+        operationId: "suspendAdminVehicle",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Vehicle suspended", content: json } },
+      },
+    },
+    "/api/v1/admin/vehicles/{vehicleId}/restore": {
+      post: {
+        operationId: "restoreAdminVehicle",
+        tags: ["Admin Vehicles"],
+        security: bearer,
+        parameters: [vehicleId],
+        requestBody: { required: false, content: json },
+        responses: { 200: { description: "Vehicle restored", content: json } },
+      },
+    },
+  };
+}
+
 const editableVerificationStatuses = ["DRAFT", "CHANGES_REQUESTED"] as const;
 const requiredDocumentTypes = [
   "IDENTITY_FRONT",
@@ -945,6 +1194,893 @@ function serializeDriverApplication(
     completion,
     ...sensitive,
   });
+}
+
+const editableVehicleStatuses = ["DRAFT", "CHANGES_REQUESTED", "REJECTED"] as const;
+const requiredVehicleDocumentTypes = ["REGISTRATION_CERTIFICATE"] as const;
+const requiredVehiclePhotoTypes = [
+  "FRONT",
+  "REAR",
+  "LEFT_SIDE",
+  "RIGHT_SIDE",
+  "INTERIOR_FRONT",
+  "PLATE",
+] as const;
+const allowedVehicleDocumentMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+const allowedVehiclePhotoMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+
+function normalizePlate(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return normalized ? normalized.slice(0, 24) : null;
+}
+
+function vehicleInclude() {
+  return {
+    documents: {
+      where: { status: { notIn: ["DELETED", "REPLACED"] } },
+      orderBy: { uploadedAt: "desc" },
+    },
+    photos: {
+      where: { status: { notIn: ["DELETED", "REPLACED"] } },
+      orderBy: { uploadedAt: "desc" },
+    },
+    reviews: { orderBy: { createdAt: "desc" }, take: 20 },
+    events: { orderBy: { createdAt: "desc" }, take: 30 },
+    driverProfile: { include: { user: { include: { telegramIdentity: true } } } },
+  } satisfies Prisma.VehicleInclude;
+}
+
+function isEditableVehicleStatus(status: string) {
+  return editableVehicleStatuses.includes(status as (typeof editableVehicleStatuses)[number]);
+}
+
+function calculateVehicleCompletion(vehicle: {
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  color: string | null;
+  plateNumber: string | null;
+  bodyType: string | null;
+  passengerSeatCount: number | null;
+  documents: { type: string; status: string }[];
+  photos: { type: string; status: string }[];
+}) {
+  const documentTypes = new Set(
+    vehicle.documents
+      .filter((document) => document.status === "UPLOADED" || document.status === "ACCEPTED")
+      .map((document) => document.type),
+  );
+  const photoTypes = new Set(
+    vehicle.photos
+      .filter((photo) => photo.status === "UPLOADED" || photo.status === "ACCEPTED")
+      .map((photo) => photo.type),
+  );
+  const sections = {
+    vehicleDataComplete: Boolean(
+      vehicle.make &&
+      vehicle.model &&
+      vehicle.year &&
+      vehicle.color &&
+      vehicle.plateNumber &&
+      vehicle.bodyType &&
+      vehicle.passengerSeatCount,
+    ),
+    documentsComplete: requiredVehicleDocumentTypes.every((type) => documentTypes.has(type)),
+    photosComplete: requiredVehiclePhotoTypes.every((type) => photoTypes.has(type)),
+  };
+  const missing = Object.entries(sections)
+    .filter(([, complete]) => !complete)
+    .map(([key]) => key);
+  const completeCount = Object.values(sections).filter(Boolean).length;
+  return {
+    ...sections,
+    canSubmit: missing.length === 0,
+    missing,
+    overallPercentage: Math.round((completeCount / Object.keys(sections).length) * 100),
+  };
+}
+
+async function writeVehicleEvent(
+  tx: Prisma.TransactionClient,
+  vehicleId: string,
+  actorUserId: string | null,
+  type: string,
+  payload?: unknown,
+) {
+  const data: Prisma.VehicleModerationEventUncheckedCreateInput = {
+    vehicleId,
+    actorUserId,
+    type,
+  };
+  if (payload !== undefined) data.payload = payload as Prisma.InputJsonValue;
+  await tx.vehicleModerationEvent.create({ data });
+}
+
+async function writeVehicleAudit(
+  tx: Prisma.TransactionClient,
+  action: string,
+  vehicleId: string,
+  actorUserId: string | null,
+  requestId?: string,
+  payload?: unknown,
+) {
+  const data: Prisma.AuditEventUncheckedCreateInput = {
+    actorUserId,
+    action,
+    entityType: "Vehicle",
+    entityId: vehicleId,
+    requestId: requestId ?? null,
+  };
+  if (payload !== undefined) data.newValueJson = payload as Prisma.InputJsonValue;
+  await tx.auditEvent.create({ data });
+}
+
+async function enqueueVehicleNotification(
+  tx: Prisma.TransactionClient,
+  type: string,
+  vehicleId: string,
+  recipientUserId: string,
+  payload: Record<string, unknown> = {},
+) {
+  await tx.outboxEvent.create({
+    data: { type, payload: { vehicleId, recipientUserId, ...payload } },
+  });
+}
+
+async function driverOwnVehicle(tx: Prisma.TransactionClient, userId: string, vehicleId: string) {
+  const profile = await driverProfileForUser(tx, userId);
+  const vehicle = await tx.vehicle.findFirst({
+    where: { id: vehicleId, driverProfileId: profile.id },
+    include: vehicleInclude(),
+  });
+  if (!vehicle) {
+    throw Object.assign(new Error("Vehicle not found"), {
+      statusCode: 404,
+      code: "VEHICLE_NOT_FOUND",
+    });
+  }
+  return vehicle;
+}
+
+function serializeVehicle(
+  vehicle: Prisma.VehicleGetPayload<{ include: ReturnType<typeof vehicleInclude> }>,
+) {
+  return serializeBigInt({ ...vehicle, completion: calculateVehicleCompletion(vehicle) });
+}
+
+async function registerVehicleRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  patch: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  delete: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.get("/api/v1/vehicles", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const vehicles = profile
+      ? await prisma.vehicle.findMany({
+          where: { driverProfileId: profile.id, status: { not: "ARCHIVED" } },
+          include: vehicleInclude(),
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+        })
+      : [];
+    res.json({ vehicles: vehicles.map(serializeVehicle) });
+  });
+
+  http.post("/api/v1/vehicles", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = vehicleDraftSchema.parse(req.body ?? {});
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const profile = await driverProfileForUser(tx, req.auth!.userId);
+        const normalizedPlate =
+          normalizePlate(parsed.plateNumber) ?? `DRAFT${randomUUID().slice(0, 8)}`;
+        const duplicate = parsed.plateNumber
+          ? await tx.vehicle.findFirst({
+              where: { normalizedPlate, status: { not: "ARCHIVED" }, archivedAt: null },
+            })
+          : null;
+        if (duplicate) {
+          throw Object.assign(new Error("Vehicle plate already exists"), {
+            statusCode: 409,
+            code: "VEHICLE_PLATE_DUPLICATE",
+          });
+        }
+        const created = await tx.vehicle.create({
+          data: {
+            driverProfileId: profile.id,
+            make: cleanText(parsed.make, 80) ?? "",
+            model: cleanText(parsed.model, 80) ?? "",
+            year: parsed.year ?? null,
+            color: cleanText(parsed.color, 80),
+            plateNumber: cleanText(parsed.plateNumber, 40) ?? normalizedPlate,
+            normalizedPlate,
+            bodyType: cleanText(parsed.bodyType, 80),
+            passengerSeatCount: parsed.passengerSeatCount ?? 4,
+            passengerSeats: parsed.passengerSeatCount ?? 4,
+            luggageCapacity: cleanText(parsed.luggageCapacity, 120),
+            amenities: parsed.amenities as Prisma.InputJsonValue,
+          },
+          include: vehicleInclude(),
+        });
+        await writeVehicleEvent(tx, created.id, req.auth!.userId, "VEHICLE_CREATED");
+        await writeVehicleAudit(tx, "VEHICLE_CREATED", created.id, req.auth!.userId, req.requestId);
+        return created;
+      });
+      res.status(201).json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/vehicles/:vehicleId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction((tx) =>
+        driverOwnVehicle(tx, req.auth!.userId, String(req.params.vehicleId ?? "")),
+      );
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.patch("/api/v1/vehicles/:vehicleId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = vehicleDraftSchema.parse(req.body ?? {});
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        if (!isEditableVehicleStatus(current.status)) {
+          throw Object.assign(new Error("Vehicle is not editable"), {
+            statusCode: 409,
+            code: "VEHICLE_NOT_EDITABLE",
+          });
+        }
+        const normalizedPlate = parsed.plateNumber
+          ? normalizePlate(parsed.plateNumber)
+          : current.normalizedPlate;
+        if (normalizedPlate && normalizedPlate !== current.normalizedPlate) {
+          const duplicate = await tx.vehicle.findFirst({
+            where: {
+              id: { not: current.id },
+              normalizedPlate,
+              status: { not: "ARCHIVED" },
+              archivedAt: null,
+            },
+          });
+          if (duplicate) {
+            throw Object.assign(new Error("Vehicle plate already exists"), {
+              statusCode: 409,
+              code: "VEHICLE_PLATE_DUPLICATE",
+            });
+          }
+        }
+        const updated = await tx.vehicle.update({
+          where: { id: current.id },
+          data: {
+            make: cleanText(parsed.make, 80) ?? current.make,
+            model: cleanText(parsed.model, 80) ?? current.model,
+            year: parsed.year ?? current.year,
+            color: cleanText(parsed.color, 80),
+            plateNumber: cleanText(parsed.plateNumber, 40) ?? current.plateNumber,
+            normalizedPlate: normalizedPlate ?? current.normalizedPlate,
+            bodyType: cleanText(parsed.bodyType, 80),
+            passengerSeatCount: parsed.passengerSeatCount ?? current.passengerSeatCount,
+            passengerSeats: parsed.passengerSeatCount ?? current.passengerSeatCount,
+            luggageCapacity: cleanText(parsed.luggageCapacity, 120),
+            amenities: parsed.amenities as Prisma.InputJsonValue,
+            version: { increment: 1 },
+          },
+          include: vehicleInclude(),
+        });
+        await writeVehicleEvent(tx, updated.id, req.auth!.userId, "VEHICLE_UPDATED");
+        await writeVehicleAudit(tx, "VEHICLE_UPDATED", updated.id, req.auth!.userId, req.requestId);
+        return updated;
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  async function submitVehicle(req: AuthenticatedRequest, res: Response, resubmit = false) {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        const allowed = resubmit
+          ? ["CHANGES_REQUESTED", "REJECTED"].includes(current.status)
+          : isEditableVehicleStatus(current.status);
+        if (!allowed) {
+          throw Object.assign(new Error("Vehicle cannot be submitted from current status"), {
+            statusCode: 409,
+            code: "VEHICLE_STATUS_INVALID",
+          });
+        }
+        const profile = await tx.driverProfile.findUniqueOrThrow({
+          where: { id: current.driverProfileId },
+        });
+        if (profile.verificationStatus !== "APPROVED") {
+          throw Object.assign(new Error("Driver must be approved before submitting vehicles"), {
+            statusCode: 403,
+            code: "VEHICLE_DRIVER_NOT_APPROVED",
+          });
+        }
+        const completion = calculateVehicleCompletion(current);
+        if (!completion.canSubmit) {
+          throw Object.assign(new Error("Vehicle is incomplete"), {
+            statusCode: 400,
+            code: "VEHICLE_INCOMPLETE",
+          });
+        }
+        const updated = await tx.vehicle.update({
+          where: { id: current.id },
+          data: {
+            status: "SUBMITTED",
+            moderationStatus: "SUBMITTED",
+            submittedAt: new Date(),
+            version: { increment: 1 },
+          },
+          include: vehicleInclude(),
+        });
+        const eventType = resubmit ? "VEHICLE_RESUBMITTED" : "VEHICLE_SUBMITTED";
+        await writeVehicleEvent(tx, updated.id, req.auth!.userId, eventType);
+        await writeVehicleAudit(tx, eventType, updated.id, req.auth!.userId, req.requestId);
+        await enqueueVehicleNotification(tx, eventType, updated.id, req.auth!.userId);
+        return updated;
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  }
+
+  http.post("/api/v1/vehicles/:vehicleId/submit", (req, res) => submitVehicle(req, res));
+  http.post("/api/v1/vehicles/:vehicleId/resubmit", (req, res) => submitVehicle(req, res, true));
+
+  http.post("/api/v1/vehicles/:vehicleId/set-primary", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        if (current.status !== "APPROVED") {
+          throw Object.assign(new Error("Only approved vehicles can be primary"), {
+            statusCode: 409,
+            code: "VEHICLE_STATUS_INVALID",
+          });
+        }
+        await tx.vehicle.updateMany({
+          where: { driverProfileId: current.driverProfileId, id: { not: current.id } },
+          data: { isPrimary: false },
+        });
+        const updated = await tx.vehicle.update({
+          where: { id: current.id },
+          data: { isPrimary: true, version: { increment: 1 } },
+          include: vehicleInclude(),
+        });
+        await writeVehicleEvent(tx, updated.id, req.auth!.userId, "VEHICLE_PRIMARY_SET");
+        await writeVehicleAudit(
+          tx,
+          "VEHICLE_PRIMARY_SET",
+          updated.id,
+          req.auth!.userId,
+          req.requestId,
+        );
+        return updated;
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/vehicles/:vehicleId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        const activeTrip = await tx.trip.findFirst({
+          where: {
+            vehicleId: current.id,
+            status: { in: ["PUBLISHED", "BOOKING_OPEN", "FULL", "BOARDING", "IN_PROGRESS"] },
+          },
+        });
+        if (activeTrip) {
+          throw Object.assign(new Error("Vehicle is used by an active trip"), {
+            statusCode: 409,
+            code: "VEHICLE_ACTIVE_TRIP",
+          });
+        }
+        const updated = await tx.vehicle.update({
+          where: { id: current.id },
+          data: {
+            status: "ARCHIVED",
+            moderationStatus: "ARCHIVED",
+            archivedAt: new Date(),
+            isPrimary: false,
+            version: { increment: 1 },
+          },
+          include: vehicleInclude(),
+        });
+        await writeVehicleEvent(tx, updated.id, req.auth!.userId, "VEHICLE_ARCHIVED");
+        await writeVehicleAudit(
+          tx,
+          "VEHICLE_ARCHIVED",
+          updated.id,
+          req.auth!.userId,
+          req.requestId,
+        );
+        return updated;
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  async function addAsset(req: AuthenticatedRequest, res: Response, kind: "document" | "photo") {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed =
+        kind === "document"
+          ? vehicleDocumentCompleteSchema.parse(req.body ?? {})
+          : vehiclePhotoCompleteSchema.parse(req.body ?? {});
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        if (!isEditableVehicleStatus(current.status)) {
+          throw Object.assign(new Error("Vehicle assets cannot be changed after submission"), {
+            statusCode: 409,
+            code: "VEHICLE_NOT_EDITABLE",
+          });
+        }
+        const allowed =
+          kind === "document" ? allowedVehicleDocumentMimeTypes : allowedVehiclePhotoMimeTypes;
+        if (!allowed.includes(parsed.mimeType)) {
+          throw Object.assign(new Error("Unsupported file type"), {
+            statusCode: 400,
+            code: "VEHICLE_FILE_MIME_INVALID",
+          });
+        }
+        if (!parsed.storageKey.startsWith(`vehicles/${current.id}/`)) {
+          throw Object.assign(new Error("Storage key does not belong to vehicle"), {
+            statusCode: 403,
+            code: "VEHICLE_FILE_ACCESS_FORBIDDEN",
+          });
+        }
+        const file = await tx.fileObject.upsert({
+          where: { key: parsed.storageKey },
+          create: {
+            bucket:
+              kind === "document" ? "nodex-vehicle-documents-local" : "nodex-vehicle-photos-local",
+            key: parsed.storageKey,
+            contentType: parsed.mimeType,
+            sizeBytes: parsed.size,
+            scanStatus: "PENDING",
+          },
+          update: { contentType: parsed.mimeType, sizeBytes: parsed.size },
+        });
+        if (kind === "document") {
+          await tx.vehicleDocument.updateMany({
+            where: { vehicleId: current.id, type: parsed.type as never, status: "UPLOADED" },
+            data: { status: "REPLACED" },
+          });
+          await tx.vehicleDocument.create({
+            data: {
+              vehicleId: current.id,
+              type: parsed.type as never,
+              storageKey: parsed.storageKey,
+              fileObjectId: file.id,
+              originalFileName: cleanFileName(parsed.originalFileName),
+              mimeType: parsed.mimeType,
+              size: parsed.size,
+              checksum: parsed.checksum,
+            },
+          });
+        } else {
+          await tx.vehiclePhoto.updateMany({
+            where: { vehicleId: current.id, type: parsed.type as never, status: "UPLOADED" },
+            data: { status: "REPLACED" },
+          });
+          await tx.vehiclePhoto.create({
+            data: {
+              vehicleId: current.id,
+              type: parsed.type as never,
+              storageKey: parsed.storageKey,
+              fileObjectId: file.id,
+              originalFileName: cleanFileName(parsed.originalFileName),
+              mimeType: parsed.mimeType,
+              size: parsed.size,
+              checksum: parsed.checksum,
+            },
+          });
+        }
+        await writeVehicleEvent(
+          tx,
+          current.id,
+          req.auth!.userId,
+          kind === "document" ? "VEHICLE_DOCUMENT_ADDED" : "VEHICLE_PHOTO_ADDED",
+          { type: parsed.type },
+        );
+        return tx.vehicle.findUniqueOrThrow({
+          where: { id: current.id },
+          include: vehicleInclude(),
+        });
+      });
+      res.status(201).json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  }
+
+  http.post("/api/v1/vehicles/:vehicleId/documents/presign", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = vehicleDocumentPresignSchema.parse(req.body ?? {});
+      const vehicle = await prisma.$transaction((tx) =>
+        driverOwnVehicle(tx, req.auth!.userId, String(req.params.vehicleId ?? "")),
+      );
+      const storageKey = `vehicles/${vehicle.id}/documents/${parsed.type}/${randomUUID()}-${cleanFileName(parsed.originalFileName)}`;
+      res.json({
+        uploadUrl: `local-private-upload://${storageKey}`,
+        storageKey,
+        expiresIn: env.DRIVER_DOCUMENT_SIGNED_URL_TTL,
+      });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+  http.post("/api/v1/vehicles/:vehicleId/documents", (req, res) => addAsset(req, res, "document"));
+
+  http.post("/api/v1/vehicles/:vehicleId/photos/presign", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = vehiclePhotoPresignSchema.parse(req.body ?? {});
+      const vehicle = await prisma.$transaction((tx) =>
+        driverOwnVehicle(tx, req.auth!.userId, String(req.params.vehicleId ?? "")),
+      );
+      const storageKey = `vehicles/${vehicle.id}/photos/${parsed.type}/${randomUUID()}-${cleanFileName(parsed.originalFileName)}`;
+      res.json({
+        uploadUrl: `local-private-upload://${storageKey}`,
+        storageKey,
+        expiresIn: env.DRIVER_DOCUMENT_SIGNED_URL_TTL,
+      });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+  http.post("/api/v1/vehicles/:vehicleId/photos", (req, res) => addAsset(req, res, "photo"));
+
+  http.delete("/api/v1/vehicles/:vehicleId/documents/:documentId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        if (!isEditableVehicleStatus(current.status)) {
+          throw Object.assign(new Error("Vehicle documents cannot be removed after submission"), {
+            statusCode: 409,
+            code: "VEHICLE_NOT_EDITABLE",
+          });
+        }
+        await tx.vehicleDocument.updateMany({
+          where: { id: String(req.params.documentId ?? ""), vehicleId: current.id },
+          data: { status: "DELETED" },
+        });
+        await writeVehicleEvent(tx, current.id, req.auth!.userId, "VEHICLE_DOCUMENT_REMOVED");
+        return tx.vehicle.findUniqueOrThrow({
+          where: { id: current.id },
+          include: vehicleInclude(),
+        });
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/vehicles/:vehicleId/photos/:photoId", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await driverOwnVehicle(
+          tx,
+          req.auth!.userId,
+          String(req.params.vehicleId ?? ""),
+        );
+        if (!isEditableVehicleStatus(current.status)) {
+          throw Object.assign(new Error("Vehicle photos cannot be removed after submission"), {
+            statusCode: 409,
+            code: "VEHICLE_NOT_EDITABLE",
+          });
+        }
+        await tx.vehiclePhoto.updateMany({
+          where: { id: String(req.params.photoId ?? ""), vehicleId: current.id },
+          data: { status: "DELETED" },
+        });
+        await writeVehicleEvent(tx, current.id, req.auth!.userId, "VEHICLE_PHOTO_REMOVED");
+        return tx.vehicle.findUniqueOrThrow({
+          where: { id: current.id },
+          include: vehicleInclude(),
+        });
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/vehicles/:vehicleId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const vehicle = await prisma.$transaction((tx) =>
+        driverOwnVehicle(tx, req.auth!.userId, String(req.params.vehicleId ?? "")),
+      );
+      res.json({ reviews: vehicle.reviews, events: vehicle.events });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+}
+
+async function registerAdminVehicleRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.get("/api/v1/admin/vehicles", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const status = cleanText(req.query.status, 40);
+    const q = cleanText(req.query.q, 80);
+    const where: Prisma.VehicleWhereInput = {};
+    if (
+      status &&
+      [
+        "DRAFT",
+        "SUBMITTED",
+        "UNDER_REVIEW",
+        "CHANGES_REQUESTED",
+        "APPROVED",
+        "REJECTED",
+        "SUSPENDED",
+        "ARCHIVED",
+      ].includes(status)
+    ) {
+      where.status = status as NonNullable<Prisma.VehicleWhereInput["status"]>;
+    }
+    if (q) {
+      where.OR = [
+        { make: { contains: q, mode: "insensitive" } },
+        { model: { contains: q, mode: "insensitive" } },
+        { plateNumber: { contains: q, mode: "insensitive" } },
+        { normalizedPlate: { contains: normalizePlate(q) ?? q, mode: "insensitive" } },
+        {
+          driverProfile: {
+            user: { telegramIdentity: { username: { contains: q, mode: "insensitive" } } },
+          },
+        },
+      ];
+    }
+    const vehicles = await prisma.vehicle.findMany({
+      where,
+      include: vehicleInclude(),
+      orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    });
+    res.json({ vehicles: vehicles.map(serializeVehicle) });
+  });
+
+  http.get("/api/v1/admin/vehicles/:vehicleId", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: String(req.params.vehicleId ?? "") },
+      include: vehicleInclude(),
+    });
+    if (!vehicle) {
+      res.status(404).json(errorBody("VEHICLE_NOT_FOUND", "Vehicle not found", req));
+      return;
+    }
+    res.json(serializeVehicle(vehicle));
+  });
+
+  http.get("/api/v1/admin/vehicles/:vehicleId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const vehicleId = String(req.params.vehicleId ?? "");
+    const [reviews, events, audit] = await Promise.all([
+      prisma.vehicleModerationReview.findMany({
+        where: { vehicleId },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.vehicleModerationEvent.findMany({
+        where: { vehicleId },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.auditEvent.findMany({
+        where: { entityType: "Vehicle", entityId: vehicleId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+    ]);
+    res.json({ reviews, events, audit });
+  });
+
+  async function adminVehicleDecision(
+    req: AuthenticatedRequest,
+    res: Response,
+    action: "START_REVIEW" | "APPROVE" | "REJECT" | "REQUEST_CHANGES" | "SUSPEND" | "RESTORE",
+  ) {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = vehicleModerationDecisionSchema.parse(req.body ?? {});
+      if (["REJECT", "REQUEST_CHANGES", "SUSPEND"].includes(action) && !parsed.reasonCode) {
+        throw Object.assign(new Error("Vehicle moderation reason is required"), {
+          statusCode: 400,
+          code: "VEHICLE_REASON_REQUIRED",
+        });
+      }
+      if (parsed.reasonCode === "OTHER" && !parsed.comment) {
+        throw Object.assign(new Error("Comment is required for OTHER reason"), {
+          statusCode: 400,
+          code: "VEHICLE_REASON_REQUIRED",
+        });
+      }
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const current = await tx.vehicle.findUnique({
+          where: { id: String(req.params.vehicleId ?? "") },
+          include: vehicleInclude(),
+        });
+        if (!current) {
+          throw Object.assign(new Error("Vehicle not found"), {
+            statusCode: 404,
+            code: "VEHICLE_NOT_FOUND",
+          });
+        }
+        if (parsed.version && parsed.version !== current.version) {
+          throw Object.assign(new Error("Vehicle version conflict"), {
+            statusCode: 409,
+            code: "VEHICLE_VERSION_CONFLICT",
+          });
+        }
+        const now = new Date();
+        const data: Prisma.VehicleUpdateInput = {
+          version: { increment: 1 },
+        };
+        if (action === "START_REVIEW" && current.status === "SUBMITTED") {
+          data.status = "UNDER_REVIEW";
+          data.moderationStatus = "UNDER_REVIEW";
+          data.reviewStartedAt = now;
+        } else if (action === "APPROVE" && ["UNDER_REVIEW", "SUSPENDED"].includes(current.status)) {
+          data.status = "APPROVED";
+          data.moderationStatus = "APPROVED";
+          data.reviewedAt = now;
+          data.approvedAt = now;
+          data.suspendedAt = null;
+        } else if (action === "REJECT" && current.status === "UNDER_REVIEW") {
+          data.status = "REJECTED";
+          data.moderationStatus = "REJECTED";
+          data.reviewedAt = now;
+          data.rejectedAt = now;
+        } else if (action === "REQUEST_CHANGES" && current.status === "UNDER_REVIEW") {
+          data.status = "CHANGES_REQUESTED";
+          data.moderationStatus = "CHANGES_REQUESTED";
+          data.changesRequestedAt = now;
+        } else if (action === "SUSPEND" && current.status === "APPROVED") {
+          data.status = "SUSPENDED";
+          data.moderationStatus = "SUSPENDED";
+          data.suspendedAt = now;
+          data.isPrimary = false;
+        } else if (action === "RESTORE" && current.status === "SUSPENDED") {
+          data.status = "UNDER_REVIEW";
+          data.moderationStatus = "UNDER_REVIEW";
+          data.reviewStartedAt = now;
+        } else {
+          throw Object.assign(new Error("Invalid vehicle status transition"), {
+            statusCode: 409,
+            code: "VEHICLE_STATUS_INVALID",
+          });
+        }
+        const updated = await tx.vehicle.update({
+          where: { id: current.id },
+          data,
+          include: vehicleInclude(),
+        });
+        await tx.vehicleModerationReview.create({
+          data: {
+            vehicleId: current.id,
+            reviewerUserId: req.auth!.userId,
+            action,
+            reasonCode: parsed.reasonCode ?? null,
+            comment: parsed.comment ?? null,
+            metadata: { fromStatus: current.status, toStatus: updated.status },
+          },
+        });
+        const eventType =
+          action === "START_REVIEW"
+            ? "VEHICLE_REVIEW_STARTED"
+            : action === "APPROVE"
+              ? "VEHICLE_APPROVED"
+              : action === "REJECT"
+                ? "VEHICLE_REJECTED"
+                : action === "REQUEST_CHANGES"
+                  ? "VEHICLE_CHANGES_REQUESTED"
+                  : action === "SUSPEND"
+                    ? "VEHICLE_SUSPENDED"
+                    : "VEHICLE_RESTORED";
+        await writeVehicleEvent(tx, current.id, req.auth!.userId, eventType, {
+          reasonCode: parsed.reasonCode,
+        });
+        await writeVehicleAudit(tx, eventType, current.id, req.auth!.userId, req.requestId, {
+          reasonCode: parsed.reasonCode,
+        });
+        await enqueueVehicleNotification(tx, eventType, current.id, current.driverProfile.userId, {
+          reasonCode: parsed.reasonCode,
+        });
+        return updated;
+      });
+      res.json(serializeVehicle(vehicle));
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  }
+
+  http.post("/api/v1/admin/vehicles/:vehicleId/start-review", (req, res) =>
+    adminVehicleDecision(req, res, "START_REVIEW"),
+  );
+  http.post("/api/v1/admin/vehicles/:vehicleId/approve", (req, res) =>
+    adminVehicleDecision(req, res, "APPROVE"),
+  );
+  http.post("/api/v1/admin/vehicles/:vehicleId/request-changes", (req, res) =>
+    adminVehicleDecision(req, res, "REQUEST_CHANGES"),
+  );
+  http.post("/api/v1/admin/vehicles/:vehicleId/reject", (req, res) =>
+    adminVehicleDecision(req, res, "REJECT"),
+  );
+  http.post("/api/v1/admin/vehicles/:vehicleId/suspend", (req, res) =>
+    adminVehicleDecision(req, res, "SUSPEND"),
+  );
+  http.post("/api/v1/admin/vehicles/:vehicleId/restore", (req, res) =>
+    adminVehicleDecision(req, res, "RESTORE"),
+  );
 }
 
 async function registerDriverVerificationRoutes(http: {
@@ -2145,6 +3281,8 @@ async function bootstrap() {
     res.json(await serializeUser(user.id));
   });
 
+  await registerVehicleRoutes(http);
+  await registerAdminVehicleRoutes(http);
   await registerDriverVerificationRoutes(http);
   await registerAdminDriverVerificationRoutes(http);
 
@@ -2161,6 +3299,7 @@ async function bootstrap() {
     ...document.paths,
     ...(phase1OpenApiPaths() as typeof document.paths),
     ...(phase2OpenApiPaths() as typeof document.paths),
+    ...(phase3OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));
