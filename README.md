@@ -97,3 +97,27 @@ See:
 - `docs/security/session-management.md`
 - `docs/api/authentication.md`
 - `docs/runbooks/auth-troubleshooting.md`
+
+## Phase 2 Driver Verification
+
+Phase 2 adds driver verification drafts, document metadata upload flow, server-side completion checks, admin moderation, review reasons, suspension/restore, audit history, and notification outbox placeholders.
+
+New local settings:
+
+```bash
+DRIVER_DOCUMENT_BUCKET
+DRIVER_DOCUMENT_MAX_IMAGE_SIZE
+DRIVER_DOCUMENT_MAX_PDF_SIZE
+DRIVER_DOCUMENT_SIGNED_URL_TTL
+DRIVER_DOCUMENT_ALLOWED_MIME_TYPES
+DRIVER_VERIFICATION_CONSENT_VERSION
+DRIVER_VERIFICATION_POLICY_VERSION
+DRIVER_VERIFICATION_DUPLICATE_CHECK_ENABLED
+```
+
+See:
+
+- `docs/architecture/driver-verification.md`
+- `docs/security/driver-documents.md`
+- `docs/api/driver-verification.md`
+- `docs/runbooks/driver-verification-troubleshooting.md`

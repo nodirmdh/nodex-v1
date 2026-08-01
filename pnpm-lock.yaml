@@ -177,6 +177,9 @@ importers:
       "@nodex/logger":
         specifier: workspace:*
         version: link:../../packages/logger
+      "@nodex/validation":
+        specifier: workspace:*
+        version: link:../../packages/validation
       express:
         specifier: 5.2.1
         version: 5.2.1

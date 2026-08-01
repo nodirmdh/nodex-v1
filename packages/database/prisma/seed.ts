@@ -11,6 +11,20 @@ const permissions = [
   "payment:manual-confirm",
   "audit:read",
   "support-ticket:add-internal-note",
+  "driver.verification.readOwn",
+  "driver.verification.updateOwn",
+  "driver.verification.submitOwn",
+  "driver.verification.withdrawOwn",
+  "driver.document.uploadOwn",
+  "driver.document.readOwn",
+  "admin.driverVerification.list",
+  "admin.driverVerification.read",
+  "admin.driverVerification.review",
+  "admin.driverVerification.approve",
+  "admin.driverVerification.reject",
+  "admin.driverVerification.requestChanges",
+  "admin.driverVerification.suspend",
+  "admin.driverDocument.read",
 ];
 
 async function main() {
@@ -75,6 +89,7 @@ async function main() {
     lastName: "Mock",
     roleCode: "ADMIN",
   });
+  await seedDriverVerificationFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -88,6 +103,170 @@ async function main() {
       lastName: null,
       roleCode: "ADMIN",
     });
+  }
+}
+
+async function seedDriverVerificationFixtures() {
+  const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
+  const statuses = [
+    "DRAFT",
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "CHANGES_REQUESTED",
+    "APPROVED",
+    "REJECTED",
+    "SUSPENDED",
+  ] as const;
+  for (const [index, status] of statuses.entries()) {
+    const telegramUserId = BigInt(900100000 + index);
+    await seedIdentity({
+      telegramUserId,
+      username: `phase2_driver_${status.toLowerCase()}`,
+      firstName: "Phase2",
+      lastName: status,
+      roleCode: "DRIVER",
+    });
+    const user = await prisma.user.findUniqueOrThrow({ where: { telegramId: telegramUserId } });
+    const profile = await prisma.driverProfile.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        city: "Tashkent",
+        onboardingStatus: "IN_PROGRESS",
+        verificationStatus:
+          status === "APPROVED"
+            ? "APPROVED"
+            : status === "REJECTED"
+              ? "REJECTED"
+              : status === "SUSPENDED"
+                ? "SUSPENDED"
+                : status === "DRAFT"
+                  ? "NOT_SUBMITTED"
+                  : "PENDING",
+      },
+      update: {
+        city: "Tashkent",
+        verificationStatus:
+          status === "APPROVED"
+            ? "APPROVED"
+            : status === "REJECTED"
+              ? "REJECTED"
+              : status === "SUSPENDED"
+                ? "SUSPENDED"
+                : status === "DRAFT"
+                  ? "NOT_SUBMITTED"
+                  : "PENDING",
+      },
+    });
+    const submittedAt = status === "DRAFT" ? null : new Date("2026-07-30T08:00:00.000Z");
+    const application = await prisma.driverVerificationApplication.upsert({
+      where: { driverProfileId_version: { driverProfileId: profile.id, version: 1 } },
+      create: {
+        driverProfileId: profile.id,
+        createdByUserId: user.id,
+        version: 1,
+        status,
+        submittedAt,
+        reviewStartedAt: status === "UNDER_REVIEW" ? new Date("2026-07-30T09:00:00.000Z") : null,
+        reviewedAt: ["APPROVED", "REJECTED", "CHANGES_REQUESTED", "SUSPENDED"].includes(status)
+          ? new Date("2026-07-30T10:00:00.000Z")
+          : null,
+        approvedAt:
+          status === "APPROVED" || status === "SUSPENDED"
+            ? new Date("2026-07-30T10:00:00.000Z")
+            : null,
+        rejectedAt: status === "REJECTED" ? new Date("2026-07-30T10:00:00.000Z") : null,
+        changesRequestedAt:
+          status === "CHANGES_REQUESTED" ? new Date("2026-07-30T10:00:00.000Z") : null,
+        reviewedByUserId: status === "DRAFT" || status === "SUBMITTED" ? null : admin.id,
+        legalFirstName: "Test",
+        legalLastName: `Driver ${index + 1}`,
+        birthDate: new Date("1990-01-01T00:00:00.000Z"),
+        citizenship: "UZ",
+        personalIdentificationNumber: `PIN-FIXTURE-${index + 1}`,
+        registeredAddress: "Fixture registered address",
+        residentialAddress: "Fixture residential address",
+        phone: `+99890000${String(index + 1).padStart(4, "0")}`,
+        driverLicenseNumber: `DL-FIXTURE-${index + 1}`,
+        driverLicenseIssuedAt: new Date("2020-01-01T00:00:00.000Z"),
+        driverLicenseExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+        driverLicenseCategory: "B",
+        driverExperienceSince: new Date("2018-01-01T00:00:00.000Z"),
+        vehicleMake: "Chevrolet",
+        vehicleModel: "Cobalt",
+        vehicleYear: 2022,
+        vehicleColor: "White",
+        vehiclePlateNumber: `01A${String(100 + index)}AA`,
+        vehicleRegistrationNumber: `VR-FIXTURE-${index + 1}`,
+        vehicleSeats: 4,
+        consentAcceptedAt: submittedAt,
+        consentVersion: "0.1-local",
+        privacyVersion: "0.1-local",
+        verificationPolicyVersion: "0.1-local",
+      },
+      update: { status },
+    });
+    await prisma.driverProfile.update({
+      where: { id: profile.id },
+      data: { currentApplicationId: application.id },
+    });
+    for (const type of [
+      "IDENTITY_FRONT",
+      "DRIVER_LICENSE_FRONT",
+      "VEHICLE_REGISTRATION_FRONT",
+      "DRIVER_SELFIE",
+      "VEHICLE_FRONT",
+    ] as const) {
+      const key = `driver-verification/${application.id}/${type}/fixture-${index + 1}.jpg`;
+      const file = await prisma.fileObject.upsert({
+        where: { key },
+        create: {
+          bucket: "nodex-driver-documents-local",
+          key,
+          contentType: "image/jpeg",
+          sizeBytes: 128000,
+          scanStatus: "APPROVED",
+        },
+        update: {},
+      });
+      await prisma.driverVerificationDocument.upsert({
+        where: { id: `${application.id}_${type}` },
+        create: {
+          id: `${application.id}_${type}`,
+          applicationId: application.id,
+          type,
+          storageKey: key,
+          fileObjectId: file.id,
+          originalFileName: `${type.toLowerCase()}.jpg`,
+          mimeType: "image/jpeg",
+          size: 128000,
+          checksum: `fixture-checksum-${index + 1}-${type}`,
+        },
+        update: {},
+      });
+    }
+    if (status !== "DRAFT" && status !== "SUBMITTED") {
+      await prisma.driverVerificationReview.create({
+        data: {
+          applicationId: application.id,
+          reviewerUserId: admin.id,
+          action:
+            status === "UNDER_REVIEW"
+              ? "START_REVIEW"
+              : status === "APPROVED"
+                ? "APPROVE"
+                : status === "SUSPENDED"
+                  ? "SUSPEND"
+                  : status === "CHANGES_REQUESTED"
+                    ? "REQUEST_CHANGES"
+                    : "REJECT",
+          reasonCode: status === "APPROVED" || status === "UNDER_REVIEW" ? null : "OTHER",
+          comment:
+            status === "APPROVED" || status === "UNDER_REVIEW" ? null : "Fixture moderation note",
+          metadata: { fixture: true },
+        },
+      });
+    }
   }
 }
 

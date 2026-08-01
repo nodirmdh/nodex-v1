@@ -30,10 +30,15 @@ test.describe("client mini app foundation", () => {
 test.describe("driver mini app foundation", () => {
   test("renders dashboard and route operation shell", async ({ page }) => {
     await page.goto(driver);
-    await expect(page.getByText("Ready for today's trip")).toBeVisible();
-    await expect(page.getByText("Nearest trip")).toBeVisible();
-    await expect(page.getByText("Seat occupancy")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start boarding mode" })).toBeVisible();
+    await expect(page.getByText("Driver verification")).toBeVisible();
+    const statusPanel = page.getByLabel("Verification progress").locator("..");
+    await expect(statusPanel).toContainText("Current status");
+    await expect(statusPanel).toContainText("Draft");
+    await expect(page.getByRole("textbox", { name: "Legal first name" })).toBeVisible();
+    const verificationForm = page.getByRole("main").filter({
+      has: page.getByLabel("Verification progress"),
+    });
+    await expect(verificationForm.getByRole("button", { name: "Next", exact: true })).toBeVisible();
   });
 
   test("renders create trip mock wizard", async ({ page }) => {
@@ -56,10 +61,13 @@ test.describe("admin web foundation", () => {
 
   test("renders drivers table and detail panel", async ({ page }) => {
     await page.goto(`${admin}/drivers`);
-    await expect(page.getByRole("heading", { name: "Drivers" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Driver verification" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Driver verification queue" })).toBeVisible();
     await expect(page.getByRole("table")).toBeVisible();
-    await page.getByText("Driver C.").click();
-    await expect(page.getByText("Kungrad").nth(1)).toBeVisible();
+    await expect(page.getByRole("row", { name: /Phase2 Driver 2/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Decision" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
     await expect(page.getByText("Application submitted")).toBeVisible();
   });
 });

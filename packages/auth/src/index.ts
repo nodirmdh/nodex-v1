@@ -119,8 +119,24 @@ export function defineAbilityFor(roles: string[]) {
     can("read", "User");
     can("read", "AuditEvent");
     can("review", "DriverApplication");
+    can("list", "DriverVerification");
+    can("read", "DriverVerification");
+    can("review", "DriverVerification");
+    can("approve", "DriverVerification");
+    can("reject", "DriverVerification");
+    can("requestChanges", "DriverVerification");
+    can("suspend", "DriverVerification");
+    can("read", "DriverDocument");
   }
-  if (roles.includes("DRIVER")) can("create", "Trip");
+  if (roles.includes("DRIVER")) {
+    can("create", "Trip");
+    can("readOwn", "DriverVerification");
+    can("updateOwn", "DriverVerification");
+    can("submitOwn", "DriverVerification");
+    can("withdrawOwn", "DriverVerification");
+    can("uploadOwn", "DriverDocument");
+    can("readOwn", "DriverDocument");
+  }
   if (roles.includes("CLIENT")) can("create", "Booking");
   return build();
 }

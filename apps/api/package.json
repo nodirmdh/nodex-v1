@@ -25,6 +25,7 @@
     "@nodex/contracts": "workspace:*",
     "@nodex/database": "workspace:*",
     "@nodex/logger": "workspace:*",
+    "@nodex/validation": "workspace:*",
     "express": "5.2.1",
     "helmet": "8.1.0",
     "nestjs-pino": "4.6.1",

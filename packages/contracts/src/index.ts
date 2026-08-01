@@ -71,3 +71,68 @@ export interface CurrentUserResponse {
   createdAt: string;
   lastSeenAt: string | null;
 }
+
+export type DriverVerificationApplicationStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "UNDER_REVIEW"
+  | "CHANGES_REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "SUSPENDED";
+
+export type DriverVerificationDocumentType =
+  | "IDENTITY_FRONT"
+  | "IDENTITY_BACK"
+  | "DRIVER_LICENSE_FRONT"
+  | "DRIVER_LICENSE_BACK"
+  | "VEHICLE_REGISTRATION_FRONT"
+  | "VEHICLE_REGISTRATION_BACK"
+  | "DRIVER_SELFIE"
+  | "DRIVER_WITH_LICENSE_SELFIE"
+  | "VEHICLE_FRONT"
+  | "VEHICLE_REAR"
+  | "VEHICLE_LEFT"
+  | "VEHICLE_RIGHT"
+  | "VEHICLE_INTERIOR";
+
+export type DriverVerificationDocumentStatus =
+  | "UPLOADED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "REPLACED"
+  | "DELETED";
+
+export type DriverVerificationReviewAction =
+  | "START_REVIEW"
+  | "APPROVE"
+  | "REJECT"
+  | "REQUEST_CHANGES"
+  | "SUSPEND"
+  | "RESTORE";
+
+export type DriverVerificationReasonCode =
+  | "DOCUMENT_UNREADABLE"
+  | "DOCUMENT_EXPIRED"
+  | "DOCUMENT_MISMATCH"
+  | "SELFIE_MISMATCH"
+  | "MISSING_DOCUMENT"
+  | "INVALID_LICENSE_CATEGORY"
+  | "INVALID_VEHICLE_DATA"
+  | "VEHICLE_PHOTO_INCOMPLETE"
+  | "DUPLICATE_DRIVER"
+  | "FRAUD_SUSPECTED"
+  | "OTHER";
+
+export interface DriverVerificationCompletion {
+  personalDataComplete: boolean;
+  identityDocumentsComplete: boolean;
+  driverLicenseComplete: boolean;
+  vehicleDataComplete: boolean;
+  vehiclePhotosComplete: boolean;
+  consentsComplete: boolean;
+  overallPercentage: number;
+  canSubmit: boolean;
+  missing: string[];
+}

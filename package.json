@@ -17,6 +17,7 @@
     "test:unit": "turbo test:unit",
     "test:integration": "turbo test:integration",
     "test:e2e": "node scripts/run-playwright.mjs",
+    "test:e2e:smoke": "node scripts/run-playwright.mjs tests/e2e/foundation.spec.ts --project=desktop",
     "test:a11y": "node scripts/run-playwright.mjs tests/e2e/accessibility.spec.ts",
     "screenshots": "node scripts/run-playwright.mjs tests/e2e/screenshots.spec.ts",
     "storybook": "pnpm --filter @nodex/ui storybook",

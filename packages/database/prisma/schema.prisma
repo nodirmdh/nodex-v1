@@ -41,6 +41,64 @@ enum DriverVerificationStatus {
   SUSPENDED
 }
 
+enum DriverVerificationApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  SUSPENDED
+}
+
+enum DriverVerificationDocumentType {
+  IDENTITY_FRONT
+  IDENTITY_BACK
+  DRIVER_LICENSE_FRONT
+  DRIVER_LICENSE_BACK
+  VEHICLE_REGISTRATION_FRONT
+  VEHICLE_REGISTRATION_BACK
+  DRIVER_SELFIE
+  DRIVER_WITH_LICENSE_SELFIE
+  VEHICLE_FRONT
+  VEHICLE_REAR
+  VEHICLE_LEFT
+  VEHICLE_RIGHT
+  VEHICLE_INTERIOR
+}
+
+enum DriverVerificationDocumentStatus {
+  UPLOADED
+  ACCEPTED
+  REJECTED
+  REPLACED
+  DELETED
+}
+
+enum DriverVerificationReviewAction {
+  START_REVIEW
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  SUSPEND
+  RESTORE
+}
+
+enum DriverVerificationReasonCode {
+  DOCUMENT_UNREADABLE
+  DOCUMENT_EXPIRED
+  DOCUMENT_MISMATCH
+  SELFIE_MISMATCH
+  MISSING_DOCUMENT
+  INVALID_LICENSE_CATEGORY
+  INVALID_VEHICLE_DATA
+  VEHICLE_PHOTO_INCOMPLETE
+  DUPLICATE_DRIVER
+  FRAUD_SUSPECTED
+  OTHER
+}
+
 enum TripStatus {
   DRAFT
   PUBLISHED
@@ -97,13 +155,17 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  roles            UserRole[]
-  sessions         AuthSession[]
-  acceptances      UserLegalAcceptance[]
-  telegramIdentity TelegramIdentity?
-  preferences      UserPreference?
-  clientProfile    ClientProfile?
-  driver           DriverProfile?
+  roles                                   UserRole[]
+  sessions                                AuthSession[]
+  acceptances                             UserLegalAcceptance[]
+  telegramIdentity                        TelegramIdentity?
+  preferences                             UserPreference?
+  clientProfile                           ClientProfile?
+  driver                                  DriverProfile?
+  createdDriverVerificationApplications   DriverVerificationApplication[] @relation("DriverVerificationCreatedBy")
+  submittedDriverVerificationApplications DriverVerificationApplication[] @relation("DriverVerificationSubmittedBy")
+  reviewedDriverVerificationApplications  DriverVerificationApplication[] @relation("DriverVerificationReviewedBy")
+  driverVerificationReviews               DriverVerificationReview[]
 
   @@index([status])
   @@index([phone])
@@ -272,14 +334,15 @@ model OutboxEvent {
 }
 
 model FileObject {
-  id          String           @id @default(cuid())
-  bucket      String
-  key         String           @unique
-  contentType String
-  sizeBytes   Int
-  scanStatus  String           @default("PENDING")
-  createdAt   DateTime         @default(now())
-  attachments FileAttachment[]
+  id                          String                       @id @default(cuid())
+  bucket                      String
+  key                         String                       @unique
+  contentType                 String
+  sizeBytes                   Int
+  scanStatus                  String                       @default("PENDING")
+  createdAt                   DateTime                     @default(now())
+  attachments                 FileAttachment[]
+  driverVerificationDocuments DriverVerificationDocument[]
 }
 
 model FileAttachment {
@@ -307,18 +370,141 @@ model FeatureFlag {
 }
 
 model DriverProfile {
-  id                 String                   @id @default(cuid())
-  userId             String                   @unique
-  onboardingStatus   DriverOnboardingStatus   @default(NOT_STARTED)
-  verificationStatus DriverVerificationStatus @default(NOT_SUBMITTED)
-  bio                String?
-  city               String?
-  reliabilityScore   Int                      @default(0)
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicles           Vehicle[]
-  trips              Trip[]
+  id                       String                          @id @default(cuid())
+  userId                   String                          @unique
+  onboardingStatus         DriverOnboardingStatus          @default(NOT_STARTED)
+  verificationStatus       DriverVerificationStatus        @default(NOT_SUBMITTED)
+  currentApplicationId     String?                         @unique
+  verifiedAt               DateTime?
+  suspendedAt              DateTime?
+  suspensionReason         String?
+  bio                      String?
+  city                     String?
+  reliabilityScore         Int                             @default(0)
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
+  user                     User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentApplication       DriverVerificationApplication?  @relation("CurrentDriverVerificationApplication", fields: [currentApplicationId], references: [id])
+  verificationApplications DriverVerificationApplication[] @relation("DriverVerificationApplications")
+  vehicles                 Vehicle[]
+  trips                    Trip[]
+}
+
+model DriverVerificationApplication {
+  id                           String                              @id @default(cuid())
+  driverProfileId              String
+  version                      Int                                 @default(1)
+  status                       DriverVerificationApplicationStatus @default(DRAFT)
+  submittedAt                  DateTime?
+  reviewStartedAt              DateTime?
+  reviewedAt                   DateTime?
+  approvedAt                   DateTime?
+  rejectedAt                   DateTime?
+  changesRequestedAt           DateTime?
+  createdAt                    DateTime                            @default(now())
+  updatedAt                    DateTime                            @updatedAt
+  createdByUserId              String
+  lastSubmittedByUserId        String?
+  reviewedByUserId             String?
+  legalFirstName               String?
+  legalLastName                String?
+  legalMiddleName              String?
+  birthDate                    DateTime?
+  gender                       String?
+  citizenship                  String?
+  personalIdentificationNumber String?
+  registeredAddress            String?
+  residentialAddress           String?
+  phone                        String?
+  emergencyContactName         String?
+  emergencyContactPhone        String?
+  driverLicenseNumber          String?
+  driverLicenseIssuedAt        DateTime?
+  driverLicenseExpiresAt       DateTime?
+  driverLicenseCategory        String?
+  driverExperienceSince        DateTime?
+  vehicleMake                  String?
+  vehicleModel                 String?
+  vehicleYear                  Int?
+  vehicleColor                 String?
+  vehiclePlateNumber           String?
+  vehicleRegistrationNumber    String?
+  vehicleSeats                 Int?
+  consentAcceptedAt            DateTime?
+  consentVersion               String?
+  privacyVersion               String?
+  verificationPolicyVersion    String?
+  duplicateWarning             Boolean                             @default(false)
+  duplicateReason              String?
+  driverProfile                DriverProfile                       @relation("DriverVerificationApplications", fields: [driverProfileId], references: [id])
+  currentForDriverProfile      DriverProfile?                      @relation("CurrentDriverVerificationApplication")
+  createdByUser                User                                @relation("DriverVerificationCreatedBy", fields: [createdByUserId], references: [id])
+  lastSubmittedByUser          User?                               @relation("DriverVerificationSubmittedBy", fields: [lastSubmittedByUserId], references: [id])
+  reviewedByUser               User?                               @relation("DriverVerificationReviewedBy", fields: [reviewedByUserId], references: [id])
+  documents                    DriverVerificationDocument[]
+  reviews                      DriverVerificationReview[]
+  events                       DriverVerificationEvent[]
+
+  @@unique([driverProfileId, version])
+  @@index([status, submittedAt])
+  @@index([reviewedByUserId])
+  @@index([duplicateWarning])
+  @@index([phone])
+  @@index([driverLicenseNumber])
+  @@index([vehiclePlateNumber])
+}
+
+model DriverVerificationDocument {
+  id               String                           @id @default(cuid())
+  applicationId    String
+  type             DriverVerificationDocumentType
+  storageKey       String
+  fileObjectId     String?
+  originalFileName String
+  mimeType         String
+  size             Int
+  checksum         String
+  status           DriverVerificationDocumentStatus @default(UPLOADED)
+  uploadedAt       DateTime                         @default(now())
+  verifiedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  application      DriverVerificationApplication    @relation(fields: [applicationId], references: [id])
+  fileObject       FileObject?                      @relation(fields: [fileObjectId], references: [id])
+
+  @@index([applicationId, type, status])
+  @@index([storageKey])
+}
+
+model DriverVerificationReview {
+  id             String                         @id @default(cuid())
+  applicationId  String
+  reviewerUserId String
+  action         DriverVerificationReviewAction
+  reasonCode     DriverVerificationReasonCode?
+  comment        String?
+  metadata       Json?
+  createdAt      DateTime                       @default(now())
+  application    DriverVerificationApplication  @relation(fields: [applicationId], references: [id])
+  reviewer       User                           @relation(fields: [reviewerUserId], references: [id])
+
+  @@index([applicationId, createdAt])
+  @@index([reviewerUserId])
+}
+
+model DriverVerificationEvent {
+  id            String                        @id @default(cuid())
+  applicationId String
+  actorUserId   String?
+  type          String
+  payload       Json?
+  createdAt     DateTime                      @default(now())
+  application   DriverVerificationApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId, createdAt])
+  @@index([type, createdAt])
 }
 
 model ClientProfile {
