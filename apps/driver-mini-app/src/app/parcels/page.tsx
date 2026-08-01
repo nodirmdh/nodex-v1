@@ -117,7 +117,14 @@ export default function DriverParcelsPage() {
           />
         </Panel>
       </div>
-      <BottomNav items={[{ label: "Trips" }, { label: "Parcels", active: true }, { label: "Vehicles" }, { label: "Profile" }]} />
+      <BottomNav
+        items={[
+          { label: "Trips" },
+          { label: "Parcels", active: true },
+          { label: "Vehicles" },
+          { label: "Profile" },
+        ]}
+      />
     </main>
   );
 }

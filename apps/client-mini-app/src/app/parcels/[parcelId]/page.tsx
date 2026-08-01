@@ -1,6 +1,10 @@
 import { AppHeader, Badge, BottomNav, Button, Panel, Timeline, formatUzs } from "@nodex/ui";
 
-export default async function ParcelDetailPage({ params }: { params: Promise<{ parcelId: string }> }) {
+export default async function ParcelDetailPage({
+  params,
+}: {
+  params: Promise<{ parcelId: string }>;
+}) {
   const { parcelId } = await params;
 
   return (
@@ -11,7 +15,9 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ p
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="m-0 text-lg font-black">Documents envelope</h1>
-              <p className="m-0 text-sm text-slate-500">Nukus Central Station to Urgench Bus Station</p>
+              <p className="m-0 text-sm text-slate-500">
+                Nukus Central Station to Urgench Bus Station
+              </p>
             </div>
             <Badge tone="info">READY_FOR_PICKUP</Badge>
           </div>
@@ -52,7 +58,14 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ p
           />
         </Panel>
       </div>
-      <BottomNav items={[{ label: "Home" }, { label: "Search" }, { label: "Parcels", active: true }, { label: "Profile" }]} />
+      <BottomNav
+        items={[
+          { label: "Home" },
+          { label: "Search" },
+          { label: "Parcels", active: true },
+          { label: "Profile" },
+        ]}
+      />
     </main>
   );
 }

@@ -1327,7 +1327,12 @@ async function seedParcelFixtures() {
   for (const [index, [code, name]] of prohibited.entries()) {
     await prisma.prohibitedParcelCategory.upsert({
       where: { code },
-      create: { code, name, description: "Prohibited for intercity parcel delivery", sortOrder: index },
+      create: {
+        code,
+        name,
+        description: "Prohibited for intercity parcel delivery",
+        sortOrder: index,
+      },
       update: { name, isActive: true, sortOrder: index },
     });
   }
@@ -1359,7 +1364,9 @@ async function seedParcelFixtures() {
 
   const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
   const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
-  const driverProfile = await prisma.driverProfile.findUniqueOrThrow({ where: { userId: driver.id } });
+  const driverProfile = await prisma.driverProfile.findUniqueOrThrow({
+    where: { userId: driver.id },
+  });
   const vehicle = await prisma.vehicle.findFirstOrThrow({
     where: { driverProfileId: driverProfile.id, status: "APPROVED" },
   });
@@ -1424,7 +1431,9 @@ async function seedParcelFixtures() {
         packagingDeclarationAcceptedAt: new Date("2026-08-01T09:00:00.000Z"),
         termsSnapshot: { version: "0.1-local" },
         pricingSnapshot: { currency: "UZS" },
-        handoverAt: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP", "DELIVERED"].includes(status)
+        handoverAt: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP", "DELIVERED"].includes(
+          status,
+        )
           ? new Date("2026-08-01T09:20:00.000Z")
           : null,
         inTransitAt: ["IN_TRANSIT", "READY_FOR_PICKUP", "DELIVERED"].includes(status)
@@ -1439,10 +1448,20 @@ async function seedParcelFixtures() {
       update: { status, driverProfileId: driverProfile.id, vehicleId: vehicle.id, tripId: trip.id },
     });
     await prisma.parcelEvent.create({
-      data: { parcelId: created.id, actorUserId: client.id, type: "PARCEL_SEEDED", payload: { status } },
+      data: {
+        parcelId: created.id,
+        actorUserId: client.id,
+        type: "PARCEL_SEEDED",
+        payload: { status },
+      },
     });
     await prisma.parcelTimelineEvent.create({
-      data: { parcelId: created.id, actorUserId: client.id, type: "PARCEL_SEEDED", payload: { status } },
+      data: {
+        parcelId: created.id,
+        actorUserId: client.id,
+        type: "PARCEL_SEEDED",
+        payload: { status },
+      },
     });
     if (["ACCEPTED", "HANDED_TO_DRIVER"].includes(status)) {
       await prisma.parcelHandoverCode.create({

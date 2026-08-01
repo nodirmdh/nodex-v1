@@ -1578,7 +1578,9 @@ function phase8OpenApiPaths() {
       get: {
         operationId: "getParcelRules",
         tags: ["Parcels"],
-        responses: { 200: { description: "Parcel limits and prohibited categories", content: json } },
+        responses: {
+          200: { description: "Parcel limits and prohibited categories", content: json },
+        },
       },
     },
     "/api/v1/trips/public/{tripId}/parcel-availability": {
@@ -3144,7 +3146,11 @@ function serializeParcel(parcel: ParcelWithInclude) {
     recipientName: parcel.recipientName,
     recipientPhone: parcel.recipientPhone,
     pickupPoint: parcel.pickupPoint
-      ? { id: parcel.pickupPoint.id, name: parcel.pickupPoint.name, address: parcel.pickupPoint.address }
+      ? {
+          id: parcel.pickupPoint.id,
+          name: parcel.pickupPoint.name,
+          address: parcel.pickupPoint.address,
+        }
       : null,
     destinationPickupPoint: parcel.destinationPickupPoint
       ? {
@@ -3294,7 +3300,9 @@ async function createParcelCode(
           return tx.parcelPickupCode.create({ data: codeData });
         })();
   await writeParcelEvent(tx, parcelId, actorUserId, `PARCEL_${type}_CODE_GENERATED`, { expiresAt });
-  await enqueueParcelEvent(tx, `parcel.${type.toLowerCase()}.code.generated`, parcelId, { expiresAt });
+  await enqueueParcelEvent(tx, `parcel.${type.toLowerCase()}.code.generated`, parcelId, {
+    expiresAt,
+  });
   return { code, plain };
 }
 
@@ -4499,7 +4507,9 @@ async function registerParcelRoutes(http: {
           where: { scope_key: { scope: `parcel.create:${req.auth!.userId}`, key: headerKey } },
         });
         if (prior) return prior.responseJson as Prisma.JsonObject;
-        const category = await tx.parcelCategory.findUnique({ where: { code: parsed.categoryCode } });
+        const category = await tx.parcelCategory.findUnique({
+          where: { code: parsed.categoryCode },
+        });
         if (!category?.isActive) {
           throw Object.assign(new Error("Parcel category is not available"), {
             statusCode: 400,
@@ -4534,33 +4544,33 @@ async function registerParcelRoutes(http: {
         if (trip) priceInput.baseParcelPriceMinor = trip.parcelPriceMinor;
         const priceMinor = calculateParcelPriceMinor(priceInput);
         const parcelData: Prisma.ParcelOrderUncheckedCreateInput = {
-            senderUserId: req.auth!.userId,
-            tripId: trip?.id ?? null,
-            driverProfileId: trip?.driverProfileId ?? null,
-            vehicleId: trip?.vehicleId ?? null,
-            categoryId: category.id,
-            title: parsed.title,
-            description: parsed.description,
-            weightGrams: parsed.weightGrams,
-            lengthCm: parsed.lengthCm,
-            widthCm: parsed.widthCm,
-            heightCm: parsed.heightCm,
-            declaredValueMinor: parsed.declaredValueMinor,
-            priceMinor,
-            senderName: parsed.senderName,
-            senderPhone: parsed.senderPhone ?? null,
-            recipientName: parsed.recipientName,
-            recipientPhone: parsed.recipientPhone,
-            pickupPointId: parsed.pickupPointId ?? null,
-            destinationPickupPointId: parsed.destinationPickupPointId ?? null,
-            pickupLabel: parsed.pickupLabel,
-            destinationLabel: parsed.destinationLabel,
-            senderComment: parsed.senderComment ?? null,
-            recipientComment: parsed.recipientComment ?? null,
-            contentDeclarationAcceptedAt: parsed.contentDeclarationAccepted ? new Date() : null,
-            packagingDeclarationAcceptedAt: parsed.packagingDeclarationAccepted ? new Date() : null,
-            termsSnapshot: { version: env.TERMS_VERSION },
-            pricingSnapshot: { priceMinor: priceMinor.toString(), currency: "UZS" },
+          senderUserId: req.auth!.userId,
+          tripId: trip?.id ?? null,
+          driverProfileId: trip?.driverProfileId ?? null,
+          vehicleId: trip?.vehicleId ?? null,
+          categoryId: category.id,
+          title: parsed.title,
+          description: parsed.description,
+          weightGrams: parsed.weightGrams,
+          lengthCm: parsed.lengthCm,
+          widthCm: parsed.widthCm,
+          heightCm: parsed.heightCm,
+          declaredValueMinor: parsed.declaredValueMinor,
+          priceMinor,
+          senderName: parsed.senderName,
+          senderPhone: parsed.senderPhone ?? null,
+          recipientName: parsed.recipientName,
+          recipientPhone: parsed.recipientPhone,
+          pickupPointId: parsed.pickupPointId ?? null,
+          destinationPickupPointId: parsed.destinationPickupPointId ?? null,
+          pickupLabel: parsed.pickupLabel,
+          destinationLabel: parsed.destinationLabel,
+          senderComment: parsed.senderComment ?? null,
+          recipientComment: parsed.recipientComment ?? null,
+          contentDeclarationAcceptedAt: parsed.contentDeclarationAccepted ? new Date() : null,
+          packagingDeclarationAcceptedAt: parsed.packagingDeclarationAccepted ? new Date() : null,
+          termsSnapshot: { version: env.TERMS_VERSION },
+          pricingSnapshot: { priceMinor: priceMinor.toString(), currency: "UZS" },
         };
         if (trip) {
           parcelData.tripSnapshot = {
@@ -4574,8 +4584,13 @@ async function registerParcelRoutes(http: {
           data: parcelData,
         });
         await writeParcelEvent(tx, parcel.id, req.auth!.userId, "PARCEL_DRAFT_CREATED");
-        const saved = await tx.parcelOrder.findUniqueOrThrow({ where: { id: parcel.id }, include: parcelInclude });
-        const body = serializeBigInt({ parcel: serializeParcel(saved) }) as unknown as Prisma.JsonObject;
+        const saved = await tx.parcelOrder.findUniqueOrThrow({
+          where: { id: parcel.id },
+          include: parcelInclude,
+        });
+        const body = serializeBigInt({
+          parcel: serializeParcel(saved),
+        }) as unknown as Prisma.JsonObject;
         await tx.idempotencyRecord.create({
           data: {
             scope: `parcel.create:${req.auth!.userId}`,
@@ -4623,11 +4638,26 @@ async function registerParcelRoutes(http: {
     try {
       parcelSubmitSchema.parse(req.body ?? {});
       const parcel = await prisma.$transaction(async (tx) => {
-        const current = await clientOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? ""));
-        if (!current) throw Object.assign(new Error("Parcel not found"), { statusCode: 404, code: "PARCEL_NOT_FOUND" });
-        await transitionParcel(tx, current, "SUBMIT", { userId: req.auth!.userId, role: "CLIENT", requestId: req.requestId });
+        const current = await clientOwnParcel(
+          tx,
+          req.auth!.userId,
+          String(req.params.parcelId ?? ""),
+        );
+        if (!current)
+          throw Object.assign(new Error("Parcel not found"), {
+            statusCode: 404,
+            code: "PARCEL_NOT_FOUND",
+          });
+        await transitionParcel(tx, current, "SUBMIT", {
+          userId: req.auth!.userId,
+          role: "CLIENT",
+          requestId: req.requestId,
+        });
         await createParcelCode(tx, current.id, "HANDOVER", req.auth!.userId);
-        return tx.parcelOrder.findUniqueOrThrow({ where: { id: current.id }, include: parcelInclude });
+        return tx.parcelOrder.findUniqueOrThrow({
+          where: { id: current.id },
+          include: parcelInclude,
+        });
       });
       res.json({ parcel: serializeParcel(parcel) });
     } catch (error) {
@@ -4640,12 +4670,34 @@ async function registerParcelRoutes(http: {
     try {
       const parsed = parcelReasonSchema.parse(req.body ?? {});
       const parcel = await prisma.$transaction(async (tx) => {
-        const current = await clientOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? ""));
-        if (!current) throw Object.assign(new Error("Parcel not found"), { statusCode: 404, code: "PARCEL_NOT_FOUND" });
-        const actor = { userId: req.auth!.userId, role: "CLIENT" as const, requestId: req.requestId };
+        const current = await clientOwnParcel(
+          tx,
+          req.auth!.userId,
+          String(req.params.parcelId ?? ""),
+        );
+        if (!current)
+          throw Object.assign(new Error("Parcel not found"), {
+            statusCode: 404,
+            code: "PARCEL_NOT_FOUND",
+          });
+        const actor = {
+          userId: req.auth!.userId,
+          role: "CLIENT" as const,
+          requestId: req.requestId,
+        };
         await transitionParcel(tx, current, "CANCEL_SENDER", actor, parsed.reason);
-        await tx.parcelCancellation.create({ data: { parcelId: current.id, actorUserId: actor.userId, actorRole: actor.role, reason: parsed.reason } });
-        return tx.parcelOrder.findUniqueOrThrow({ where: { id: current.id }, include: parcelInclude });
+        await tx.parcelCancellation.create({
+          data: {
+            parcelId: current.id,
+            actorUserId: actor.userId,
+            actorRole: actor.role,
+            reason: parsed.reason,
+          },
+        });
+        return tx.parcelOrder.findUniqueOrThrow({
+          where: { id: current.id },
+          include: parcelInclude,
+        });
       });
       res.json({ parcel: serializeParcel(parcel) });
     } catch (error) {
@@ -4658,18 +4710,43 @@ async function registerParcelRoutes(http: {
     try {
       const parsed = parcelPhotoSchema.parse(req.body ?? {});
       const attachment = await prisma.$transaction(async (tx) => {
-        const current = await clientOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? ""));
-        if (!current) throw Object.assign(new Error("Parcel not found"), { statusCode: 404, code: "PARCEL_NOT_FOUND" });
+        const current = await clientOwnParcel(
+          tx,
+          req.auth!.userId,
+          String(req.params.parcelId ?? ""),
+        );
+        if (!current)
+          throw Object.assign(new Error("Parcel not found"), {
+            statusCode: 404,
+            code: "PARCEL_NOT_FOUND",
+          });
         if (current.attachments.length >= defaultParcelLimits.maxPhotos) {
-          throw Object.assign(new Error("Too many parcel photos"), { statusCode: 400, code: "PARCEL_PHOTO_LIMIT" });
+          throw Object.assign(new Error("Too many parcel photos"), {
+            statusCode: 400,
+            code: "PARCEL_PHOTO_LIMIT",
+          });
         }
         const fileObject = await tx.fileObject.upsert({
           where: { key: parsed.storageKey },
-          create: { bucket: "parcel-photos", key: parsed.storageKey, contentType: parsed.mimeType, sizeBytes: parsed.sizeBytes, scanStatus: "APPROVED" },
-          update: { contentType: parsed.mimeType, sizeBytes: parsed.sizeBytes, scanStatus: "APPROVED" },
+          create: {
+            bucket: "parcel-photos",
+            key: parsed.storageKey,
+            contentType: parsed.mimeType,
+            sizeBytes: parsed.sizeBytes,
+            scanStatus: "APPROVED",
+          },
+          update: {
+            contentType: parsed.mimeType,
+            sizeBytes: parsed.sizeBytes,
+            scanStatus: "APPROVED",
+          },
         });
-        const created = await tx.parcelAttachment.create({ data: { parcelId: current.id, fileObjectId: fileObject.id, ...parsed } });
-        await writeParcelEvent(tx, current.id, req.auth!.userId, "PARCEL_PHOTO_ADDED", { attachmentId: created.id });
+        const created = await tx.parcelAttachment.create({
+          data: { parcelId: current.id, fileObjectId: fileObject.id, ...parsed },
+        });
+        await writeParcelEvent(tx, current.id, req.auth!.userId, "PARCEL_PHOTO_ADDED", {
+          attachmentId: created.id,
+        });
         return created;
       });
       res.status(201).json({ attachment });
@@ -4694,9 +4771,16 @@ async function registerParcelRoutes(http: {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
     try {
       const result = await prisma.$transaction(async (tx) => {
-        const current = await clientOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? ""));
+        const current = await clientOwnParcel(
+          tx,
+          req.auth!.userId,
+          String(req.params.parcelId ?? ""),
+        );
         if (!current || current.status !== "ACCEPTED") {
-          throw Object.assign(new Error("Handover code unavailable"), { statusCode: 409, code: "PARCEL_CODE_UNAVAILABLE" });
+          throw Object.assign(new Error("Handover code unavailable"), {
+            statusCode: 409,
+            code: "PARCEL_CODE_UNAVAILABLE",
+          });
         }
         return createParcelCode(tx, current.id, "HANDOVER", req.auth!.userId);
       });
@@ -4716,7 +4800,9 @@ async function registerParcelRoutes(http: {
       res.status(404).json(errorBody("PARCEL_NOT_FOUND", "Parcel not found", req));
       return;
     }
-    res.json({ pickupCode: parcel.pickupCodes[0] ? serializeParcelCode(parcel.pickupCodes[0]) : null });
+    res.json({
+      pickupCode: parcel.pickupCodes[0] ? serializeParcelCode(parcel.pickupCodes[0]) : null,
+    });
   });
 
   http.get("/api/v1/driver/trips/:tripId/parcels", async (req, res) => {
@@ -4734,7 +4820,9 @@ async function registerParcelRoutes(http: {
 
   http.get("/api/v1/driver/parcels/:parcelId", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const parcel = await prisma.$transaction((tx) => driverOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? "")));
+    const parcel = await prisma.$transaction((tx) =>
+      driverOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? "")),
+    );
     if (!parcel) {
       res.status(404).json(errorBody("PARCEL_NOT_FOUND", "Parcel not found", req));
       return;
@@ -4742,31 +4830,81 @@ async function registerParcelRoutes(http: {
     res.json({ parcel: serializeParcel(parcel) });
   });
 
-  async function driverParcelAction(req: AuthenticatedRequest, res: Response, action: Parameters<typeof evaluateParcelTransition>[1]) {
+  async function driverParcelAction(
+    req: AuthenticatedRequest,
+    res: Response,
+    action: Parameters<typeof evaluateParcelTransition>[1],
+  ) {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
-      const parsed = action === "HANDOVER" || action === "DELIVER" ? parcelCodeVerifySchema.parse(req.body ?? {}) : null;
+      const parsed =
+        action === "HANDOVER" || action === "DELIVER"
+          ? parcelCodeVerifySchema.parse(req.body ?? {})
+          : null;
       const parcel = await prisma.$transaction(async (tx) => {
-        const current = await driverOwnParcel(tx, req.auth!.userId, String(req.params.parcelId ?? ""));
-        if (!current) throw Object.assign(new Error("Parcel not found"), { statusCode: 404, code: "PARCEL_NOT_FOUND" });
+        const current = await driverOwnParcel(
+          tx,
+          req.auth!.userId,
+          String(req.params.parcelId ?? ""),
+        );
+        if (!current)
+          throw Object.assign(new Error("Parcel not found"), {
+            statusCode: 404,
+            code: "PARCEL_NOT_FOUND",
+          });
         if (action === "HANDOVER" || action === "DELIVER") {
           const code = (action === "HANDOVER" ? current.handoverCodes : current.pickupCodes)[0];
-          if (!code) throw Object.assign(new Error("Parcel code not found"), { statusCode: 404, code: "PARCEL_CODE_NOT_FOUND" });
+          if (!code)
+            throw Object.assign(new Error("Parcel code not found"), {
+              statusCode: 404,
+              code: "PARCEL_CODE_NOT_FOUND",
+            });
           const guard = parcelCodeCanAttempt({ ...code, now: new Date() });
-          if (!guard.ok) throw Object.assign(new Error(guard.code), { statusCode: 409, code: guard.code });
+          if (!guard.ok)
+            throw Object.assign(new Error(guard.code), { statusCode: 409, code: guard.code });
           const success = code.codeHash === hashSecret(parsed!.code);
           const attemptsCount = code.attemptsCount + 1;
           if (action === "HANDOVER") {
-            await tx.parcelHandoverCode.update({ where: { id: code.id }, data: success ? { attemptsCount, verifiedAt: new Date(), status: "VERIFIED" } : { attemptsCount, status: attemptsCount >= code.maxAttempts ? "LOCKED" : "ACTIVE", lockedAt: attemptsCount >= code.maxAttempts ? new Date() : null } });
+            await tx.parcelHandoverCode.update({
+              where: { id: code.id },
+              data: success
+                ? { attemptsCount, verifiedAt: new Date(), status: "VERIFIED" }
+                : {
+                    attemptsCount,
+                    status: attemptsCount >= code.maxAttempts ? "LOCKED" : "ACTIVE",
+                    lockedAt: attemptsCount >= code.maxAttempts ? new Date() : null,
+                  },
+            });
           } else {
-            await tx.parcelPickupCode.update({ where: { id: code.id }, data: success ? { attemptsCount, verifiedAt: new Date(), status: "VERIFIED" } : { attemptsCount, status: attemptsCount >= code.maxAttempts ? "LOCKED" : "ACTIVE", lockedAt: attemptsCount >= code.maxAttempts ? new Date() : null } });
+            await tx.parcelPickupCode.update({
+              where: { id: code.id },
+              data: success
+                ? { attemptsCount, verifiedAt: new Date(), status: "VERIFIED" }
+                : {
+                    attemptsCount,
+                    status: attemptsCount >= code.maxAttempts ? "LOCKED" : "ACTIVE",
+                    lockedAt: attemptsCount >= code.maxAttempts ? new Date() : null,
+                  },
+            });
           }
-          if (!success) throw Object.assign(new Error("Invalid parcel code"), { statusCode: 400, code: "PARCEL_CODE_INVALID" });
+          if (!success)
+            throw Object.assign(new Error("Invalid parcel code"), {
+              statusCode: 400,
+              code: "PARCEL_CODE_INVALID",
+            });
         }
-        const actor = { userId: req.auth!.userId, role: "DRIVER" as const, requestId: req.requestId };
+        const actor = {
+          userId: req.auth!.userId,
+          role: "DRIVER" as const,
+          requestId: req.requestId,
+        };
         await transitionParcel(tx, current, action, actor);
-        if (action === "READY_FOR_PICKUP") await createParcelCode(tx, current.id, "PICKUP", req.auth!.userId);
-        return tx.parcelOrder.findUniqueOrThrow({ where: { id: current.id }, include: parcelInclude });
+        if (action === "READY_FOR_PICKUP")
+          await createParcelCode(tx, current.id, "PICKUP", req.auth!.userId);
+        return tx.parcelOrder.findUniqueOrThrow({
+          where: { id: current.id },
+          include: parcelInclude,
+        });
       });
       res.json({ parcel: serializeParcel(parcel) });
     } catch (error) {
@@ -4774,18 +4912,34 @@ async function registerParcelRoutes(http: {
     }
   }
 
-  http.post("/api/v1/driver/parcels/:parcelId/accept", (req, res) => driverParcelAction(req, res, "DRIVER_ACCEPT"));
-  http.post("/api/v1/driver/parcels/:parcelId/reject", (req, res) => driverParcelAction(req, res, "DRIVER_REJECT"));
-  http.post("/api/v1/driver/parcels/:parcelId/handover", (req, res) => driverParcelAction(req, res, "HANDOVER"));
-  http.post("/api/v1/driver/parcels/:parcelId/ready-for-pickup", (req, res) => driverParcelAction(req, res, "READY_FOR_PICKUP"));
-  http.post("/api/v1/driver/parcels/:parcelId/deliver", (req, res) => driverParcelAction(req, res, "DELIVER"));
+  http.post("/api/v1/driver/parcels/:parcelId/accept", (req, res) =>
+    driverParcelAction(req, res, "DRIVER_ACCEPT"),
+  );
+  http.post("/api/v1/driver/parcels/:parcelId/reject", (req, res) =>
+    driverParcelAction(req, res, "DRIVER_REJECT"),
+  );
+  http.post("/api/v1/driver/parcels/:parcelId/handover", (req, res) =>
+    driverParcelAction(req, res, "HANDOVER"),
+  );
+  http.post("/api/v1/driver/parcels/:parcelId/ready-for-pickup", (req, res) =>
+    driverParcelAction(req, res, "READY_FOR_PICKUP"),
+  );
+  http.post("/api/v1/driver/parcels/:parcelId/deliver", (req, res) =>
+    driverParcelAction(req, res, "DELIVER"),
+  );
 
   http.post("/api/v1/driver/parcels/:parcelId/report-issue", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
       const parsed = parcelReasonSchema.parse(req.body ?? {});
       const issue = await prisma.parcelIssue.create({
-        data: { parcelId: String(req.params.parcelId ?? ""), actorUserId: req.auth!.userId, actorRole: "DRIVER", type: "DRIVER_REPORTED", reason: parsed.reason },
+        data: {
+          parcelId: String(req.params.parcelId ?? ""),
+          actorUserId: req.auth!.userId,
+          actorRole: "DRIVER",
+          type: "DRIVER_REPORTED",
+          reason: parsed.reason,
+        },
       });
       res.status(201).json({ issue });
     } catch (error) {
@@ -4795,7 +4949,10 @@ async function registerParcelRoutes(http: {
 
   http.get("/api/v1/admin/parcels", async (req, res) => {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
-    const status = typeof req.query.status === "string" && parcelStatuses.includes(req.query.status as never) ? req.query.status : undefined;
+    const status =
+      typeof req.query.status === "string" && parcelStatuses.includes(req.query.status as never)
+        ? req.query.status
+        : undefined;
     const parcels = await prisma.parcelOrder.findMany({
       where: status ? { status: status as never } : {},
       include: parcelInclude,
@@ -4807,7 +4964,10 @@ async function registerParcelRoutes(http: {
 
   http.get("/api/v1/admin/parcels/:parcelId", async (req, res) => {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
-    const parcel = await prisma.parcelOrder.findUnique({ where: { id: String(req.params.parcelId ?? "") }, include: parcelInclude });
+    const parcel = await prisma.parcelOrder.findUnique({
+      where: { id: String(req.params.parcelId ?? "") },
+      include: parcelInclude,
+    });
     if (!parcel) {
       res.status(404).json(errorBody("PARCEL_NOT_FOUND", "Parcel not found", req));
       return;
@@ -4827,21 +4987,54 @@ async function registerParcelRoutes(http: {
     res.json({ events, timeline, issues, cancellations });
   });
 
-  async function adminParcelAction(req: AuthenticatedRequest, res: Response, action: "CANCEL_ADMIN" | "MARK_LOST" | "MARK_DAMAGED" | "DISPUTE") {
+  async function adminParcelAction(
+    req: AuthenticatedRequest,
+    res: Response,
+    action: "CANCEL_ADMIN" | "MARK_LOST" | "MARK_DAMAGED" | "DISPUTE",
+  ) {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
     try {
       const parsed = parcelReasonSchema.parse(req.body ?? {});
       const parcel = await prisma.$transaction(async (tx) => {
-        const current = await tx.parcelOrder.findUnique({ where: { id: String(req.params.parcelId ?? "") }, include: parcelInclude });
-        if (!current) throw Object.assign(new Error("Parcel not found"), { statusCode: 404, code: "PARCEL_NOT_FOUND" });
-        const actor = { userId: req.auth!.userId, role: "ADMIN" as const, requestId: req.requestId };
+        const current = await tx.parcelOrder.findUnique({
+          where: { id: String(req.params.parcelId ?? "") },
+          include: parcelInclude,
+        });
+        if (!current)
+          throw Object.assign(new Error("Parcel not found"), {
+            statusCode: 404,
+            code: "PARCEL_NOT_FOUND",
+          });
+        const actor = {
+          userId: req.auth!.userId,
+          role: "ADMIN" as const,
+          requestId: req.requestId,
+        };
         await transitionParcel(tx, current, action, actor, parsed.reason);
         if (action === "CANCEL_ADMIN") {
-          await tx.parcelCancellation.create({ data: { parcelId: current.id, actorUserId: actor.userId, actorRole: actor.role, reason: parsed.reason } });
+          await tx.parcelCancellation.create({
+            data: {
+              parcelId: current.id,
+              actorUserId: actor.userId,
+              actorRole: actor.role,
+              reason: parsed.reason,
+            },
+          });
         } else {
-          await tx.parcelIssue.create({ data: { parcelId: current.id, actorUserId: actor.userId, actorRole: actor.role, type: action, reason: parsed.reason } });
+          await tx.parcelIssue.create({
+            data: {
+              parcelId: current.id,
+              actorUserId: actor.userId,
+              actorRole: actor.role,
+              type: action,
+              reason: parsed.reason,
+            },
+          });
         }
-        return tx.parcelOrder.findUniqueOrThrow({ where: { id: current.id }, include: parcelInclude });
+        return tx.parcelOrder.findUniqueOrThrow({
+          where: { id: current.id },
+          include: parcelInclude,
+        });
       });
       res.json({ parcel: serializeParcel(parcel) });
     } catch (error) {
@@ -4849,10 +5042,18 @@ async function registerParcelRoutes(http: {
     }
   }
 
-  http.post("/api/v1/admin/parcels/:parcelId/cancel", (req, res) => adminParcelAction(req, res, "CANCEL_ADMIN"));
-  http.post("/api/v1/admin/parcels/:parcelId/mark-lost", (req, res) => adminParcelAction(req, res, "MARK_LOST"));
-  http.post("/api/v1/admin/parcels/:parcelId/mark-damaged", (req, res) => adminParcelAction(req, res, "MARK_DAMAGED"));
-  http.post("/api/v1/admin/parcels/:parcelId/dispute", (req, res) => adminParcelAction(req, res, "DISPUTE"));
+  http.post("/api/v1/admin/parcels/:parcelId/cancel", (req, res) =>
+    adminParcelAction(req, res, "CANCEL_ADMIN"),
+  );
+  http.post("/api/v1/admin/parcels/:parcelId/mark-lost", (req, res) =>
+    adminParcelAction(req, res, "MARK_LOST"),
+  );
+  http.post("/api/v1/admin/parcels/:parcelId/mark-damaged", (req, res) =>
+    adminParcelAction(req, res, "MARK_DAMAGED"),
+  );
+  http.post("/api/v1/admin/parcels/:parcelId/dispute", (req, res) =>
+    adminParcelAction(req, res, "DISPUTE"),
+  );
 }
 
 async function registerBookingRoutes(http: {
@@ -5327,17 +5528,17 @@ async function registerBookingRoutes(http: {
     }
     res.json(
       serializeBigInt({
-      status: {
-        bookingId: booking.id,
-        tripId: booking.tripId,
-        tripStatus: booking.trip.status,
-        bookingStatus: booking.status,
-        seats: booking.seats,
-        boardingCode: booking.boardingCodes[0]
-          ? serializeBoardingCodeForClient(booking.boardingCodes[0])
-          : null,
-        timeline: booking.timelineEvents,
-      },
+        status: {
+          bookingId: booking.id,
+          tripId: booking.tripId,
+          tripStatus: booking.trip.status,
+          bookingStatus: booking.status,
+          seats: booking.seats,
+          boardingCode: booking.boardingCodes[0]
+            ? serializeBoardingCodeForClient(booking.boardingCodes[0])
+            : null,
+          timeline: booking.timelineEvents,
+        },
       }),
     );
   });

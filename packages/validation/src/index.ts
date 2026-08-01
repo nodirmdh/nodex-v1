@@ -625,7 +625,10 @@ export const parcelDraftSchema = z.object({
   lengthCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxLengthCm),
   widthCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxWidthCm),
   heightCm: z.coerce.number().int().positive().max(defaultParcelLimits.maxHeightCm),
-  declaredValueMinor: z.coerce.bigint().nonnegative().max(BigInt(defaultParcelLimits.maxDeclaredValueMinor)),
+  declaredValueMinor: z.coerce
+    .bigint()
+    .nonnegative()
+    .max(BigInt(defaultParcelLimits.maxDeclaredValueMinor)),
   senderName: textField.max(100),
   senderPhone: optionalTextField,
   recipientName: textField.max(100),
@@ -650,14 +653,21 @@ export const parcelReasonSchema = z.object({
 });
 
 export const parcelCodeVerifySchema = z.object({
-  code: z.string().trim().regex(/^\d{4,6}$/),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{4,6}$/),
 });
 
 export const parcelPhotoSchema = z.object({
   type: z.enum(parcelAttachmentTypes).default("OTHER"),
   originalFileName: textField.max(180),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  sizeBytes: z.coerce.number().int().positive().max(8 * 1024 * 1024),
+  sizeBytes: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(8 * 1024 * 1024),
   checksum: z.string().trim().min(16).max(128),
   storageKey: z.string().trim().min(16).max(300),
 });
@@ -706,17 +716,22 @@ const parcelAllowedTransitions = {
   DELIVER: ["READY_FOR_PICKUP"],
   CANCEL_SENDER: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
   CANCEL_DRIVER: ["PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
-  CANCEL_ADMIN: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED", "HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
+  CANCEL_ADMIN: [
+    "DRAFT",
+    "CREATED",
+    "PENDING_DRIVER_ACCEPTANCE",
+    "ACCEPTED",
+    "HANDED_TO_DRIVER",
+    "IN_TRANSIT",
+    "READY_FOR_PICKUP",
+  ],
   MARK_LOST: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
   MARK_DAMAGED: ["HANDED_TO_DRIVER", "IN_TRANSIT", "READY_FOR_PICKUP"],
   DISPUTE: ["READY_FOR_PICKUP", "DELIVERED", "DAMAGED", "LOST"],
   EXPIRE: ["DRAFT", "CREATED", "PENDING_DRIVER_ACCEPTANCE", "ACCEPTED"],
 } as const satisfies Record<ParcelAction, readonly ParcelStatus[]>;
 
-export function evaluateParcelTransition(
-  currentStatus: ParcelStatus,
-  action: ParcelAction,
-) {
+export function evaluateParcelTransition(currentStatus: ParcelStatus, action: ParcelAction) {
   const toStatus = parcelTransitionTargets[action];
   if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true } as const;
   const allowed: readonly ParcelStatus[] = parcelAllowedTransitions[action];
@@ -730,7 +745,10 @@ export function evaluateParcelTransition(
   return { ok: true, toStatus, idempotent: false } as const;
 }
 
-export function calculateParcelPriceMinor(input: { baseParcelPriceMinor?: bigint | null; weightGrams: number }) {
+export function calculateParcelPriceMinor(input: {
+  baseParcelPriceMinor?: bigint | null;
+  weightGrams: number;
+}) {
   const base = input.baseParcelPriceMinor ?? 25_000_00n;
   const overweightSteps = Math.max(0, Math.ceil((input.weightGrams - 5_000) / 5_000));
   return base + BigInt(overweightSteps) * 5_000_00n;

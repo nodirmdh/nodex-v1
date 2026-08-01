@@ -36,7 +36,9 @@ export default function ClientParcelsPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="m-0 text-lg font-black">Send a parcel</h1>
-              <p className="m-0 text-sm text-slate-500">Route-linked delivery with approved drivers.</p>
+              <p className="m-0 text-sm text-slate-500">
+                Route-linked delivery with approved drivers.
+              </p>
             </div>
             <Badge tone="info">UZS</Badge>
           </div>
@@ -51,12 +53,18 @@ export default function ClientParcelsPage() {
             </label>
             <label className="grid gap-1">
               <span className="font-medium">Weight</span>
-              <input className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3" defaultValue="1.2 kg" />
+              <input
+                className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3"
+                defaultValue="1.2 kg"
+              />
             </label>
           </div>
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Recipient phone</span>
-            <input className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3" defaultValue="+998 90 123 45 67" />
+            <input
+              className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3"
+              defaultValue="+998 90 123 45 67"
+            />
           </label>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button">Create parcel</Button>
@@ -80,7 +88,10 @@ export default function ClientParcelsPage() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <strong>{formatUzs(parcel.priceMinor)}</strong>
-                <Link className="text-sm font-semibold text-[rgb(var(--primary))]" href={`/parcels/${parcel.id}`}>
+                <Link
+                  className="text-sm font-semibold text-[rgb(var(--primary))]"
+                  href={`/parcels/${parcel.id}`}
+                >
                   Track
                 </Link>
               </div>
@@ -98,7 +109,14 @@ export default function ClientParcelsPage() {
           />
         </Panel>
       </div>
-      <BottomNav items={[{ label: "Home" }, { label: "Search" }, { label: "Parcels", active: true }, { label: "Profile" }]} />
+      <BottomNav
+        items={[
+          { label: "Home" },
+          { label: "Search" },
+          { label: "Parcels", active: true },
+          { label: "Profile" },
+        ]}
+      />
     </main>
   );
 }
