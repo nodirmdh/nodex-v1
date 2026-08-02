@@ -1394,3 +1394,158 @@ export function canCreateUserBlock(blockerUserId: string, blockedUserId: string)
 export function hashableTripShareToken(token: string) {
   return token.trim();
 }
+
+export const paymentMethods = [
+  "CASH",
+  "ONLINE",
+  "WALLET",
+  "BANK_TRANSFER",
+  "MANUAL_TRANSFER",
+] as const;
+export const paymentProviders = ["MOCK", "MANUAL"] as const;
+export const paymentTargetTypes = [
+  "BOOKING",
+  "PARCEL_ORDER",
+  "DRIVER_PAYOUT",
+  "ADJUSTMENT",
+] as const;
+export const paymentStatuses = [
+  "CREATED",
+  "REQUIRES_ACTION",
+  "PROCESSING",
+  "AUTHORIZED",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+  "EXPIRED",
+  "PARTIALLY_REFUNDED",
+  "REFUNDED",
+] as const;
+export const paymentIntentStatuses = [
+  "CREATED",
+  "PENDING",
+  "REQUIRES_ACTION",
+  "PROCESSING",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+  "EXPIRED",
+] as const;
+export const refundReasons = [
+  "CLIENT_CANCELLATION",
+  "DRIVER_CANCELLATION",
+  "ADMIN_CANCELLATION",
+  "TRIP_CANCELLED",
+  "DRIVER_NO_SHOW",
+  "DUPLICATE_PAYMENT",
+  "PARCEL_REJECTED",
+  "PARCEL_CANCELLED",
+  "SERVICE_NOT_DELIVERED",
+  "MANUAL_ADJUSTMENT",
+  "OTHER",
+] as const;
+
+export const paymentIntentCreateSchema = z.object({
+  targetType: z.enum(["BOOKING", "PARCEL_ORDER"]),
+  targetId: z.string().min(1),
+  method: z.enum(["CASH", "ONLINE"]),
+  provider: z.enum(paymentProviders).default("MOCK"),
+});
+
+export const paymentStatusQuerySchema = z.object({
+  paymentId: z.string().min(1),
+});
+
+export const mockWebhookSchema = z.object({
+  eventId: z.string().min(1),
+  providerReference: z.string().min(1),
+  status: z.enum(paymentIntentStatuses).default("SUCCEEDED"),
+  amountMinor: z.union([z.string(), z.number(), z.bigint()]),
+  currency: z.literal("UZS"),
+});
+
+export const refundRequestSchema = z.object({
+  paymentId: z.string().min(1),
+  reason: z.enum(refundReasons),
+  amountMinor: z.union([z.string(), z.number(), z.bigint()]).optional(),
+});
+
+export const cashConfirmationSchema = z.object({
+  paymentId: z.string().min(1),
+  received: z.boolean(),
+  reason: z.string().max(500).optional(),
+});
+
+export const payoutCreateSchema = z.object({
+  driverProfileId: z.string().min(1),
+  earningIds: z.array(z.string().min(1)).min(1),
+});
+
+export const payoutStatusSchema = z.object({
+  status: z.enum(["PAID", "FAILED", "CANCELLED", "ON_HOLD"]),
+  reason: z.string().max(500).optional(),
+});
+
+export const reconciliationRunSchema = z.object({
+  provider: z.enum(paymentProviders),
+  from: z.coerce.date(),
+  to: z.coerce.date(),
+});
+
+export const analyticsEventSchema = z.object({
+  type: z.enum([
+    "SEARCH_PERFORMED",
+    "TRIP_VIEWED",
+    "BOOKING_STARTED",
+    "PAYMENT_INTENT_CREATED",
+    "PAYMENT_SUCCEEDED",
+    "PAYMENT_FAILED",
+    "REFUND_REQUESTED",
+    "REFUND_SUCCEEDED",
+    "PARCEL_CREATED",
+    "SUPPORT_TICKET_CREATED",
+    "SAFETY_REPORT_CREATED",
+    "REVIEW_SUBMITTED",
+  ]),
+  entityType: z.string().max(80).optional(),
+  entityId: z.string().max(120).optional(),
+  sessionId: z.string().max(120).optional(),
+  dedupeKey: z.string().max(160).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type PaymentMethod = (typeof paymentMethods)[number];
+export type PaymentProvider = (typeof paymentProviders)[number];
+export type PaymentTargetType = (typeof paymentTargetTypes)[number];
+export type PaymentStatus = (typeof paymentStatuses)[number];
+export type PaymentIntentStatus = (typeof paymentIntentStatuses)[number];
+export type RefundReason = (typeof refundReasons)[number];
+
+export function normalizeMinorUnit(value: string | number | bigint) {
+  const normalized = BigInt(value);
+  if (normalized < 0n) throw new Error("Amount must not be negative");
+  return normalized;
+}
+
+export function requireReasonForFinancialAdminAction(reason: string | null | undefined) {
+  if (!reason?.trim()) {
+    return { ok: false, code: "FINANCIAL_REASON_REQUIRED", message: "Reason is required" } as const;
+  }
+  return { ok: true } as const;
+}
+
+export function safePaymentStatusForPublic(status: PaymentStatus) {
+  if (status === "AUTHORIZED") return "PROCESSING" as const;
+  return status;
+}
+
+export function providerAllowedInProduction(provider: PaymentProvider, production: boolean) {
+  if (production && provider === "MOCK") {
+    return {
+      ok: false,
+      code: "MOCK_PROVIDER_DISABLED_IN_PRODUCTION",
+      message: "Mock payment provider cannot be used in production",
+    } as const;
+  }
+  return { ok: true } as const;
+}

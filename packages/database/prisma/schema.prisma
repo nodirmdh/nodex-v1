@@ -232,7 +232,146 @@ enum SeatHoldStatus {
 
 enum PaymentMethod {
   CASH
+  ONLINE
+  WALLET
+  BANK_TRANSFER
   MANUAL_TRANSFER
+}
+
+enum PaymentTargetType {
+  BOOKING
+  PARCEL_ORDER
+  DRIVER_PAYOUT
+  ADJUSTMENT
+}
+
+enum PaymentProvider {
+  MOCK
+  MANUAL
+}
+
+enum PaymentStatus {
+  CREATED
+  REQUIRES_ACTION
+  PROCESSING
+  AUTHORIZED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  PENDING
+  REQUIRES_ACTION
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentAttemptStatus {
+  CREATED
+  SENT_TO_PROVIDER
+  PENDING_PROVIDER
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REJECTED
+  PARTIAL
+}
+
+enum RefundReason {
+  CLIENT_CANCELLATION
+  DRIVER_CANCELLATION
+  ADMIN_CANCELLATION
+  TRIP_CANCELLED
+  DRIVER_NO_SHOW
+  DUPLICATE_PAYMENT
+  PARCEL_REJECTED
+  PARCEL_CANCELLED
+  SERVICE_NOT_DELIVERED
+  MANUAL_ADJUSTMENT
+  OTHER
+}
+
+enum PayoutStatus {
+  DRAFT
+  READY
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  ON_HOLD
+}
+
+enum DriverEarningStatus {
+  PENDING
+  AVAILABLE
+  PAID
+  REVERSED
+  ON_HOLD
+}
+
+enum CashSettlementStatus {
+  OPEN
+  DECLARED
+  CONFIRMED
+  DISPUTED
+  SETTLED
+  CANCELLED
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
+}
+
+enum FinancialTransactionType {
+  PAYMENT
+  REFUND
+  FEE
+  EARNING
+  PAYOUT
+  CASH_SETTLEMENT
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum ReconciliationStatus {
+  PENDING
+  MATCHED
+  MISMATCH
+  RESOLVED
+  FAILED
+}
+
+enum AnalyticsEventType {
+  SEARCH_PERFORMED
+  TRIP_VIEWED
+  BOOKING_STARTED
+  PAYMENT_INTENT_CREATED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  REFUND_REQUESTED
+  REFUND_SUCCEEDED
+  PARCEL_CREATED
+  SUPPORT_TICKET_CREATED
+  SAFETY_REPORT_CREATED
+  REVIEW_SUBMITTED
 }
 
 enum AgeCategory {
@@ -2444,6 +2583,496 @@ model AccountRestrictionEvent {
   restriction   AccountRestriction @relation(fields: [restrictionId], references: [id], onDelete: Cascade)
 
   @@index([restrictionId, createdAt])
+}
+
+model PaymentProviderAccount {
+  id             String          @id @default(cuid())
+  provider       PaymentProvider
+  displayName    String
+  isActive       Boolean         @default(true)
+  config         Json            @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  intents        PaymentIntent[]
+  attempts       PaymentAttempt[]
+  webhooks       PaymentWebhookEvent[]
+  payouts        DriverPayout[]
+
+  @@unique([provider, displayName])
+  @@index([provider, isActive])
+}
+
+model Payment {
+  id                  String            @id @default(cuid())
+  targetType          PaymentTargetType
+  bookingId           String?
+  parcelOrderId       String?
+  driverPayoutId      String?
+  adjustmentReference String?
+  payerUserId         String?
+  payeeUserId         String?
+  method              PaymentMethod
+  provider            PaymentProvider?
+  status              PaymentStatus     @default(CREATED)
+  currency            String            @default("UZS")
+  amountMinor         BigInt
+  paidMinor           BigInt            @default(0)
+  refundedMinor       BigInt            @default(0)
+  pricingSnapshotId   String?
+  idempotencyKey      String?
+  expiresAt           DateTime?
+  succeededAt         DateTime?
+  failedAt            DateTime?
+  cancelledAt         DateTime?
+  failureCode         String?
+  failureMessage      String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  version             Int               @default(1)
+  intents             PaymentIntent[]
+  refunds             PaymentRefund[]
+  allocations         PaymentAllocation[]
+  platformFees        PlatformFee[]
+  driverEarnings      DriverEarning[]
+  ledgerEntries       FinancialLedgerEntry[]
+  disputes            PaymentDispute[]
+
+  @@unique([idempotencyKey])
+  @@index([targetType, bookingId])
+  @@index([targetType, parcelOrderId])
+  @@index([payerUserId, status, createdAt])
+  @@index([status, expiresAt])
+  @@index([provider, status])
+}
+
+model PaymentIntent {
+  id                    String              @id @default(cuid())
+  paymentId             String
+  providerAccountId     String?
+  provider              PaymentProvider
+  status                PaymentIntentStatus @default(CREATED)
+  amountMinor           BigInt
+  currency              String              @default("UZS")
+  providerReference     String?
+  clientAction          Json?
+  idempotencyKey        String
+  expiresAt             DateTime?
+  succeededAt           DateTime?
+  failedAt              DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  version               Int                 @default(1)
+  payment               Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  providerAccount       PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  attempts              PaymentAttempt[]
+  webhookEvents         PaymentWebhookEvent[]
+
+  @@unique([idempotencyKey])
+  @@unique([provider, providerReference])
+  @@index([paymentId, status])
+  @@index([provider, status, createdAt])
+}
+
+model PaymentAttempt {
+  id                String               @id @default(cuid())
+  paymentIntentId   String
+  providerAccountId String?
+  provider          PaymentProvider
+  status            PaymentAttemptStatus @default(CREATED)
+  providerReference String?
+  requestPayload    Json?
+  responsePayload   Json?
+  errorCode         String?
+  errorMessage      String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  paymentIntent     PaymentIntent        @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+  providerAccount   PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+
+  @@index([paymentIntentId, createdAt])
+  @@index([provider, providerReference])
+  @@index([status, createdAt])
+}
+
+model PaymentWebhookEvent {
+  id                    String                 @id @default(cuid())
+  provider              PaymentProvider
+  providerAccountId     String?
+  paymentIntentId       String?
+  eventId               String
+  eventType             String
+  signatureValid        Boolean                @default(false)
+  processedAt           DateTime?
+  processingError       String?
+  payload               Json
+  receivedAt            DateTime               @default(now())
+  providerAccount       PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  paymentIntent         PaymentIntent?         @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, eventId])
+  @@index([paymentIntentId, receivedAt])
+  @@index([provider, processedAt])
+}
+
+model PaymentRefund {
+  id              String                 @id @default(cuid())
+  paymentId       String
+  requestedByUserId String?
+  reason          RefundReason
+  status          RefundStatus           @default(REQUESTED)
+  currency        String                 @default("UZS")
+  amountMinor     BigInt
+  succeededAt     DateTime?
+  failedAt        DateTime?
+  rejectedAt      DateTime?
+  failureCode     String?
+  failureMessage  String?
+  idempotencyKey  String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  version         Int                    @default(1)
+  payment         Payment                @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  attempts        PaymentRefundAttempt[]
+
+  @@unique([idempotencyKey])
+  @@index([paymentId, status])
+  @@index([status, createdAt])
+}
+
+model PaymentRefundAttempt {
+  id                String        @id @default(cuid())
+  refundId          String
+  provider          PaymentProvider
+  status            RefundStatus  @default(PROCESSING)
+  providerReference String?
+  requestPayload    Json?
+  responsePayload   Json?
+  errorCode         String?
+  errorMessage      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  refund            PaymentRefund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  @@index([refundId, createdAt])
+  @@index([provider, providerReference])
+}
+
+model PaymentAllocation {
+  id            String   @id @default(cuid())
+  paymentId     String
+  targetType    String
+  targetId      String
+  currency      String   @default("UZS")
+  amountMinor   BigInt
+  createdAt     DateTime @default(now())
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([targetType, targetId])
+}
+
+model PlatformFee {
+  id             String   @id @default(cuid())
+  paymentId      String
+  currency       String   @default("UZS")
+  amountMinor    BigInt
+  rateBps        Int      @default(0)
+  fixedMinor     BigInt   @default(0)
+  ruleSnapshot   Json?
+  createdAt      DateTime @default(now())
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model DriverEarning {
+  id              String              @id @default(cuid())
+  driverProfileId String
+  paymentId       String?
+  bookingId       String?
+  parcelOrderId   String?
+  payoutId        String?
+  status          DriverEarningStatus @default(PENDING)
+  currency        String              @default("UZS")
+  grossMinor      BigInt
+  feeMinor        BigInt              @default(0)
+  netMinor        BigInt
+  availableAt     DateTime?
+  paidAt          DateTime?
+  reversedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  payment         Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  payout          DriverPayout?       @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([driverProfileId, status, createdAt])
+  @@index([paymentId])
+  @@index([payoutId])
+}
+
+model DriverPayout {
+  id                  String                 @id @default(cuid())
+  driverProfileId      String
+  providerAccountId    String?
+  provider             PaymentProvider       @default(MANUAL)
+  status               PayoutStatus          @default(DRAFT)
+  currency             String                @default("UZS")
+  grossMinor           BigInt                @default(0)
+  itemCount            Int                   @default(0)
+  providerReference    String?
+  requestedByUserId    String?
+  approvedByUserId     String?
+  paidAt               DateTime?
+  failedAt             DateTime?
+  failureReason        String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  providerAccount      PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  items                DriverPayoutItem[]
+  earnings             DriverEarning[]
+
+  @@index([driverProfileId, status, createdAt])
+  @@index([provider, providerReference])
+}
+
+model DriverPayoutItem {
+  id              String        @id @default(cuid())
+  payoutId        String
+  earningId       String
+  currency        String        @default("UZS")
+  amountMinor     BigInt
+  createdAt       DateTime      @default(now())
+  payout          DriverPayout  @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+
+  @@unique([payoutId, earningId])
+  @@index([earningId])
+}
+
+model FinancialTransaction {
+  id              String                   @id @default(cuid())
+  type            FinancialTransactionType
+  referenceType   String
+  referenceId     String
+  currency        String                   @default("UZS")
+  amountMinor     BigInt
+  idempotencyKey  String
+  metadata        Json?
+  createdAt       DateTime                 @default(now())
+  entries         FinancialLedgerEntry[]
+
+  @@unique([idempotencyKey])
+  @@index([referenceType, referenceId])
+  @@index([type, createdAt])
+}
+
+model FinancialLedgerEntry {
+  id              String                 @id @default(cuid())
+  transactionId   String
+  paymentId       String?
+  account         String
+  entryType       LedgerEntryType
+  currency        String                 @default("UZS")
+  amountMinor     BigInt
+  createdAt       DateTime               @default(now())
+  transaction     FinancialTransaction   @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  payment         Payment?               @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId])
+  @@index([paymentId])
+  @@index([account, createdAt])
+}
+
+model ReconciliationRun {
+  id              String               @id @default(cuid())
+  provider        PaymentProvider
+  status          ReconciliationStatus @default(PENDING)
+  startedAt       DateTime             @default(now())
+  completedAt     DateTime?
+  summary         Json?
+  createdByUserId String?
+  items           ReconciliationItem[]
+
+  @@index([provider, status, startedAt])
+}
+
+model ReconciliationItem {
+  id                  String               @id @default(cuid())
+  runId               String
+  paymentId           String?
+  providerReference   String?
+  status              ReconciliationStatus @default(PENDING)
+  expectedAmountMinor BigInt?
+  providerAmountMinor BigInt?
+  currency            String               @default("UZS")
+  notes               String?
+  createdAt           DateTime             @default(now())
+  run                 ReconciliationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status])
+  @@index([paymentId])
+}
+
+model CashPaymentDeclaration {
+  id              String               @id @default(cuid())
+  paymentId       String?
+  bookingId       String?
+  parcelOrderId   String?
+  declaredByUserId String
+  currency        String               @default("UZS")
+  amountMinor     BigInt
+  status          CashSettlementStatus @default(DECLARED)
+  createdAt       DateTime             @default(now())
+  confirmedAt     DateTime?
+
+  @@index([paymentId])
+  @@index([bookingId])
+  @@index([parcelOrderId])
+}
+
+model CashSettlement {
+  id                String               @id @default(cuid())
+  paymentId         String?
+  driverProfileId   String
+  bookingId         String?
+  parcelOrderId     String?
+  status            CashSettlementStatus @default(OPEN)
+  currency          String               @default("UZS")
+  expectedMinor     BigInt
+  receivedMinor     BigInt               @default(0)
+  confirmedByUserId String?
+  disputedByUserId  String?
+  resolvedByUserId  String?
+  reason            String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([driverProfileId, status, createdAt])
+  @@index([paymentId])
+}
+
+model PaymentDispute {
+  id              String   @id @default(cuid())
+  paymentId       String
+  openedByUserId  String
+  status          String   @default("OPEN")
+  reason          String
+  resolution      String?
+  resolvedByUserId String?
+  createdAt       DateTime @default(now())
+  resolvedAt      DateTime?
+  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, status])
+}
+
+model PricingRule {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  targetType     PaymentTargetType
+  currency       String   @default("UZS")
+  feeRateBps     Int      @default(0)
+  fixedFeeMinor  BigInt   @default(0)
+  isActive       Boolean  @default(true)
+  startsAt       DateTime @default(now())
+  endsAt         DateTime?
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([targetType, isActive, startsAt])
+}
+
+model PricingSnapshot {
+  id             String            @id @default(cuid())
+  targetType     PaymentTargetType
+  targetId       String
+  currency       String            @default("UZS")
+  subtotalMinor  BigInt
+  feeMinor       BigInt            @default(0)
+  totalMinor     BigInt
+  ruleCode       String?
+  snapshot       Json
+  createdAt      DateTime          @default(now())
+
+  @@index([targetType, targetId])
+}
+
+model PromotionPlaceholder {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  isActive    Boolean  @default(false)
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FinancialAuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  type        String
+  entityType  String
+  entityId    String
+  reason      String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model AnalyticsEvent {
+  id            String             @id @default(cuid())
+  type          AnalyticsEventType
+  actorUserId   String?
+  sessionId     String?
+  entityType    String?
+  entityId      String?
+  occurredAt    DateTime           @default(now())
+  dedupeKey     String?
+  payload       Json?
+  createdAt     DateTime           @default(now())
+
+  @@unique([dedupeKey])
+  @@index([type, occurredAt])
+  @@index([actorUserId, occurredAt])
+}
+
+model DailyMetric {
+  id          String   @id @default(cuid())
+  metricDate  DateTime
+  metricKey   String
+  dimensions  Json     @default("{}")
+  value       BigInt   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([metricDate, metricKey])
+  @@index([metricKey, metricDate])
+}
+
+model FunnelSnapshot {
+  id          String   @id @default(cuid())
+  snapshotDate DateTime
+  funnelKey   String
+  steps       Json
+  createdAt   DateTime @default(now())
+
+  @@unique([snapshotDate, funnelKey])
+}
+
+model ReportExport {
+  id              String   @id @default(cuid())
+  type            String
+  status          String   @default("READY")
+  requestedByUserId String?
+  storageKey      String?
+  filters         Json?
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  @@index([type, status, createdAt])
 }
 
 model BoardingCode {
