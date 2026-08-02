@@ -118,6 +118,25 @@ const permissions = [
   "support-ticket:status-admin",
   "support-ticket:internal-note-admin",
   "support-ticket:audit-read",
+  "review:create-own",
+  "review:read-own",
+  "review:update-own",
+  "review:delete-own",
+  "review:report-own",
+  "rating:read-public",
+  "reliability:read-public",
+  "user-block:manage-own",
+  "safety-report:create-own",
+  "safety-report:read-own",
+  "trusted-contact:manage-own",
+  "trip-share:manage-own",
+  "emergency-action:create-own",
+  "safety-report:read-admin",
+  "safety-report:assign-admin",
+  "safety-report:status-admin",
+  "safety-report:internal-note-admin",
+  "account-restriction:manage-admin",
+  "moderation-case:read-admin",
 ];
 
 async function main() {
@@ -196,6 +215,7 @@ async function main() {
   await seedTripOperationsFixtures();
   await seedParcelFixtures();
   await seedCommunicationSupportFixtures();
+  await seedTrustSafetyFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -1756,6 +1776,217 @@ async function seedCommunicationSupportFixtures() {
         actorUserId: support.id,
         type: "SUPPORT_TICKET_SEEDED",
         payload: { seed: true },
+      },
+    });
+  }
+}
+
+async function seedTrustSafetyFixtures() {
+  const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
+  const support = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000004n } });
+  const booking = await prisma.booking.findFirstOrThrow({
+    where: { id: "phase6-booking-confirmed" },
+  });
+  const parcel = await prisma.parcelOrder.findFirstOrThrow({
+    where: { id: "phase8-parcel-delivered" },
+  });
+
+  const criteria = [
+    ["DRIVER_BY_CLIENT", "SAFETY", "Safety", true, 10],
+    ["DRIVER_BY_CLIENT", "DRIVING_QUALITY", "Driving quality", true, 20],
+    ["DRIVER_BY_CLIENT", "POLITENESS", "Politeness", false, 30],
+    ["CLIENT_BY_DRIVER", "PUNCTUALITY", "Punctuality", true, 10],
+    ["CLIENT_BY_DRIVER", "COMMUNICATION", "Communication", false, 20],
+    ["PARCEL_DRIVER_BY_SENDER", "CAREFUL_HANDLING", "Careful handling", true, 10],
+    ["PARCEL_DRIVER_BY_SENDER", "COMMUNICATION", "Communication", false, 20],
+    ["PARCEL_SENDER_BY_DRIVER", "PACKAGING", "Packaging", true, 10],
+    ["PARCEL_SENDER_BY_DRIVER", "ACCURATE_INFORMATION", "Accurate information", false, 20],
+  ] as const;
+  for (const [type, code, label, isRequired, sortOrder] of criteria) {
+    await prisma.reviewCriterion.upsert({
+      where: { type_code: { type, code } },
+      create: { type, code, label, isRequired, sortOrder },
+      update: { label, isRequired, sortOrder, isActive: true },
+    });
+  }
+
+  let review = await prisma.review.findFirst({
+    where: {
+      type: "PARCEL_DRIVER_BY_SENDER",
+      reviewerUserId: client.id,
+      revieweeUserId: driver.id,
+      parcelOrderId: parcel.id,
+    },
+  });
+  if (!review) {
+    review = await prisma.review.create({
+      data: {
+        type: "PARCEL_DRIVER_BY_SENDER",
+        reviewerUserId: client.id,
+        revieweeUserId: driver.id,
+        parcelOrderId: parcel.id,
+        tripId: parcel.tripId,
+        overallRating: 5,
+        text: "Careful parcel delivery and clear updates.",
+        status: "PUBLISHED",
+        submittedAt: new Date("2026-08-01T15:20:00.000Z"),
+        publishedAt: new Date("2026-08-01T15:20:00.000Z"),
+      },
+    });
+  } else {
+    review = await prisma.review.update({
+      where: { id: review.id },
+      data: {
+        overallRating: 5,
+        status: "PUBLISHED",
+        text: "Careful parcel delivery and clear updates.",
+      },
+    });
+  }
+
+  const scoreCriterion = await prisma.reviewCriterion.findUniqueOrThrow({
+    where: { type_code: { type: "PARCEL_DRIVER_BY_SENDER", code: "CAREFUL_HANDLING" } },
+  });
+  await prisma.reviewCriterionScore.upsert({
+    where: { reviewId_criterionId: { reviewId: review.id, criterionId: scoreCriterion.id } },
+    create: { reviewId: review.id, criterionId: scoreCriterion.id, score: 5 },
+    update: { score: 5 },
+  });
+
+  await prisma.ratingAggregate.upsert({
+    where: { userId_scope: { userId: driver.id, scope: "PARCEL_DRIVER_BY_SENDER" } },
+    create: {
+      userId: driver.id,
+      scope: "PARCEL_DRIVER_BY_SENDER",
+      averageRating: 5,
+      ratingCount: 1,
+      ratingDistribution: { "5": 1 },
+    },
+    update: {
+      averageRating: 5,
+      ratingCount: 1,
+      ratingDistribution: { "5": 1 },
+      lastCalculatedAt: new Date(),
+    },
+  });
+
+  await prisma.reliabilityEvent.upsert({
+    where: { dedupeKey: "phase10:parcel-delivered:driver" },
+    create: {
+      userId: driver.id,
+      type: "PARCEL_DELIVERED",
+      parcelOrderId: parcel.id,
+      weight: 2,
+      dedupeKey: "phase10:parcel-delivered:driver",
+      payload: { seed: true },
+    },
+    update: {},
+  });
+  await prisma.reliabilityProfile.upsert({
+    where: { userId: driver.id },
+    create: { userId: driver.id, parcelDeliveredCount: 1, reliabilityLevel: "RELIABLE" },
+    update: { parcelDeliveredCount: 1, reliabilityLevel: "RELIABLE", lastCalculatedAt: new Date() },
+  });
+
+  const safetyReport = await prisma.safetyReport.upsert({
+    where: { id: "phase10-safety-report-review" },
+    create: {
+      id: "phase10-safety-report-review",
+      reporterUserId: client.id,
+      reportedUserId: driver.id,
+      type: "INAPPROPRIATE_CONTENT",
+      severity: "LOW",
+      status: "TRIAGED",
+      description: "Seeded moderation report for review content.",
+      reviewId: review.id,
+      tripId: parcel.tripId,
+    },
+    update: { reviewId: review.id, status: "TRIAGED" },
+  });
+  await prisma.moderationCase.upsert({
+    where: { sourceType_sourceId: { sourceType: "SafetyReport", sourceId: safetyReport.id } },
+    create: {
+      sourceType: "SafetyReport",
+      sourceId: safetyReport.id,
+      subjectUserId: driver.id,
+      status: "OPEN",
+      severity: "LOW",
+      assigneeId: support.id,
+    },
+    update: { status: "OPEN", assigneeId: support.id },
+  });
+  const existingSafetyEvent = await prisma.safetyIncidentEvent.findFirst({
+    where: { reportId: safetyReport.id, type: "SAFETY_REPORT_TRIAGED" },
+  });
+  if (!existingSafetyEvent) {
+    await prisma.safetyIncidentEvent.create({
+      data: {
+        reportId: safetyReport.id,
+        actorUserId: support.id,
+        type: "SAFETY_REPORT_TRIAGED",
+        payload: { seed: true },
+      },
+    });
+  }
+
+  const existingContact = await prisma.trustedContact.findFirst({
+    where: { ownerUserId: client.id, phone: "+998901112233" },
+  });
+  if (existingContact) {
+    await prisma.trustedContact.update({
+      where: { id: existingContact.id },
+      data: { displayName: "Phase 10 Trusted Contact", relationship: "Family", deletedAt: null },
+    });
+  } else {
+    await prisma.trustedContact.create({
+      data: {
+        ownerUserId: client.id,
+        displayName: "Phase 10 Trusted Contact",
+        phone: "+998901112233",
+        relationship: "Family",
+      },
+    });
+  }
+
+  await prisma.tripShare.upsert({
+    where: { tokenHash: hashSecret("phase10-active-share") },
+    create: {
+      tripId: booking.tripId,
+      bookingId: booking.id,
+      ownerUserId: client.id,
+      tokenHash: hashSecret("phase10-active-share"),
+      expiresAt: new Date("2026-08-03T12:00:00.000Z"),
+      label: "Phase 10 Trusted Contact",
+    },
+    update: { expiresAt: new Date("2026-08-03T12:00:00.000Z"), revokedAt: null },
+  });
+
+  let restriction = await prisma.accountRestriction.findFirst({
+    where: { userId: driver.id, type: "CHAT_RESTRICTED", status: "ACTIVE" },
+  });
+  if (!restriction) {
+    restriction = await prisma.accountRestriction.create({
+      data: {
+        userId: driver.id,
+        type: "CHAT_RESTRICTED",
+        reason: "Seeded trust and safety restriction.",
+        createdByUserId: admin.id,
+        endsAt: new Date("2026-08-04T12:00:00.000Z"),
+      },
+    });
+  }
+  const existingRestrictionEvent = await prisma.accountRestrictionEvent.findFirst({
+    where: { restrictionId: restriction.id, type: "ACCOUNT_RESTRICTION_APPLIED" },
+  });
+  if (!existingRestrictionEvent) {
+    await prisma.accountRestrictionEvent.create({
+      data: {
+        restrictionId: restriction.id,
+        actorUserId: admin.id,
+        type: "ACCOUNT_RESTRICTION_APPLIED",
+        reason: "Seed fixture",
       },
     });
   }
