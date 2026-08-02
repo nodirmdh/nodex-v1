@@ -13,6 +13,19 @@ import {
   type TelegramUserPayload,
 } from "@nodex/auth";
 import { parseAppEnv, supportedLocales, type SupportedLocale } from "@nodex/config";
+import {
+  ManualPaymentProviderAdapter,
+  MockPaymentProviderAdapter,
+  PaymentProviderRegistry,
+  assertBalancedLedger,
+  assertRefundAllowed,
+  calculatePricing,
+  refundableAmount,
+  transitionIntentStatus,
+  transitionPaymentStatus,
+  type CurrencyCode,
+  type PaymentProviderCode,
+} from "@nodex/payments";
 import { PrismaClient, serializeBigInt, type Prisma } from "@nodex/database";
 import {
   bookingCancelSchema,
@@ -23,6 +36,7 @@ import {
   boardingCodeVerifySchema,
   calculateSlaDueAt,
   accountRestrictionSchema,
+  analyticsEventSchema,
   chatMessageEditSchema,
   chatMessageSchema,
   calculateRatingAggregate,
@@ -64,6 +78,15 @@ import {
   safetyInternalNoteSchema,
   safetyReportSchema,
   safetyReportStatusSchema,
+  cashConfirmationSchema,
+  mockWebhookSchema,
+  normalizeMinorUnit,
+  paymentIntentCreateSchema,
+  payoutCreateSchema,
+  payoutStatusSchema,
+  providerAllowedInProduction,
+  reconciliationRunSchema,
+  refundRequestSchema,
   supportAssignmentSchema,
   supportTicketCreateSchema,
   supportTicketMessageSchema,
@@ -106,6 +129,9 @@ type AuthenticatedRequest = Request & {
 
 const prisma = new PrismaClient();
 const env = parseAppEnv(process.env);
+const paymentRegistry = new PaymentProviderRegistry();
+paymentRegistry.register(new MockPaymentProviderAdapter());
+paymentRegistry.register(new ManualPaymentProviderAdapter());
 const accessTokenSecret = env.AUTH_ACCESS_TOKEN_SECRET || env.JWT_SECRET;
 const refreshCookieName = "nodex_refresh";
 const bookingHoldTtlMs = durationToMs(process.env.BOOKING_HOLD_TTL ?? "10m");
@@ -2129,6 +2155,129 @@ function phase10OpenApiPaths() {
         parameters: [reportId],
         requestBody: { required: true, content: json },
         responses: { 200: { description: "Safety report", content: json } },
+      },
+    },
+  };
+}
+
+function phase11OpenApiPaths() {
+  const json = { "application/json": { schema: { type: "object" } } };
+  const bearer = [{ bearer: [] }];
+  const paymentId = { name: "paymentId", in: "path", required: true, schema: { type: "string" } };
+  const payoutId = { name: "payoutId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/payments/intents": {
+      post: {
+        operationId: "createPaymentIntent",
+        tags: ["Payments"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Payment", content: json } },
+      },
+    },
+    "/api/v1/payments/{paymentId}": {
+      get: {
+        operationId: "getPayment",
+        tags: ["Payments"],
+        security: bearer,
+        parameters: [paymentId],
+        responses: { 200: { description: "Payment", content: json } },
+      },
+    },
+    "/api/v1/payments/{paymentId}/refunds": {
+      post: {
+        operationId: "requestPaymentRefund",
+        tags: ["Payments"],
+        security: bearer,
+        parameters: [paymentId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Refund", content: json } },
+      },
+    },
+    "/api/v1/payments/mock/webhook": {
+      post: {
+        operationId: "receiveMockPaymentWebhook",
+        tags: ["Payments"],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Webhook accepted", content: json } },
+      },
+    },
+    "/api/v1/driver/payments/cash-confirmations": {
+      post: {
+        operationId: "confirmDriverCashPayment",
+        tags: ["Driver Finance"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Payment", content: json } },
+      },
+    },
+    "/api/v1/driver/earnings": {
+      get: {
+        operationId: "listDriverEarnings",
+        tags: ["Driver Finance"],
+        security: bearer,
+        responses: { 200: { description: "Earnings", content: json } },
+      },
+    },
+    "/api/v1/admin/finance/payments": {
+      get: {
+        operationId: "listAdminFinancePayments",
+        tags: ["Admin Finance"],
+        security: bearer,
+        responses: { 200: { description: "Payments", content: json } },
+      },
+    },
+    "/api/v1/admin/finance/ledger": {
+      get: {
+        operationId: "listFinancialLedger",
+        tags: ["Admin Finance"],
+        security: bearer,
+        responses: { 200: { description: "Ledger", content: json } },
+      },
+    },
+    "/api/v1/admin/finance/payouts": {
+      post: {
+        operationId: "createDriverPayout",
+        tags: ["Admin Finance"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Payout", content: json } },
+      },
+    },
+    "/api/v1/admin/finance/payouts/{payoutId}/status": {
+      post: {
+        operationId: "updateDriverPayoutStatus",
+        tags: ["Admin Finance"],
+        security: bearer,
+        parameters: [payoutId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Payout", content: json } },
+      },
+    },
+    "/api/v1/admin/finance/reconciliation-runs": {
+      post: {
+        operationId: "createReconciliationRun",
+        tags: ["Admin Finance"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Reconciliation run", content: json } },
+      },
+    },
+    "/api/v1/analytics/events": {
+      post: {
+        operationId: "createAnalyticsEvent",
+        tags: ["Analytics"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Analytics event", content: json } },
+      },
+    },
+    "/api/v1/admin/analytics/metrics": {
+      get: {
+        operationId: "listAdminAnalyticsMetrics",
+        tags: ["Analytics"],
+        security: bearer,
+        responses: { 200: { description: "Analytics metrics", content: json } },
       },
     },
   };
@@ -7742,6 +7891,783 @@ async function registerTrustSafetyRoutes(http: {
   });
 }
 
+const paymentInclude = {
+  intents: { orderBy: { createdAt: "desc" as const }, include: { attempts: true } },
+  refunds: { orderBy: { createdAt: "desc" as const }, include: { attempts: true } },
+  platformFees: true,
+  driverEarnings: true,
+  ledgerEntries: true,
+} satisfies Prisma.PaymentInclude;
+
+type PaymentWithInclude = Prisma.PaymentGetPayload<{ include: typeof paymentInclude }>;
+
+function serializePayment(payment: PaymentWithInclude) {
+  return serializeBigInt(payment);
+}
+
+async function financeTarget(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: { targetType: "BOOKING" | "PARCEL_ORDER"; targetId: string },
+) {
+  if (input.targetType === "BOOKING") {
+    const booking = await tx.booking.findFirst({
+      where: { id: input.targetId, clientId: userId },
+      include: { trip: { select: { driverProfileId: true } } },
+    });
+    if (!booking) {
+      throw Object.assign(new Error("Booking not found"), {
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+      });
+    }
+    if (
+      ["CANCELLED_BY_CLIENT", "CANCELLED_BY_DRIVER", "CANCELLED_BY_ADMIN", "EXPIRED"].includes(
+        booking.status,
+      )
+    ) {
+      throw Object.assign(new Error("Booking is not payable"), {
+        statusCode: 409,
+        code: "BOOKING_NOT_PAYABLE",
+      });
+    }
+    return {
+      targetType: input.targetType,
+      targetId: booking.id,
+      bookingId: booking.id,
+      parcelOrderId: null,
+      driverProfileId: booking.trip.driverProfileId,
+      amountMinor: booking.totalMinor,
+      currency: booking.currency as CurrencyCode,
+    };
+  }
+  const parcel = await tx.parcelOrder.findFirst({
+    where: { id: input.targetId, senderUserId: userId },
+  });
+  if (!parcel) {
+    throw Object.assign(new Error("Parcel not found"), {
+      statusCode: 404,
+      code: "PARCEL_NOT_FOUND",
+    });
+  }
+  if (["CANCELLED", "EXPIRED"].includes(parcel.status)) {
+    throw Object.assign(new Error("Parcel is not payable"), {
+      statusCode: 409,
+      code: "PARCEL_NOT_PAYABLE",
+    });
+  }
+  return {
+    targetType: input.targetType,
+    targetId: parcel.id,
+    bookingId: null,
+    parcelOrderId: parcel.id,
+    driverProfileId: parcel.driverProfileId,
+    amountMinor: parcel.priceMinor,
+    currency: parcel.currency as CurrencyCode,
+  };
+}
+
+async function financialAudit(
+  tx: Prisma.TransactionClient,
+  type: string,
+  entityType: string,
+  entityId: string,
+  actorUserId?: string | null,
+  reason?: string | null,
+  payload?: unknown,
+) {
+  const data: Prisma.FinancialAuditEventCreateInput = {
+    type,
+    entityType,
+    entityId,
+    actorUserId: actorUserId ?? null,
+    reason: reason ?? null,
+  };
+  if (payload !== undefined) {
+    data.payload = payload as Prisma.InputJsonValue;
+  }
+  await tx.financialAuditEvent.create({
+    data,
+  });
+}
+
+async function ledgerPost(
+  tx: Prisma.TransactionClient,
+  input: {
+    type: Prisma.FinancialTransactionCreateInput["type"];
+    referenceType: string;
+    referenceId: string;
+    currency: CurrencyCode;
+    idempotencyKey: string;
+    paymentId?: string | null;
+    entries: Array<{ account: string; entryType: "DEBIT" | "CREDIT"; amountMinor: bigint }>;
+  },
+) {
+  const existing = await tx.financialTransaction.findUnique({
+    where: { idempotencyKey: input.idempotencyKey },
+  });
+  if (existing) return existing;
+  const entries = input.entries.filter((entry) => entry.amountMinor > 0n);
+  assertBalancedLedger(entries.map((entry) => ({ ...entry, currency: input.currency })));
+  return tx.financialTransaction.create({
+    data: {
+      type: input.type,
+      referenceType: input.referenceType,
+      referenceId: input.referenceId,
+      currency: input.currency,
+      amountMinor: entries
+        .filter((entry) => entry.entryType === "DEBIT")
+        .reduce((sum, entry) => sum + entry.amountMinor, 0n),
+      idempotencyKey: input.idempotencyKey,
+      entries: {
+        create: entries.map((entry) => ({
+          paymentId: input.paymentId ?? null,
+          account: entry.account,
+          entryType: entry.entryType,
+          currency: input.currency,
+          amountMinor: entry.amountMinor,
+        })),
+      },
+    },
+  });
+}
+
+async function driverProfileIdForPayment(
+  tx: Prisma.TransactionClient,
+  payment: { bookingId: string | null; parcelOrderId: string | null },
+) {
+  if (payment.bookingId) {
+    const booking = await tx.booking.findUnique({
+      where: { id: payment.bookingId },
+      include: { trip: true },
+    });
+    return booking?.trip.driverProfileId ?? null;
+  }
+  if (payment.parcelOrderId) {
+    const parcel = await tx.parcelOrder.findUnique({ where: { id: payment.parcelOrderId } });
+    return parcel?.driverProfileId ?? null;
+  }
+  return null;
+}
+
+async function markPaymentSucceeded(
+  tx: Prisma.TransactionClient,
+  paymentId: string,
+  actorUserId?: string | null,
+) {
+  const payment = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
+  if (["SUCCEEDED", "PARTIALLY_REFUNDED", "REFUNDED"].includes(payment.status)) return payment;
+  transitionPaymentStatus(payment.status, "SUCCEEDED");
+  const pricing = calculatePricing({
+    targetType: payment.targetType,
+    baseMinor: payment.amountMinor,
+    currency: payment.currency as CurrencyCode,
+    feeRateBps: 1_000,
+  });
+  const feeMinor = pricing.feeMinor > payment.amountMinor ? payment.amountMinor : pricing.feeMinor;
+  const netMinor = payment.amountMinor - feeMinor;
+  const saved = await tx.payment.update({
+    where: { id: payment.id },
+    data: {
+      status: "SUCCEEDED",
+      paidMinor: payment.amountMinor,
+      succeededAt: new Date(),
+      version: { increment: 1 },
+    },
+  });
+  await tx.platformFee.create({
+    data: {
+      paymentId: payment.id,
+      currency: payment.currency,
+      amountMinor: feeMinor,
+      rateBps: 1_000,
+      ruleSnapshot: pricing.ruleSnapshot,
+    },
+  });
+  const driverProfileId = await driverProfileIdForPayment(tx, payment);
+  if (driverProfileId && netMinor > 0n) {
+    await tx.driverEarning.create({
+      data: {
+        driverProfileId,
+        paymentId: payment.id,
+        bookingId: payment.bookingId,
+        parcelOrderId: payment.parcelOrderId,
+        currency: payment.currency,
+        grossMinor: payment.amountMinor,
+        feeMinor,
+        netMinor,
+        availableAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+  await ledgerPost(tx, {
+    type: "PAYMENT",
+    referenceType: "Payment",
+    referenceId: payment.id,
+    currency: payment.currency as CurrencyCode,
+    idempotencyKey: `payment:${payment.id}:success`,
+    paymentId: payment.id,
+    entries: [
+      {
+        account: payment.method === "CASH" ? "cash_receivable" : "provider_clearing",
+        entryType: "DEBIT",
+        amountMinor: payment.amountMinor,
+      },
+      { account: "platform_fee_revenue", entryType: "CREDIT", amountMinor: feeMinor },
+      { account: "driver_earnings_payable", entryType: "CREDIT", amountMinor: netMinor },
+    ],
+  });
+  if (payment.bookingId) {
+    await tx.booking.updateMany({
+      where: {
+        id: payment.bookingId,
+        status: { in: ["PAYMENT_PENDING", "PENDING_CONFIRMATION", "HOLD", "DRAFT"] },
+      },
+      data: {
+        status: "CONFIRMED",
+        paymentMethod: payment.method,
+        confirmedAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
+    await tx.bookingSeat.updateMany({
+      where: { bookingId: payment.bookingId, status: "HELD" },
+      data: { status: "BOOKED" },
+    });
+    await tx.seatHold.updateMany({
+      where: { bookingId: payment.bookingId, status: "ACTIVE" },
+      data: { status: "CONFIRMED", confirmedAt: new Date() },
+    });
+    await tx.bookingTimelineEvent.create({
+      data: {
+        bookingId: payment.bookingId,
+        actorUserId: actorUserId ?? null,
+        type: "PAYMENT_SUCCEEDED",
+        payload: { paymentId: payment.id },
+      },
+    });
+  }
+  await tx.analyticsEvent.create({
+    data: {
+      type: "PAYMENT_SUCCEEDED",
+      actorUserId: payment.payerUserId,
+      entityType: "Payment",
+      entityId: payment.id,
+    },
+  });
+  await tx.outboxEvent.create({
+    data: { type: "payment.succeeded", payload: { paymentId: payment.id } },
+  });
+  await financialAudit(tx, "PAYMENT_SUCCEEDED", "Payment", payment.id, actorUserId ?? null);
+  return saved;
+}
+
+async function registerFinanceRoutes(http: {
+  get: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void,
+  ) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void> | void,
+  ) => void;
+}) {
+  http.post("/api/v1/payments/intents", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      const parsed = paymentIntentCreateSchema.parse(req.body ?? {});
+      const providerGuard = providerAllowedInProduction(
+        parsed.provider,
+        process.env.NODE_ENV === "production",
+      );
+      if (!providerGuard.ok)
+        throw Object.assign(new Error(providerGuard.message), {
+          statusCode: 409,
+          code: providerGuard.code,
+        });
+      const key = idempotencyKey(req) || `payment:${req.auth!.userId}:${requestHash(parsed)}`;
+      const result = await prisma.$transaction((tx) =>
+        ensureIdempotency(tx, "payment:intent", key, parsed, async () => {
+          const target = await financeTarget(tx, req.auth!.userId, parsed);
+          const existing = await tx.payment.findFirst({
+            where: {
+              targetType: target.targetType,
+              bookingId: target.bookingId,
+              parcelOrderId: target.parcelOrderId,
+              status: {
+                in: ["CREATED", "REQUIRES_ACTION", "PROCESSING", "AUTHORIZED", "SUCCEEDED"],
+              },
+            },
+            include: paymentInclude,
+          });
+          if (existing) return { paymentId: existing.id };
+          const payment = await tx.payment.create({
+            data: {
+              targetType: target.targetType,
+              bookingId: target.bookingId,
+              parcelOrderId: target.parcelOrderId,
+              payerUserId: req.auth!.userId,
+              method: parsed.method,
+              provider: parsed.method === "ONLINE" ? parsed.provider : "MANUAL",
+              status: parsed.method === "CASH" ? "PROCESSING" : "CREATED",
+              currency: target.currency,
+              amountMinor: target.amountMinor,
+              idempotencyKey: key,
+              expiresAt: new Date(Date.now() + bookingHoldTtlMs),
+            },
+          });
+          if (target.bookingId) {
+            await tx.booking.update({
+              where: { id: target.bookingId },
+              data: {
+                paymentMethod: parsed.method,
+                status: parsed.method === "ONLINE" ? "PAYMENT_PENDING" : "CONFIRMED",
+                version: { increment: 1 },
+              },
+            });
+          }
+          if (parsed.method === "CASH") {
+            await tx.cashPaymentDeclaration.create({
+              data: {
+                paymentId: payment.id,
+                bookingId: target.bookingId,
+                parcelOrderId: target.parcelOrderId,
+                declaredByUserId: req.auth!.userId,
+                currency: target.currency,
+                amountMinor: target.amountMinor,
+              },
+            });
+            await tx.cashSettlement.create({
+              data: {
+                paymentId: payment.id,
+                driverProfileId: target.driverProfileId ?? "unassigned",
+                bookingId: target.bookingId,
+                parcelOrderId: target.parcelOrderId,
+                status: "DECLARED",
+                currency: target.currency,
+                expectedMinor: target.amountMinor,
+              },
+            });
+          } else {
+            const providerIntent = await paymentRegistry
+              .get(parsed.provider as PaymentProviderCode)
+              .createIntent({
+                paymentId: payment.id,
+                amountMinor: target.amountMinor,
+                currency: target.currency,
+                idempotencyKey: key,
+              });
+            const intent = await tx.paymentIntent.create({
+              data: {
+                paymentId: payment.id,
+                provider: parsed.provider,
+                status: providerIntent.status,
+                amountMinor: target.amountMinor,
+                currency: target.currency,
+                providerReference: providerIntent.providerReference,
+                clientAction: (providerIntent.clientAction ?? {}) as Prisma.InputJsonValue,
+                idempotencyKey: key,
+              },
+            });
+            await tx.paymentAttempt.create({
+              data: {
+                paymentIntentId: intent.id,
+                provider: parsed.provider,
+                status: "SENT_TO_PROVIDER",
+                providerReference: providerIntent.providerReference,
+                responsePayload: providerIntent as unknown as Prisma.InputJsonValue,
+              },
+            });
+          }
+          await tx.analyticsEvent.create({
+            data: {
+              type: "PAYMENT_INTENT_CREATED",
+              actorUserId: req.auth!.userId,
+              entityType: "Payment",
+              entityId: payment.id,
+            },
+          });
+          await tx.outboxEvent.create({
+            data: { type: "payment.intent.created", payload: { paymentId: payment.id } },
+          });
+          return { paymentId: payment.id };
+        }),
+      );
+      const payment = await prisma.payment.findUniqueOrThrow({
+        where: { id: result.paymentId },
+        include: paymentInclude,
+      });
+      await writeAudit(
+        "PAYMENT_INTENT_CREATED",
+        "Payment",
+        payment.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ payment: serializePayment(payment) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/payments/:paymentId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const isAdmin = req.auth!.roles.some((role) => role === "ADMIN" || role === "SUPPORT");
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: String(req.params.paymentId ?? ""),
+        ...(isAdmin ? {} : { payerUserId: req.auth!.userId }),
+      },
+      include: paymentInclude,
+    });
+    if (!payment) {
+      res.status(404).json(errorBody("PAYMENT_NOT_FOUND", "Payment not found", req));
+      return;
+    }
+    res.json({ payment: serializePayment(payment) });
+  });
+
+  http.post("/api/v1/payments/mock/webhook", async (req, res) => {
+    try {
+      const parsed = mockWebhookSchema.parse(req.body ?? {});
+      const verified = new MockPaymentProviderAdapter().verify({
+        headers: req.headers,
+        rawBody: JSON.stringify(parsed),
+        secret: process.env.MOCK_PAYMENT_WEBHOOK_SECRET ?? "local-mock-secret",
+      });
+      const event = await prisma.paymentWebhookEvent.upsert({
+        where: { provider_eventId: { provider: "MOCK", eventId: parsed.eventId } },
+        create: {
+          provider: "MOCK",
+          eventId: parsed.eventId,
+          eventType: "payment.updated",
+          signatureValid: verified.ok,
+          payload: parsed as Prisma.InputJsonValue,
+        },
+        update: {},
+      });
+      if (!verified.ok) {
+        res
+          .status(401)
+          .json(errorBody("PAYMENT_WEBHOOK_SIGNATURE_INVALID", "Invalid webhook signature", req));
+        return;
+      }
+      const intent = await prisma.paymentIntent.findFirst({
+        where: { provider: "MOCK", providerReference: parsed.providerReference },
+      });
+      if (!intent) {
+        res.status(202).json({ accepted: true, matched: false });
+        return;
+      }
+      await prisma.$transaction(async (tx) => {
+        await tx.paymentWebhookEvent.update({
+          where: { id: event.id },
+          data: { paymentIntentId: intent.id, processedAt: new Date() },
+        });
+        const nextStatus = transitionIntentStatus(intent.status, parsed.status);
+        await tx.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: nextStatus, version: { increment: 1 } },
+        });
+        if (parsed.status === "SUCCEEDED") await markPaymentSucceeded(tx, intent.paymentId);
+      });
+      res.json({ accepted: true, matched: true });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/payments/:paymentId/refunds", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = refundRequestSchema.parse({
+        ...(req.body ?? {}),
+        paymentId: req.params.paymentId,
+      });
+      const key = idempotencyKey(req) || `refund:${req.auth!.userId}:${requestHash(parsed)}`;
+      const result = await prisma.$transaction((tx) =>
+        ensureIdempotency(tx, "payment:refund", key, parsed, async () => {
+          const isAdmin = req.auth!.roles.some((role) => role === "ADMIN" || role === "SUPPORT");
+          const payment = await tx.payment.findFirst({
+            where: { id: parsed.paymentId, ...(isAdmin ? {} : { payerUserId: req.auth!.userId }) },
+          });
+          if (!payment)
+            throw Object.assign(new Error("Payment not found"), {
+              statusCode: 404,
+              code: "PAYMENT_NOT_FOUND",
+            });
+          const amountMinor =
+            parsed.amountMinor === undefined
+              ? refundableAmount(payment)
+              : normalizeMinorUnit(parsed.amountMinor);
+          assertRefundAllowed(payment, amountMinor);
+          const refund = await tx.paymentRefund.create({
+            data: {
+              paymentId: payment.id,
+              requestedByUserId: req.auth!.userId,
+              reason: parsed.reason,
+              amountMinor,
+              currency: payment.currency,
+              idempotencyKey: key,
+            },
+          });
+          await tx.outboxEvent.create({
+            data: { type: "payment.refund.requested", payload: { refundId: refund.id } },
+          });
+          return { refundId: refund.id };
+        }),
+      );
+      const refund = await prisma.paymentRefund.findUniqueOrThrow({
+        where: { id: result.refundId },
+        include: { attempts: true },
+      });
+      await writeAudit(
+        "PAYMENT_REFUND_REQUESTED",
+        "PaymentRefund",
+        refund.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.status(201).json({ refund: serializeBigInt(refund) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/driver/payments/cash-confirmations", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = cashConfirmationSchema.parse(req.body ?? {});
+      const profile = await prisma.driverProfile.findUnique({
+        where: { userId: req.auth!.userId },
+      });
+      const settlement = await prisma.cashSettlement.findFirst({
+        where: { paymentId: parsed.paymentId, driverProfileId: profile?.id ?? "" },
+      });
+      if (!settlement)
+        throw Object.assign(new Error("Cash settlement not found"), {
+          statusCode: 404,
+          code: "CASH_SETTLEMENT_NOT_FOUND",
+        });
+      const payment = await prisma.$transaction(async (tx) => {
+        await tx.cashSettlement.update({
+          where: { id: settlement.id },
+          data: {
+            status: parsed.received ? "CONFIRMED" : "DISPUTED",
+            receivedMinor: parsed.received ? settlement.expectedMinor : 0n,
+            confirmedByUserId: req.auth!.userId,
+            reason: parsed.reason ?? null,
+          },
+        });
+        if (parsed.received) await markPaymentSucceeded(tx, parsed.paymentId, req.auth!.userId);
+        return tx.payment.findUniqueOrThrow({
+          where: { id: parsed.paymentId },
+          include: paymentInclude,
+        });
+      });
+      res.json({ payment: serializePayment(payment) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/driver/earnings", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const earnings = await prisma.driverEarning.findMany({
+      where: { driverProfileId: profile?.id ?? "" },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ earnings: serializeBigInt(earnings) });
+  });
+
+  http.get("/api/v1/admin/finance/payments", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const payments = await prisma.payment.findMany({
+      include: paymentInclude,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ payments: serializeBigInt(payments) });
+  });
+
+  http.get("/api/v1/admin/finance/ledger", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const transactions = await prisma.financialTransaction.findMany({
+      include: { entries: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ transactions: serializeBigInt(transactions) });
+  });
+
+  http.post("/api/v1/admin/finance/payouts", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = payoutCreateSchema.parse(req.body ?? {});
+      const earnings = await prisma.driverEarning.findMany({
+        where: {
+          id: { in: parsed.earningIds },
+          driverProfileId: parsed.driverProfileId,
+          status: "AVAILABLE",
+          payoutId: null,
+        },
+      });
+      if (earnings.length !== parsed.earningIds.length)
+        throw Object.assign(new Error("Some earnings are not payable"), {
+          statusCode: 409,
+          code: "EARNING_NOT_PAYABLE",
+        });
+      const payout = await prisma.$transaction(async (tx) => {
+        const grossMinor = earnings.reduce((sum, earning) => sum + earning.netMinor, 0n);
+        const saved = await tx.driverPayout.create({
+          data: {
+            driverProfileId: parsed.driverProfileId,
+            status: "READY",
+            currency: "UZS",
+            grossMinor,
+            itemCount: earnings.length,
+            requestedByUserId: req.auth!.userId,
+            items: {
+              create: earnings.map((earning) => ({
+                earningId: earning.id,
+                currency: earning.currency,
+                amountMinor: earning.netMinor,
+              })),
+            },
+          },
+        });
+        await tx.driverEarning.updateMany({
+          where: { id: { in: earnings.map((earning) => earning.id) } },
+          data: { payoutId: saved.id, status: "ON_HOLD" },
+        });
+        await financialAudit(
+          tx,
+          "DRIVER_PAYOUT_CREATED",
+          "DriverPayout",
+          saved.id,
+          req.auth!.userId,
+        );
+        return saved;
+      });
+      res.status(201).json({ payout: serializeBigInt(payout) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/finance/payouts/:payoutId/status", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = payoutStatusSchema.parse(req.body ?? {});
+      const payout = await prisma.$transaction(async (tx) => {
+        const payoutData: Prisma.DriverPayoutUpdateInput = {
+          status: parsed.status,
+          failureReason: parsed.reason ?? null,
+        };
+        if (parsed.status === "PAID") payoutData.paidAt = new Date();
+        if (parsed.status === "FAILED") payoutData.failedAt = new Date();
+        const saved = await tx.driverPayout.update({
+          where: { id: String(req.params.payoutId ?? "") },
+          data: payoutData,
+        });
+        if (parsed.status === "PAID") {
+          await tx.driverEarning.updateMany({
+            where: { payoutId: saved.id },
+            data: { status: "PAID", paidAt: new Date() },
+          });
+          await ledgerPost(tx, {
+            type: "PAYOUT",
+            referenceType: "DriverPayout",
+            referenceId: saved.id,
+            currency: saved.currency as CurrencyCode,
+            idempotencyKey: `payout:${saved.id}:paid`,
+            entries: [
+              {
+                account: "driver_earnings_payable",
+                entryType: "DEBIT",
+                amountMinor: saved.grossMinor,
+              },
+              { account: "cash_or_bank", entryType: "CREDIT", amountMinor: saved.grossMinor },
+            ],
+          });
+        }
+        await financialAudit(
+          tx,
+          "DRIVER_PAYOUT_STATUS_CHANGED",
+          "DriverPayout",
+          saved.id,
+          req.auth!.userId,
+          parsed.reason,
+        );
+        return saved;
+      });
+      res.json({ payout: serializeBigInt(payout) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/finance/reconciliation-runs", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = reconciliationRunSchema.parse(req.body ?? {});
+      const run = await prisma.reconciliationRun.create({
+        data: {
+          provider: parsed.provider,
+          status: "MATCHED",
+          completedAt: new Date(),
+          createdByUserId: req.auth!.userId,
+          summary: {
+            from: parsed.from.toISOString(),
+            to: parsed.to.toISOString(),
+            adapter: "mock/manual",
+          },
+        },
+      });
+      res.status(201).json({ run: serializeBigInt(run) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/analytics/events", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = analyticsEventSchema.parse(req.body ?? {});
+      const dedupeKey = parsed.dedupeKey ?? `analytics:${req.auth!.userId}:${requestHash(parsed)}`;
+      const event = await prisma.analyticsEvent.upsert({
+        where: { dedupeKey },
+        create: {
+          type: parsed.type,
+          actorUserId: req.auth!.userId,
+          sessionId: parsed.sessionId ?? null,
+          entityType: parsed.entityType ?? null,
+          entityId: parsed.entityId ?? null,
+          dedupeKey,
+          payload: (parsed.payload ?? {}) as Prisma.InputJsonValue,
+        },
+        update: {},
+      });
+      res.status(201).json({ event });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/analytics/metrics", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const [metrics, funnels, exports] = await Promise.all([
+      prisma.dailyMetric.findMany({ orderBy: { metricDate: "desc" }, take: 100 }),
+      prisma.funnelSnapshot.findMany({ orderBy: { snapshotDate: "desc" }, take: 20 }),
+      prisma.reportExport.findMany({ orderBy: { createdAt: "desc" }, take: 20 }),
+    ]);
+    res.json({ metrics: serializeBigInt(metrics), funnels, exports });
+  });
+}
+
 async function registerBookingRoutes(http: {
   get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
   post: (
@@ -10557,6 +11483,7 @@ async function bootstrap() {
   await registerParcelRoutes(http);
   await registerCommunicationRoutes(http);
   await registerTrustSafetyRoutes(http);
+  await registerFinanceRoutes(http);
   await registerBookingRoutes(http);
   await registerVehicleRoutes(http);
   await registerAdminVehicleRoutes(http);
@@ -10584,6 +11511,7 @@ async function bootstrap() {
     ...(phase8OpenApiPaths() as typeof document.paths),
     ...(phase9OpenApiPaths() as typeof document.paths),
     ...(phase10OpenApiPaths() as typeof document.paths),
+    ...(phase11OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));

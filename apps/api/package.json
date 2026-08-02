@@ -25,6 +25,7 @@
     "@nodex/contracts": "workspace:*",
     "@nodex/database": "workspace:*",
     "@nodex/logger": "workspace:*",
+    "@nodex/payments": "workspace:*",
     "@nodex/validation": "workspace:*",
     "express": "5.2.1",
     "helmet": "8.1.0",
