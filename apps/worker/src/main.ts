@@ -19,6 +19,7 @@ const bookingQueueName = "nodex.booking.hold-expiration";
 const operationsQueueName = "nodex.trip.operations";
 const communicationQueueName = "nodex.communication.delivery";
 const trustSafetyQueueName = "nodex.trust-safety.maintenance";
+const financeQueueName = "nodex.finance.maintenance";
 const queue = new Queue(queueName, {
   connection,
   defaultJobOptions: {
@@ -56,6 +57,15 @@ const communicationQueue = new Queue(communicationQueueName, {
   },
 });
 const trustSafetyQueue = new Queue(trustSafetyQueueName, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: 100,
+    removeOnFail: 100,
+  },
+});
+const financeQueue = new Queue(financeQueueName, {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -374,7 +384,191 @@ const trustSafetyWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const financeWorker = new Worker(
+  financeQueueName,
+  async () => {
+    const now = new Date();
+    const staleCutoff = new Date(now.getTime() - 30 * 60 * 1000);
+    const stalePayments = await prisma.payment.findMany({
+      where: {
+        status: { in: ["CREATED", "REQUIRES_ACTION", "PROCESSING"] },
+        createdAt: { lt: staleCutoff },
+      },
+      take: 50,
+    });
+    for (const payment of stalePayments) {
+      await prisma.$transaction(async (tx) => {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { status: "EXPIRED", failedAt: now },
+        });
+        await tx.paymentIntent.updateMany({
+          where: {
+            paymentId: payment.id,
+            status: { in: ["CREATED", "PENDING", "REQUIRES_ACTION", "PROCESSING"] },
+          },
+          data: { status: "EXPIRED", expiresAt: now },
+        });
+        if (payment.bookingId) {
+          const hold = await tx.seatHold.findFirst({
+            where: { bookingId: payment.bookingId, status: "ACTIVE" },
+            include: { items: true },
+          });
+          if (hold) {
+            await tx.tripSeat.updateMany({
+              where: {
+                tripId: hold.tripId,
+                seatKey: { in: hold.items.map((item) => item.seatKey) },
+                status: "HELD",
+              },
+              data: { status: "AVAILABLE", version: { increment: 1 } },
+            });
+            await tx.seatHold.update({
+              where: { id: hold.id },
+              data: { status: "EXPIRED", releasedAt: now },
+            });
+          }
+          await tx.booking.updateMany({
+            where: { id: payment.bookingId, status: "PAYMENT_PENDING" },
+            data: { status: "EXPIRED", version: { increment: 1 } },
+          });
+          await tx.bookingTimelineEvent.create({
+            data: {
+              bookingId: payment.bookingId,
+              type: "PAYMENT_EXPIRED",
+              payload: { worker: true, paymentId: payment.id },
+            },
+          });
+        }
+        await tx.financialAuditEvent.create({
+          data: {
+            type: "PAYMENT_EXPIRED",
+            entityType: "Payment",
+            entityId: payment.id,
+            reason: "worker-timeout",
+          },
+        });
+      });
+    }
+
+    const refunds = await prisma.paymentRefund.findMany({
+      where: { status: "REQUESTED" },
+      include: { payment: true },
+      take: 50,
+      orderBy: { createdAt: "asc" },
+    });
+    for (const refund of refunds) {
+      await prisma.$transaction(async (tx) => {
+        const payment = refund.payment;
+        const refundedMinor = payment.refundedMinor + refund.amountMinor;
+        const paymentStatus =
+          refundedMinor >= payment.paidMinor ? "REFUNDED" : "PARTIALLY_REFUNDED";
+        await tx.paymentRefund.update({
+          where: { id: refund.id },
+          data: { status: "SUCCEEDED", succeededAt: now },
+        });
+        await tx.paymentRefundAttempt.create({
+          data: {
+            refundId: refund.id,
+            provider: payment.provider ?? "MANUAL",
+            status: "SUCCEEDED",
+            requestPayload: { worker: true },
+            responsePayload: { providerReference: `mock-refund-${refund.id}` },
+          },
+        });
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { refundedMinor, status: paymentStatus },
+        });
+        await tx.financialTransaction.create({
+          data: {
+            type: "REFUND",
+            referenceType: "PaymentRefund",
+            referenceId: refund.id,
+            currency: refund.currency,
+            amountMinor: refund.amountMinor,
+            idempotencyKey: `refund:${refund.id}:ledger`,
+            entries: {
+              create: [
+                {
+                  paymentId: payment.id,
+                  account: "client_refunds",
+                  entryType: "DEBIT",
+                  currency: refund.currency,
+                  amountMinor: refund.amountMinor,
+                },
+                {
+                  paymentId: payment.id,
+                  account: "provider_cash",
+                  entryType: "CREDIT",
+                  currency: refund.currency,
+                  amountMinor: refund.amountMinor,
+                },
+              ],
+            },
+          },
+        });
+        await tx.analyticsEvent.create({
+          data: {
+            type: "REFUND_SUCCEEDED",
+            entityType: "PaymentRefund",
+            entityId: refund.id,
+            payload: { worker: true },
+          },
+        });
+        await tx.financialAuditEvent.create({
+          data: {
+            type: "REFUND_SUCCEEDED",
+            entityType: "PaymentRefund",
+            entityId: refund.id,
+            reason: refund.reason,
+          },
+        });
+      });
+    }
+
+    const availableEarnings = await prisma.driverEarning.updateMany({
+      where: { status: "PENDING", availableAt: { lte: now } },
+      data: { status: "AVAILABLE" },
+    });
+    const metricDate = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const eventRows = await prisma.analyticsEvent.groupBy({
+      by: ["type"],
+      where: { occurredAt: { gte: metricDate } },
+      _count: { _all: true },
+    });
+    for (const row of eventRows) {
+      await prisma.dailyMetric.upsert({
+        where: { metricDate_metricKey: { metricDate, metricKey: `analytics.${row.type}` } },
+        create: { metricDate, metricKey: `analytics.${row.type}`, value: BigInt(row._count._all) },
+        update: { value: BigInt(row._count._all) },
+      });
+    }
+
+    logger.info(
+      {
+        expiredPayments: stalePayments.length,
+        refunds: refunds.length,
+        availableEarnings: availableEarnings.count,
+        metrics: eventRows.length,
+      },
+      "processed finance maintenance job",
+    );
+    return {
+      expiredPayments: stalePayments.length,
+      refunds: refunds.length,
+      availableEarnings: availableEarnings.count,
+      metrics: eventRows.length,
+    };
+  },
+  { connection, concurrency: 1 },
+);
+
 process.on("SIGTERM", async () => {
+  await financeWorker.close();
+  await financeQueue.close();
   await trustSafetyWorker.close();
   await trustSafetyQueue.close();
   await communicationWorker.close();
@@ -409,8 +603,14 @@ await trustSafetyQueue.add(
   { createdAt: new Date().toISOString() },
   { jobId: "trust-safety-maintenance-health", repeat: { every: 60_000 } },
 );
+await financeQueue.add(
+  "finance-maintenance",
+  { createdAt: new Date().toISOString() },
+  { jobId: "finance-maintenance-health", repeat: { every: 60_000 } },
+);
 logger.info({ queueName }, "worker foundation started");
 logger.info({ queueName: bookingQueueName }, "worker booking hold expiration started");
 logger.info({ queueName: operationsQueueName }, "worker trip operations started");
 logger.info({ queueName: communicationQueueName }, "worker communication delivery started");
 logger.info({ queueName: trustSafetyQueueName }, "worker trust safety maintenance started");
+logger.info({ queueName: financeQueueName }, "worker finance maintenance started");
