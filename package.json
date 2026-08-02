@@ -38,6 +38,8 @@
     "db:deploy": "pnpm --filter @nodex/database db:deploy",
     "db:seed": "pnpm --filter @nodex/database db:seed",
     "db:reset": "pnpm --filter @nodex/database db:reset",
+    "db:backup": "node scripts/backup-postgres.mjs",
+    "db:restore": "node scripts/restore-postgres.mjs",
     "api:generate": "pnpm --filter @nodex/api-client generate",
     "audit:all": "pnpm audit --audit-level high",
     "audit:production": "pnpm audit --prod --audit-level high",

@@ -137,6 +137,16 @@ const permissions = [
   "safety-report:internal-note-admin",
   "account-restriction:manage-admin",
   "moderation-case:read-admin",
+  "payment:create-own",
+  "payment:read-own",
+  "payment:refund-request-own",
+  "payment:cash-confirm-driver",
+  "finance:read-admin",
+  "finance:refund-admin",
+  "finance:payout-admin",
+  "finance:reconcile-admin",
+  "analytics:event-create",
+  "analytics:read-admin",
 ];
 
 async function main() {
@@ -216,6 +226,7 @@ async function main() {
   await seedParcelFixtures();
   await seedCommunicationSupportFixtures();
   await seedTrustSafetyFixtures();
+  await seedPaymentsAnalyticsLaunchFixtures();
 
   const adminTelegramIds = [
     process.env.SUPER_ADMIN_TELEGRAM_ID,
@@ -1987,6 +1998,433 @@ async function seedTrustSafetyFixtures() {
         actorUserId: admin.id,
         type: "ACCOUNT_RESTRICTION_APPLIED",
         reason: "Seed fixture",
+      },
+    });
+  }
+}
+
+async function seedPaymentsAnalyticsLaunchFixtures() {
+  const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
+  const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
+  const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
+  const booking = await prisma.booking.findFirstOrThrow({
+    where: { id: "phase6-booking-confirmed" },
+  });
+  const parcel = await prisma.parcelOrder.findFirstOrThrow({
+    where: { id: "phase8-parcel-delivered" },
+  });
+  const driverProfile = await prisma.driverProfile.findFirstOrThrow({
+    where: { userId: driver.id },
+  });
+  const metricDate = new Date("2026-08-03T00:00:00.000Z");
+
+  const mockAccount = await prisma.paymentProviderAccount.upsert({
+    where: { provider_displayName: { provider: "MOCK", displayName: "Local mock gateway" } },
+    create: {
+      provider: "MOCK",
+      displayName: "Local mock gateway",
+      config: { environment: "local", webhookSecretName: "MOCK_PAYMENT_WEBHOOK_SECRET" },
+    },
+    update: { isActive: true },
+  });
+  await prisma.paymentProviderAccount.upsert({
+    where: {
+      provider_displayName: { provider: "MANUAL", displayName: "Manual cash and bank operations" },
+    },
+    create: {
+      provider: "MANUAL",
+      displayName: "Manual cash and bank operations",
+      config: { environment: "local", settlement: "driver-cash" },
+    },
+    update: { isActive: true },
+  });
+
+  await prisma.pricingRule.upsert({
+    where: { code: "phase11-platform-fee-10pct" },
+    create: {
+      code: "phase11-platform-fee-10pct",
+      targetType: "BOOKING",
+      currency: "UZS",
+      feeRateBps: 1000,
+      payload: { description: "Seeded 10 percent platform fee" },
+    },
+    update: { isActive: true, feeRateBps: 1000 },
+  });
+  await prisma.promotionPlaceholder.upsert({
+    where: { code: "PHASE11-LAUNCH" },
+    create: {
+      code: "PHASE11-LAUNCH",
+      description: "Launch placeholder; discounts are not active in MVP.",
+      isActive: false,
+      payload: { enabledAfter: "post-launch" },
+    },
+    update: { isActive: false },
+  });
+
+  const existingSnapshot = await prisma.pricingSnapshot.findFirst({
+    where: { targetType: "BOOKING", targetId: booking.id, ruleCode: "phase11-platform-fee-10pct" },
+  });
+  const pricingSnapshot =
+    existingSnapshot ??
+    (await prisma.pricingSnapshot.create({
+      data: {
+        targetType: "BOOKING",
+        targetId: booking.id,
+        currency: booking.currency,
+        subtotalMinor: booking.totalMinor,
+        feeMinor: booking.totalMinor / 10n,
+        totalMinor: booking.totalMinor,
+        ruleCode: "phase11-platform-fee-10pct",
+        snapshot: { source: "seed", feeRateBps: 1000 },
+      },
+    }));
+
+  const onlinePayment = await prisma.payment.upsert({
+    where: { idempotencyKey: "phase11:booking:online:success" },
+    create: {
+      targetType: "BOOKING",
+      bookingId: booking.id,
+      payerUserId: client.id,
+      payeeUserId: driver.id,
+      method: "ONLINE",
+      provider: "MOCK",
+      status: "SUCCEEDED",
+      currency: booking.currency,
+      amountMinor: booking.totalMinor,
+      paidMinor: booking.totalMinor,
+      pricingSnapshotId: pricingSnapshot.id,
+      idempotencyKey: "phase11:booking:online:success",
+      succeededAt: new Date("2026-08-03T08:15:00.000Z"),
+    },
+    update: {
+      status: "SUCCEEDED",
+      paidMinor: booking.totalMinor,
+      succeededAt: new Date("2026-08-03T08:15:00.000Z"),
+    },
+  });
+  const onlineIntent = await prisma.paymentIntent.upsert({
+    where: { idempotencyKey: "phase11:booking:online:intent" },
+    create: {
+      paymentId: onlinePayment.id,
+      providerAccountId: mockAccount.id,
+      provider: "MOCK",
+      status: "SUCCEEDED",
+      amountMinor: booking.totalMinor,
+      currency: booking.currency,
+      providerReference: `mock-${onlinePayment.id}`,
+      clientAction: { type: "NONE" },
+      idempotencyKey: "phase11:booking:online:intent",
+      succeededAt: new Date("2026-08-03T08:15:00.000Z"),
+    },
+    update: { status: "SUCCEEDED", succeededAt: new Date("2026-08-03T08:15:00.000Z") },
+  });
+  const existingAttempt = await prisma.paymentAttempt.findFirst({
+    where: { paymentIntentId: onlineIntent.id, providerReference: `mock-${onlinePayment.id}` },
+  });
+  if (!existingAttempt) {
+    await prisma.paymentAttempt.create({
+      data: {
+        paymentIntentId: onlineIntent.id,
+        providerAccountId: mockAccount.id,
+        provider: "MOCK",
+        status: "SUCCEEDED",
+        providerReference: `mock-${onlinePayment.id}`,
+        requestPayload: { seed: true },
+        responsePayload: { status: "SUCCEEDED" },
+      },
+    });
+  }
+  await prisma.paymentWebhookEvent.upsert({
+    where: { provider_eventId: { provider: "MOCK", eventId: "phase11-webhook-payment-succeeded" } },
+    create: {
+      provider: "MOCK",
+      providerAccountId: mockAccount.id,
+      paymentIntentId: onlineIntent.id,
+      eventId: "phase11-webhook-payment-succeeded",
+      eventType: "payment.succeeded",
+      signatureValid: true,
+      processedAt: new Date("2026-08-03T08:15:01.000Z"),
+      payload: { providerReference: `mock-${onlinePayment.id}`, status: "SUCCEEDED" },
+    },
+    update: { processedAt: new Date("2026-08-03T08:15:01.000Z") },
+  });
+
+  const existingPlatformFee = await prisma.platformFee.findFirst({
+    where: { paymentId: onlinePayment.id, rateBps: 1000 },
+  });
+  if (!existingPlatformFee) {
+    await prisma.platformFee.create({
+      data: {
+        paymentId: onlinePayment.id,
+        currency: booking.currency,
+        amountMinor: booking.totalMinor / 10n,
+        rateBps: 1000,
+        ruleSnapshot: { code: "phase11-platform-fee-10pct" },
+      },
+    });
+  }
+  const existingEarning = await prisma.driverEarning.findFirst({
+    where: { paymentId: onlinePayment.id, driverProfileId: driverProfile.id },
+  });
+  const earning = existingEarning
+    ? await prisma.driverEarning.update({
+        where: { id: existingEarning.id },
+        data: { status: "AVAILABLE" },
+      })
+    : await prisma.driverEarning.create({
+        data: {
+          driverProfileId: driverProfile.id,
+          paymentId: onlinePayment.id,
+          bookingId: booking.id,
+          status: "AVAILABLE",
+          currency: booking.currency,
+          grossMinor: booking.totalMinor,
+          feeMinor: booking.totalMinor / 10n,
+          netMinor: booking.totalMinor - booking.totalMinor / 10n,
+          availableAt: new Date("2026-08-03T08:15:00.000Z"),
+        },
+      });
+  await prisma.financialTransaction.upsert({
+    where: { idempotencyKey: "phase11:booking:online:ledger" },
+    create: {
+      type: "PAYMENT",
+      referenceType: "Payment",
+      referenceId: onlinePayment.id,
+      currency: booking.currency,
+      amountMinor: booking.totalMinor,
+      idempotencyKey: "phase11:booking:online:ledger",
+      entries: {
+        create: [
+          {
+            paymentId: onlinePayment.id,
+            account: "provider_cash",
+            entryType: "DEBIT",
+            currency: booking.currency,
+            amountMinor: booking.totalMinor,
+          },
+          {
+            paymentId: onlinePayment.id,
+            account: "platform_fee_revenue",
+            entryType: "CREDIT",
+            currency: booking.currency,
+            amountMinor: booking.totalMinor / 10n,
+          },
+          {
+            paymentId: onlinePayment.id,
+            account: "driver_earnings_payable",
+            entryType: "CREDIT",
+            currency: booking.currency,
+            amountMinor: booking.totalMinor - booking.totalMinor / 10n,
+          },
+        ],
+      },
+    },
+    update: {},
+  });
+
+  const cashPayment = await prisma.payment.upsert({
+    where: { idempotencyKey: "phase11:parcel:cash:declared" },
+    create: {
+      targetType: "PARCEL_ORDER",
+      parcelOrderId: parcel.id,
+      payerUserId: client.id,
+      payeeUserId: driver.id,
+      method: "CASH",
+      provider: "MANUAL",
+      status: "PROCESSING",
+      currency: parcel.currency,
+      amountMinor: parcel.priceMinor,
+      idempotencyKey: "phase11:parcel:cash:declared",
+    },
+    update: { status: "PROCESSING" },
+  });
+  const existingDeclaration = await prisma.cashPaymentDeclaration.findFirst({
+    where: { paymentId: cashPayment.id },
+  });
+  if (existingDeclaration) {
+    await prisma.cashPaymentDeclaration.update({
+      where: { id: existingDeclaration.id },
+      data: { status: "DECLARED" },
+    });
+  } else {
+    await prisma.cashPaymentDeclaration.create({
+      data: {
+        paymentId: cashPayment.id,
+        parcelOrderId: parcel.id,
+        declaredByUserId: client.id,
+        status: "DECLARED",
+        currency: parcel.currency,
+        amountMinor: parcel.priceMinor,
+      },
+    });
+  }
+  const existingSettlement = await prisma.cashSettlement.findFirst({
+    where: { paymentId: cashPayment.id, driverProfileId: driverProfile.id },
+  });
+  if (!existingSettlement) {
+    await prisma.cashSettlement.create({
+      data: {
+        paymentId: cashPayment.id,
+        driverProfileId: driverProfile.id,
+        parcelOrderId: parcel.id,
+        status: "OPEN",
+        currency: parcel.currency,
+        expectedMinor: parcel.priceMinor,
+      },
+    });
+  }
+
+  await prisma.paymentRefund.upsert({
+    where: { idempotencyKey: "phase11:booking:refund:requested" },
+    create: {
+      paymentId: onlinePayment.id,
+      requestedByUserId: client.id,
+      reason: "CLIENT_CANCELLATION",
+      status: "REQUESTED",
+      currency: booking.currency,
+      amountMinor: booking.totalMinor / 2n,
+      idempotencyKey: "phase11:booking:refund:requested",
+    },
+    update: { status: "REQUESTED" },
+  });
+  const existingPayout = await prisma.driverPayout.findFirst({
+    where: { provider: "MANUAL", providerReference: "phase11-payout-ready" },
+  });
+  if (existingPayout) {
+    await prisma.driverPayout.update({
+      where: { id: existingPayout.id },
+      data: { status: "READY", grossMinor: earning.netMinor, itemCount: 1 },
+    });
+  } else {
+    await prisma.driverPayout.create({
+      data: {
+        driverProfileId: driverProfile.id,
+        provider: "MANUAL",
+        status: "READY",
+        currency: booking.currency,
+        grossMinor: earning.netMinor,
+        itemCount: 1,
+        providerReference: "phase11-payout-ready",
+        requestedByUserId: admin.id,
+        items: {
+          create: [
+            { earningId: earning.id, currency: booking.currency, amountMinor: earning.netMinor },
+          ],
+        },
+      },
+    });
+  }
+
+  const existingReconciliation = await prisma.reconciliationRun.findFirst({
+    where: {
+      provider: "MOCK",
+      createdByUserId: admin.id,
+      summary: { path: ["source"], equals: "seed" },
+    },
+  });
+  if (!existingReconciliation) {
+    await prisma.reconciliationRun.create({
+      data: {
+        provider: "MOCK",
+        status: "MATCHED",
+        completedAt: new Date("2026-08-03T10:00:00.000Z"),
+        createdByUserId: admin.id,
+        summary: { payments: 1, mismatches: 0, source: "seed" },
+        items: {
+          create: [
+            {
+              status: "MATCHED",
+              paymentId: onlinePayment.id,
+              providerReference: `mock-${onlinePayment.id}`,
+              expectedAmountMinor: booking.totalMinor,
+              providerAmountMinor: booking.totalMinor,
+              currency: booking.currency,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  const events = [
+    ["SEARCH_PERFORMED", "Trip", booking.tripId, "phase11:analytics:search"],
+    ["TRIP_VIEWED", "Trip", booking.tripId, "phase11:analytics:trip-view"],
+    ["PAYMENT_INTENT_CREATED", "Payment", onlinePayment.id, "phase11:analytics:intent"],
+    ["PAYMENT_SUCCEEDED", "Payment", onlinePayment.id, "phase11:analytics:paid"],
+    ["REFUND_REQUESTED", "Payment", onlinePayment.id, "phase11:analytics:refund"],
+  ] as const;
+  for (const [type, entityType, entityId, dedupeKey] of events) {
+    await prisma.analyticsEvent.upsert({
+      where: { dedupeKey },
+      create: {
+        type,
+        actorUserId: client.id,
+        entityType,
+        entityId,
+        dedupeKey,
+        payload: { seed: true },
+      },
+      update: {},
+    });
+  }
+  await prisma.dailyMetric.upsert({
+    where: { metricDate_metricKey: { metricDate, metricKey: "payments.succeeded.count" } },
+    create: { metricDate, metricKey: "payments.succeeded.count", value: 1n },
+    update: { value: 1n },
+  });
+  await prisma.dailyMetric.upsert({
+    where: { metricDate_metricKey: { metricDate, metricKey: "payments.gross.uzs_minor" } },
+    create: { metricDate, metricKey: "payments.gross.uzs_minor", value: booking.totalMinor },
+    update: { value: booking.totalMinor },
+  });
+  await prisma.funnelSnapshot.upsert({
+    where: { snapshotDate_funnelKey: { snapshotDate: metricDate, funnelKey: "client_checkout" } },
+    create: {
+      snapshotDate: metricDate,
+      funnelKey: "client_checkout",
+      steps: [
+        { step: "search", count: 8 },
+        { step: "trip_detail", count: 5 },
+        { step: "booking_started", count: 3 },
+        { step: "payment_succeeded", count: 1 },
+      ],
+    },
+    update: {
+      steps: [
+        { step: "search", count: 8 },
+        { step: "trip_detail", count: 5 },
+        { step: "booking_started", count: 3 },
+        { step: "payment_succeeded", count: 1 },
+      ],
+    },
+  });
+  const existingExport = await prisma.reportExport.findFirst({
+    where: { type: "daily-launch-report", storageKey: "reports/phase11/daily-launch-report.json" },
+  });
+  if (!existingExport) {
+    await prisma.reportExport.create({
+      data: {
+        type: "daily-launch-report",
+        status: "READY",
+        requestedByUserId: admin.id,
+        storageKey: "reports/phase11/daily-launch-report.json",
+        filters: { date: metricDate.toISOString() },
+        completedAt: new Date("2026-08-03T10:05:00.000Z"),
+      },
+    });
+  }
+  const existingAudit = await prisma.financialAuditEvent.findFirst({
+    where: { type: "PHASE_11_SEED_COMPLETED", entityType: "Payment", entityId: onlinePayment.id },
+  });
+  if (!existingAudit) {
+    await prisma.financialAuditEvent.create({
+      data: {
+        actorUserId: admin.id,
+        type: "PHASE_11_SEED_COMPLETED",
+        entityType: "Payment",
+        entityId: onlinePayment.id,
+        reason: "seed fixture",
+        payload: { ledger: true, analytics: true },
       },
     });
   }
