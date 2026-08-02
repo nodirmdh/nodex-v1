@@ -124,6 +124,7 @@ type RoleCode = "CLIENT" | "DRIVER" | "ADMIN" | "SUPPORT";
 type UserTheme = "SYSTEM" | "LIGHT" | "DARK" | "TELEGRAM";
 type AuthenticatedRequest = Request & {
   requestId?: string;
+  rawBody?: string;
   auth?: { userId: string; sessionId: string; roles: RoleCode[]; appContext: AppContext };
 };
 
@@ -133,6 +134,10 @@ const paymentRegistry = new PaymentProviderRegistry();
 paymentRegistry.register(new MockPaymentProviderAdapter());
 paymentRegistry.register(new ManualPaymentProviderAdapter());
 const accessTokenSecret = env.AUTH_ACCESS_TOKEN_SECRET || env.JWT_SECRET;
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const refreshCookieName = "nodex_refresh";
 const bookingHoldTtlMs = durationToMs(process.env.BOOKING_HOLD_TTL ?? "10m");
 const bookingLockTtlMs = durationToMs(process.env.BOOKING_LOCK_TTL ?? "15s");
@@ -8330,9 +8335,10 @@ async function registerFinanceRoutes(http: {
   http.post("/api/v1/payments/mock/webhook", async (req, res) => {
     try {
       const parsed = mockWebhookSchema.parse(req.body ?? {});
+      const rawBody = req.rawBody ?? JSON.stringify(req.body ?? {});
       const verified = new MockPaymentProviderAdapter().verify({
         headers: req.headers,
-        rawBody: JSON.stringify(parsed),
+        rawBody,
         secret: process.env.MOCK_PAYMENT_WEBHOOK_SECRET ?? "local-mock-secret",
       });
       const event = await prisma.paymentWebhookEvent.upsert({
@@ -8340,11 +8346,11 @@ async function registerFinanceRoutes(http: {
         create: {
           provider: "MOCK",
           eventId: parsed.eventId,
-          eventType: "payment.updated",
+          eventType: verified.eventType ?? "payment.updated",
           signatureValid: verified.ok,
-          payload: parsed as Prisma.InputJsonValue,
+          payload: verified.payload as Prisma.InputJsonValue,
         },
-        update: {},
+        update: { signatureValid: verified.ok, payload: verified.payload as Prisma.InputJsonValue },
       });
       if (!verified.ok) {
         res
@@ -8356,7 +8362,15 @@ async function registerFinanceRoutes(http: {
         where: { provider: "MOCK", providerReference: parsed.providerReference },
       });
       if (!intent) {
+        await prisma.paymentWebhookEvent.update({
+          where: { id: event.id },
+          data: { processedAt: new Date(), processingError: "IGNORED_NO_MATCHING_INTENT" },
+        });
         res.status(202).json({ accepted: true, matched: false });
+        return;
+      }
+      if (event.processedAt && event.paymentIntentId === intent.id) {
+        res.json({ accepted: true, matched: true, duplicate: true });
         return;
       }
       await prisma.$transaction(async (tx) => {
@@ -8450,6 +8464,20 @@ async function registerFinanceRoutes(http: {
           statusCode: 404,
           code: "CASH_SETTLEMENT_NOT_FOUND",
         });
+      if (settlement.status === "CONFIRMED" && parsed.received) {
+        const existingPayment = await prisma.payment.findUniqueOrThrow({
+          where: { id: parsed.paymentId },
+          include: paymentInclude,
+        });
+        res.json({ payment: serializePayment(existingPayment), duplicate: true });
+        return;
+      }
+      if (!["OPEN", "DECLARED"].includes(settlement.status)) {
+        throw Object.assign(new Error("Cash settlement cannot be changed"), {
+          statusCode: 409,
+          code: "CASH_SETTLEMENT_ALREADY_FINALIZED",
+        });
+      }
       const payment = await prisma.$transaction(async (tx) => {
         await tx.cashSettlement.update({
           where: { id: settlement.id },
@@ -8507,20 +8535,32 @@ async function registerFinanceRoutes(http: {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
     try {
       const parsed = payoutCreateSchema.parse(req.body ?? {});
-      const earnings = await prisma.driverEarning.findMany({
-        where: {
-          id: { in: parsed.earningIds },
-          driverProfileId: parsed.driverProfileId,
-          status: "AVAILABLE",
-          payoutId: null,
-        },
-      });
-      if (earnings.length !== parsed.earningIds.length)
-        throw Object.assign(new Error("Some earnings are not payable"), {
+      const uniqueEarningIds = [...new Set(parsed.earningIds)];
+      if (uniqueEarningIds.length !== parsed.earningIds.length) {
+        throw Object.assign(new Error("Duplicate earning selected"), {
           statusCode: 409,
-          code: "EARNING_NOT_PAYABLE",
+          code: "DUPLICATE_EARNING_SELECTED",
         });
+      }
       const payout = await prisma.$transaction(async (tx) => {
+        const locked = await tx.driverEarning.updateMany({
+          where: {
+            id: { in: uniqueEarningIds },
+            driverProfileId: parsed.driverProfileId,
+            status: "AVAILABLE",
+            payoutId: null,
+          },
+          data: { status: "ON_HOLD" },
+        });
+        if (locked.count !== uniqueEarningIds.length) {
+          throw Object.assign(new Error("Some earnings are not payable"), {
+            statusCode: 409,
+            code: "EARNING_NOT_PAYABLE",
+          });
+        }
+        const earnings = await tx.driverEarning.findMany({
+          where: { id: { in: uniqueEarningIds }, driverProfileId: parsed.driverProfileId },
+        });
         const grossMinor = earnings.reduce((sum, earning) => sum + earning.netMinor, 0n);
         const saved = await tx.driverPayout.create({
           data: {
@@ -8541,7 +8581,7 @@ async function registerFinanceRoutes(http: {
         });
         await tx.driverEarning.updateMany({
           where: { id: { in: earnings.map((earning) => earning.id) } },
-          data: { payoutId: saved.id, status: "ON_HOLD" },
+          data: { payoutId: saved.id },
         });
         await financialAudit(
           tx,
@@ -8614,18 +8654,31 @@ async function registerFinanceRoutes(http: {
     if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
     try {
       const parsed = reconciliationRunSchema.parse(req.body ?? {});
-      const run = await prisma.reconciliationRun.create({
-        data: {
-          provider: parsed.provider,
-          status: "MATCHED",
-          completedAt: new Date(),
-          createdByUserId: req.auth!.userId,
-          summary: {
-            from: parsed.from.toISOString(),
-            to: parsed.to.toISOString(),
-            adapter: "mock/manual",
-          },
-        },
+      const key =
+        idempotencyKey(req) ||
+        `reconciliation:${req.auth!.userId}:${parsed.provider}:${parsed.from.toISOString()}:${parsed.to.toISOString()}`;
+      const result = await prisma.$transaction((tx) =>
+        ensureIdempotency(tx, "finance:reconciliation", key, parsed, async () => {
+          const run = await tx.reconciliationRun.create({
+            data: {
+              provider: parsed.provider,
+              status: "MATCHED",
+              idempotencyKey: key,
+              completedAt: new Date(),
+              createdByUserId: req.auth!.userId,
+              summary: {
+                from: parsed.from.toISOString(),
+                to: parsed.to.toISOString(),
+                adapter: "mock/manual",
+                idempotencyKey: key,
+              },
+            },
+          });
+          return { runId: run.id };
+        }),
+      );
+      const run = await prisma.reconciliationRun.findUniqueOrThrow({
+        where: { id: result.runId },
       });
       res.status(201).json({ run: serializeBigInt(run) });
     } catch (error) {
@@ -11082,9 +11135,44 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.setGlobalPrefix("api/v1");
   app.enableShutdownHooks();
-  app.enableCors({ origin: true, credentials: true });
-  app.use(json({ limit: "16kb" }));
-  app.use(helmet());
+  app.enableCors({
+    origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      callback(null, env.NODE_ENV !== "production" || allowedOrigins.includes(origin));
+    },
+    credentials: true,
+  });
+  app.use(
+    json({
+      limit: "16kb",
+      verify(req, _res, buffer) {
+        const request = req as AuthenticatedRequest;
+        if (request.originalUrl === "/api/v1/payments/mock/webhook") {
+          request.rawBody = buffer.toString("utf8");
+        }
+      },
+    }),
+  );
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          connectSrc: ["'self'", "https://*.telegram.org", "https://t.me"],
+          frameAncestors: ["'self'", "https://*.telegram.org", "https://web.telegram.org"],
+          imgSrc: ["'self'", "data:", "https:"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+        },
+      },
+      hsts: env.NODE_ENV === "production" ? { maxAge: 15552000, includeSubDomains: true } : false,
+      noSniff: true,
+      referrerPolicy: { policy: "no-referrer" },
+    }),
+  );
   app.use(
     (
       req: AuthenticatedRequest,

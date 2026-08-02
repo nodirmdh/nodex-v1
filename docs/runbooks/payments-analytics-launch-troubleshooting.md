@@ -4,8 +4,9 @@
 
 1. Check `PaymentWebhookEvent.signatureValid`.
 2. Confirm `MOCK_PAYMENT_WEBHOOK_SECRET` or provider secret configuration.
-3. Reconcile the provider reference against `PaymentIntent.providerReference`.
-4. Reprocess only idempotent events. Do not create duplicate payments.
+3. Verify that the provider signed the raw body and sent the expected timestamp header.
+4. Reconcile the provider reference against `PaymentIntent.providerReference`.
+5. Reprocess only idempotent events. Do not create duplicate payments.
 
 ## Queue Backlog
 
@@ -25,3 +26,9 @@
 1. Compare provider amount and expected amount in `ReconciliationItem`.
 2. Check duplicate provider references.
 3. Create an admin audit note before manual adjustment.
+
+## Duplicate Finance Side Effect
+
+1. Check the idempotency key used by the payment, refund, payout, or reconciliation request.
+2. Confirm the database unique constraint rejected the duplicate rather than creating a second ledger effect.
+3. Return the existing result when the transition is already complete and the requested final state matches.

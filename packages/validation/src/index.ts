@@ -1511,7 +1511,19 @@ export const analyticsEventSchema = z.object({
   entityId: z.string().max(120).optional(),
   sessionId: z.string().max(120).optional(),
   dedupeKey: z.string().max(160).optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
+  payload: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .superRefine((payload, ctx) => {
+      if (!payload) return;
+      const unsafeKey = findUnsafeAnalyticsKey(payload);
+      if (unsafeKey) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Analytics payload contains unsafe PII key: ${unsafeKey}`,
+        });
+      }
+    }),
 });
 
 export type PaymentMethod = (typeof paymentMethods)[number];
@@ -1548,4 +1560,20 @@ export function providerAllowedInProduction(provider: PaymentProvider, productio
     } as const;
   }
   return { ok: true } as const;
+}
+
+function findUnsafeAnalyticsKey(payload: Record<string, unknown>, prefix = ""): string | null {
+  for (const [key, value] of Object.entries(payload)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (
+      /phone|telegram|chat(text|message)?|support(description|body)?|message(text|body)?/i.test(key)
+    ) {
+      return path;
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const nested = findUnsafeAnalyticsKey(value as Record<string, unknown>, path);
+      if (nested) return nested;
+    }
+  }
+  return null;
 }

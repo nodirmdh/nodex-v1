@@ -2782,6 +2782,7 @@ model PlatformFee {
   createdAt      DateTime @default(now())
   payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
+  @@unique([paymentId])
   @@index([paymentId])
   @@index([createdAt])
 }
@@ -2806,6 +2807,7 @@ model DriverEarning {
   payment         Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   payout          DriverPayout?       @relation(fields: [payoutId], references: [id], onDelete: SetNull)
 
+  @@unique([paymentId])
   @@index([driverProfileId, status, createdAt])
   @@index([paymentId])
   @@index([payoutId])
@@ -2887,12 +2889,14 @@ model ReconciliationRun {
   id              String               @id @default(cuid())
   provider        PaymentProvider
   status          ReconciliationStatus @default(PENDING)
+  idempotencyKey  String?
   startedAt       DateTime             @default(now())
   completedAt     DateTime?
   summary         Json?
   createdByUserId String?
   items           ReconciliationItem[]
 
+  @@unique([idempotencyKey])
   @@index([provider, status, startedAt])
 }
 
@@ -2909,6 +2913,7 @@ model ReconciliationItem {
   createdAt           DateTime             @default(now())
   run                 ReconciliationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
 
+  @@unique([runId, providerReference])
   @@index([runId, status])
   @@index([paymentId])
 }
@@ -2925,6 +2930,7 @@ model CashPaymentDeclaration {
   createdAt       DateTime             @default(now())
   confirmedAt     DateTime?
 
+  @@unique([paymentId])
   @@index([paymentId])
   @@index([bookingId])
   @@index([parcelOrderId])
@@ -2947,6 +2953,7 @@ model CashSettlement {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
+  @@unique([paymentId, driverProfileId])
   @@index([driverProfileId, status, createdAt])
   @@index([paymentId])
 }

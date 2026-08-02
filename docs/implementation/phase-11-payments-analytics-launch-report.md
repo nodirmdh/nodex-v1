@@ -12,4 +12,11 @@
 ## Known Issues
 
 - Production payment provider integration is intentionally represented by mock/manual adapters.
-- Existing Playwright CLI open-handle behavior remains outside this phase.
+- Targeted Phase 11 Playwright assertions pass, but the CLI keeps an open handle and exits through the external timeout; webServer processes and ports are released.
+
+## Launch Acceptance Follow-Up
+
+- Mock webhooks verify an HMAC signature over the raw request body with timestamp tolerance.
+- Finance duplicate protection is enforced with database uniqueness for fees, earnings, cash declarations, settlements, reconciliation runs, and reconciliation items.
+- Analytics payload validation rejects unsafe private message/contact keys before persistence.
+- Database-backed acceptance tests cover balanced ledger rows and duplicate financial side effects.

@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 export const supportedCurrencies = ["UZS"] as const;
 export type CurrencyCode = (typeof supportedCurrencies)[number];
 
@@ -316,17 +318,39 @@ export class MockPaymentProviderAdapter
     headers: Record<string, string | string[] | undefined>;
     rawBody: string;
     secret?: string;
+    toleranceSeconds?: number;
   }): PaymentWebhookVerification {
     const signature = headerValue(input.headers, "x-nodex-mock-signature");
-    if (input.secret && signature !== input.secret) {
+    const timestamp = headerValue(input.headers, "x-nodex-mock-timestamp");
+    const payload = safeJson(input.rawBody);
+    if (!timestamp || !/^\d+$/.test(timestamp)) {
+      return {
+        ok: false,
+        provider: this.provider,
+        reason: "INVALID_TIMESTAMP",
+        payload: redactWebhookPayload(payload),
+      };
+    }
+    const ageSeconds = Math.abs(Date.now() / 1000 - Number(timestamp));
+    if (ageSeconds > (input.toleranceSeconds ?? 300)) {
+      return {
+        ok: false,
+        provider: this.provider,
+        reason: "TIMESTAMP_OUT_OF_TOLERANCE",
+        payload: redactWebhookPayload(payload),
+      };
+    }
+    const expected =
+      input.secret &&
+      createHmac("sha256", input.secret).update(`${timestamp}.${input.rawBody}`).digest("hex");
+    if (expected && (!signature || !timingSafeStringEqual(signature, expected))) {
       return {
         ok: false,
         provider: this.provider,
         reason: "INVALID_SIGNATURE",
-        payload: safeJson(input.rawBody),
+        payload: redactWebhookPayload(payload),
       };
     }
-    const payload = safeJson(input.rawBody);
     const result: PaymentWebhookVerification = {
       ok: true,
       provider: this.provider,
@@ -335,7 +359,7 @@ export class MockPaymentProviderAdapter
       providerReference: String(payload.providerReference ?? ""),
       status: String(payload.status ?? "SUCCEEDED") as PaymentIntentStatus,
       currency: (payload.currency ?? "UZS") as CurrencyCode,
-      payload,
+      payload: redactWebhookPayload(payload),
     };
     if (payload.amountMinor !== undefined) result.amountMinor = BigInt(String(payload.amountMinor));
     return result;
@@ -348,6 +372,17 @@ export class MockPaymentProviderAdapter
   async createPayout(input: { payoutId: string }) {
     return { providerReference: `mock_payout_${input.payoutId}`, status: "PAID" as const };
   }
+}
+
+export function signMockWebhook(
+  rawBody: string,
+  secret: string,
+  timestamp = Math.floor(Date.now() / 1000),
+) {
+  return {
+    timestamp: String(timestamp),
+    signature: createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex"),
+  };
 }
 
 export class ManualPaymentProviderAdapter implements PaymentProviderAdapter, PayoutProviderAdapter {
@@ -396,4 +431,20 @@ function safeJson(rawBody: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function timingSafeStringEqual(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function redactWebhookPayload(payload: Record<string, unknown>) {
+  const redacted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    redacted[key] = /secret|token|authorization|password|signature|raw/i.test(key)
+      ? "[REDACTED]"
+      : value;
+  }
+  return redacted;
 }

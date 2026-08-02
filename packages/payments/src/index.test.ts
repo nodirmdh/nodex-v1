@@ -7,6 +7,7 @@ import {
   calculatePricing,
   money,
   refundableAmount,
+  signMockWebhook,
   transitionIntentStatus,
   transitionPaymentStatus,
 } from "./index";
@@ -77,21 +78,27 @@ describe("refunds and ledger", () => {
 describe("mock provider", () => {
   test("verifies mock webhook signatures and payload", () => {
     const adapter = new MockPaymentProviderAdapter();
+    const rawBody = JSON.stringify({
+      eventId: "evt_1",
+      providerReference: "mock_payment",
+      amountMinor: "10000",
+      currency: "UZS",
+      status: "SUCCEEDED",
+    });
+    const signed = signMockWebhook(rawBody, "secret", 1_800_000_000);
     const verified = adapter.verify({
-      headers: { "x-nodex-mock-signature": "secret" },
-      rawBody: JSON.stringify({
-        eventId: "evt_1",
-        providerReference: "mock_payment",
-        amountMinor: "10000",
-        currency: "UZS",
-        status: "SUCCEEDED",
-      }),
+      headers: {
+        "x-nodex-mock-signature": signed.signature,
+        "x-nodex-mock-timestamp": signed.timestamp,
+      },
+      rawBody,
       secret: "secret",
+      toleranceSeconds: Number.MAX_SAFE_INTEGER,
     });
     expect(verified.ok).toBe(true);
     expect(verified.amountMinor).toBe(10_000n);
 
-    const rejected = adapter.verify({ headers: {}, rawBody: "{}", secret: "secret" });
+    const rejected = adapter.verify({ headers: {}, rawBody, secret: "secret" });
     expect(rejected.ok).toBe(false);
   });
 });

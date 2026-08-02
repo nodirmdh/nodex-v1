@@ -39,6 +39,18 @@ describe("payment validation", () => {
     expect(
       analyticsEventSchema.parse({ type: "PAYMENT_SUCCEEDED", entityType: "Payment" }),
     ).toBeTruthy();
+    expect(() =>
+      analyticsEventSchema.parse({
+        type: "SUPPORT_TICKET_CREATED",
+        payload: { supportDescription: "private support text" },
+      }),
+    ).toThrow("unsafe PII key");
+    expect(() =>
+      analyticsEventSchema.parse({
+        type: "PAYMENT_SUCCEEDED",
+        payload: { routeId: "route_1", amountBucket: "100k" },
+      }),
+    ).not.toThrow();
   });
 
   test("guards admin reasons and production mock provider", () => {

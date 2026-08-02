@@ -2318,15 +2318,26 @@ async function seedPaymentsAnalyticsLaunchFixtures() {
   const existingReconciliation = await prisma.reconciliationRun.findFirst({
     where: {
       provider: "MOCK",
-      createdByUserId: admin.id,
-      summary: { path: ["source"], equals: "seed" },
+      OR: [
+        { idempotencyKey: "phase11:reconciliation:mock:matched" },
+        {
+          createdByUserId: admin.id,
+          summary: { path: ["source"], equals: "seed" },
+        },
+      ],
     },
   });
-  if (!existingReconciliation) {
+  if (existingReconciliation) {
+    await prisma.reconciliationRun.update({
+      where: { id: existingReconciliation.id },
+      data: { idempotencyKey: "phase11:reconciliation:mock:matched" },
+    });
+  } else {
     await prisma.reconciliationRun.create({
       data: {
         provider: "MOCK",
         status: "MATCHED",
+        idempotencyKey: "phase11:reconciliation:mock:matched",
         completedAt: new Date("2026-08-03T10:00:00.000Z"),
         createdByUserId: admin.id,
         summary: { payments: 1, mismatches: 0, source: "seed" },
