@@ -368,6 +368,21 @@ enum NotificationType {
   PARCEL_ISSUE
   CHAT_MESSAGE
   SUPPORT_TICKET_UPDATED
+  REVIEW_AVAILABLE
+  REVIEW_RECEIVED
+  REVIEW_REPORTED
+  REVIEW_MODERATED
+  SAFETY_REPORT_SUBMITTED
+  SAFETY_REPORT_UPDATED
+  SAFETY_REPORT_RESOLVED
+  SAFETY_ALERT
+  RESTRICTION_APPLIED
+  RESTRICTION_EXPIRING
+  RESTRICTION_REMOVED
+  TRIP_SHARE_CREATED
+  TRIP_SHARE_EXPIRING
+  TRUSTED_CONTACT_ADDED
+  RELIABILITY_LEVEL_CHANGED
   SYSTEM_ANNOUNCEMENT
 }
 
@@ -419,6 +434,136 @@ enum SupportPriority {
   NORMAL
   HIGH
   URGENT
+}
+
+enum ReviewType {
+  DRIVER_BY_CLIENT
+  CLIENT_BY_DRIVER
+  PARCEL_DRIVER_BY_SENDER
+  PARCEL_SENDER_BY_DRIVER
+}
+
+enum ReviewStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+  UNDER_REVIEW
+  REJECTED
+  DELETED_BY_AUTHOR
+  REMOVED_BY_ADMIN
+}
+
+enum ReviewCriterionCode {
+  SAFETY
+  DRIVING_QUALITY
+  POLITENESS
+  PUNCTUALITY
+  VEHICLE_CLEANLINESS
+  COMMUNICATION
+  RESPECT_FOR_VEHICLE
+  ACCURATE_INFORMATION
+  PACKAGING
+  CAREFUL_HANDLING
+}
+
+enum ReliabilityLevel {
+  NEW
+  STANDARD
+  RELIABLE
+  HIGHLY_RELIABLE
+  AT_RISK
+  RESTRICTED
+}
+
+enum ReliabilityEventType {
+  TRIP_COMPLETED
+  BOOKING_COMPLETED
+  CLIENT_CANCELLED
+  DRIVER_CANCELLED
+  CLIENT_NO_SHOW
+  DRIVER_NO_SHOW
+  PARCEL_DELIVERED
+  PARCEL_LOST
+  PARCEL_DAMAGED
+  SAFETY_REPORT_CONFIRMED
+  RESTRICTION_APPLIED
+  RESTRICTION_REMOVED
+}
+
+enum SafetyReportType {
+  UNSAFE_DRIVING
+  HARASSMENT
+  THREATS
+  VIOLENCE
+  DISCRIMINATION
+  FRAUD
+  IMPERSONATION
+  DANGEROUS_VEHICLE
+  INAPPROPRIATE_CONTENT
+  PROHIBITED_PARCEL
+  LOST_PARCEL
+  DAMAGED_PARCEL
+  PRIVACY_VIOLATION
+  OTHER
+}
+
+enum SafetyReportStatus {
+  SUBMITTED
+  TRIAGED
+  UNDER_REVIEW
+  ACTION_REQUIRED
+  RESOLVED
+  REJECTED
+  DUPLICATE
+  CLOSED
+}
+
+enum SafetySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SafetyIncidentStatus {
+  OPEN
+  CONTAINED
+  RESOLVED
+  CLOSED
+}
+
+enum ModerationCaseStatus {
+  OPEN
+  TRIAGED
+  UNDER_REVIEW
+  ACTION_REQUIRED
+  RESOLVED
+  REJECTED
+  CLOSED
+}
+
+enum AccountRestrictionType {
+  CHAT_RESTRICTED
+  BOOKING_RESTRICTED
+  DRIVER_TRIP_CREATION_RESTRICTED
+  PARCEL_RESTRICTED
+  TEMPORARY_SUSPENSION
+  FULL_SUSPENSION
+}
+
+enum AccountRestrictionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum EmergencyActionType {
+  SOS_STARTED
+  EMERGENCY_NUMBER_CALLED
+  TRIP_SHARED
+  SUPPORT_CONTACTED
+  SAFETY_REPORT_CREATED
+  DETAILS_COPIED
 }
 
 model User {
@@ -667,6 +812,7 @@ model FileObject {
   parcelAttachments           ParcelAttachment[]
   messageAttachments          MessageAttachment[]
   ticketAttachments           TicketAttachment[]
+  safetyReportAttachments     SafetyReportAttachment[]
 }
 
 model FileAttachment {
@@ -1931,6 +2077,373 @@ model CommunicationTimelineEvent {
   @@index([conversationId, createdAt])
   @@index([ticketId, createdAt])
   @@index([type, createdAt])
+}
+
+model ReviewCriterion {
+  id          String              @id @default(cuid())
+  type        ReviewType
+  code        ReviewCriterionCode
+  label       String
+  isRequired  Boolean             @default(false)
+  sortOrder   Int                 @default(0)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  scores      ReviewCriterionScore[]
+
+  @@unique([type, code])
+  @@index([type, isActive, sortOrder])
+}
+
+model Review {
+  id               String          @id @default(cuid())
+  type             ReviewType
+  reviewerUserId   String
+  revieweeUserId   String
+  bookingId        String?
+  tripId           String?
+  parcelOrderId    String?
+  overallRating    Int
+  text             String?
+  status           ReviewStatus    @default(PUBLISHED)
+  submittedAt      DateTime?
+  publishedAt      DateTime?
+  editedAt         DateTime?
+  moderationReason String?
+  reportedCount    Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  version          Int             @default(1)
+  scores           ReviewCriterionScore[]
+  moderation       ReviewModeration[]
+  safetyReports    SafetyReport[]
+
+  @@unique([type, reviewerUserId, revieweeUserId, bookingId, parcelOrderId])
+  @@index([reviewerUserId, createdAt])
+  @@index([revieweeUserId, status, publishedAt])
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([parcelOrderId])
+  @@index([status, createdAt])
+}
+
+model ReviewCriterionScore {
+  id          String          @id @default(cuid())
+  reviewId    String
+  criterionId String
+  score       Int
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  review      Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  criterion   ReviewCriterion @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId, criterionId])
+  @@index([criterionId])
+}
+
+model ReviewModeration {
+  id            String       @id @default(cuid())
+  reviewId      String
+  actorUserId   String?
+  action        String
+  fromStatus    ReviewStatus?
+  toStatus      ReviewStatus
+  reason        String?
+  createdAt     DateTime     @default(now())
+  review        Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, createdAt])
+  @@index([toStatus, createdAt])
+}
+
+model RatingAggregate {
+  id                 String   @id @default(cuid())
+  userId             String
+  scope              String   @default("OVERALL")
+  averageRating      Decimal  @default(0) @db.Decimal(3, 2)
+  ratingCount        Int      @default(0)
+  ratingDistribution Json     @default("{}")
+  lastCalculatedAt   DateTime @default(now())
+  version            Int      @default(1)
+
+  @@unique([userId, scope])
+  @@index([scope, averageRating])
+}
+
+model ReliabilityProfile {
+  id                         String           @id @default(cuid())
+  userId                     String           @unique
+  completedTripsCount         Int              @default(0)
+  completedBookingsCount      Int              @default(0)
+  clientCancellationCount     Int              @default(0)
+  driverCancellationCount     Int              @default(0)
+  clientNoShowCount           Int              @default(0)
+  driverNoShowCount           Int              @default(0)
+  parcelDeliveredCount        Int              @default(0)
+  parcelIssueCount            Int              @default(0)
+  lateCancellationCount       Int              @default(0)
+  accountRestrictionCount     Int              @default(0)
+  reliabilityLevel            ReliabilityLevel @default(NEW)
+  lastCalculatedAt            DateTime         @default(now())
+  version                     Int              @default(1)
+
+  @@index([reliabilityLevel])
+}
+
+model ReliabilityEvent {
+  id             String               @id @default(cuid())
+  userId         String
+  type           ReliabilityEventType
+  bookingId      String?
+  tripId         String?
+  parcelOrderId  String?
+  safetyReportId String?
+  restrictionId  String?
+  weight         Int                  @default(1)
+  occurredAt     DateTime             @default(now())
+  dedupeKey      String               @unique
+  payload        Json?
+  createdAt      DateTime             @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([type, occurredAt])
+}
+
+model UserBlock {
+  id            String    @id @default(cuid())
+  blockerUserId String
+  blockedUserId String
+  reason        String?
+  createdAt     DateTime  @default(now())
+  removedAt     DateTime?
+  version       Int       @default(1)
+
+  @@unique([blockerUserId, blockedUserId, removedAt])
+  @@index([blockerUserId, removedAt])
+  @@index([blockedUserId, removedAt])
+}
+
+model SafetyReport {
+  id                String             @id @default(cuid())
+  reporterUserId    String
+  reportedUserId    String?
+  tripId            String?
+  bookingId         String?
+  parcelOrderId     String?
+  conversationId    String?
+  messageId         String?
+  reviewId          String?
+  supportTicketId   String?
+  type              SafetyReportType
+  severity          SafetySeverity     @default(MEDIUM)
+  description       String
+  status            SafetyReportStatus @default(SUBMITTED)
+  assignedToUserId  String?
+  resolutionCode    String?
+  resolutionSummary String?
+  duplicateKey      String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  resolvedAt        DateTime?
+  version           Int                @default(1)
+  review            Review?            @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  events            SafetyIncidentEvent[]
+  attachments       SafetyReportAttachment[]
+  internalNotes     SafetyReportInternalNote[]
+
+  @@index([reporterUserId, createdAt])
+  @@index([reportedUserId, status, createdAt])
+  @@index([status, severity, createdAt])
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([parcelOrderId])
+  @@index([conversationId])
+  @@index([messageId])
+  @@index([reviewId])
+}
+
+model SafetyReportAttachment {
+  id               String       @id @default(cuid())
+  reportId         String
+  fileObjectId     String?
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String
+  status           String       @default("UPLOADED")
+  createdAt        DateTime     @default(now())
+  report           SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  fileObject       FileObject?  @relation(fields: [fileObjectId], references: [id], onDelete: SetNull)
+
+  @@index([reportId])
+  @@index([fileObjectId])
+}
+
+model SafetyReportInternalNote {
+  id           String       @id @default(cuid())
+  reportId     String
+  authorUserId String
+  text         String
+  createdAt    DateTime     @default(now())
+  report       SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, createdAt])
+}
+
+model SafetyIncident {
+  id             String               @id @default(cuid())
+  primaryReportId String?
+  subjectUserId  String?
+  severity       SafetySeverity
+  status         SafetyIncidentStatus @default(OPEN)
+  summary        String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  resolvedAt     DateTime?
+  events         SafetyIncidentEvent[]
+
+  @@index([status, severity, createdAt])
+  @@index([subjectUserId, status])
+}
+
+model SafetyIncidentEvent {
+  id          String          @id @default(cuid())
+  incidentId  String?
+  reportId    String?
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime        @default(now())
+  incident    SafetyIncident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  report      SafetyReport?   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
+  @@index([reportId, createdAt])
+  @@index([type, createdAt])
+}
+
+model TrustedContact {
+  id           String    @id @default(cuid())
+  ownerUserId  String
+  displayName  String
+  phone        String
+  relationship String?
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([ownerUserId, deletedAt])
+}
+
+model TripShare {
+  id            String    @id @default(cuid())
+  ownerUserId   String
+  tripId        String
+  bookingId     String?
+  tokenHash     String    @unique
+  label         String?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accessEvents  TripShareAccessEvent[]
+
+  @@index([ownerUserId, revokedAt, expiresAt])
+  @@index([tripId, expiresAt])
+}
+
+model TripShareAccessEvent {
+  id          String    @id @default(cuid())
+  tripShareId String
+  ipHash      String?
+  userAgent   String?
+  accessedAt  DateTime  @default(now())
+  tripShare   TripShare @relation(fields: [tripShareId], references: [id], onDelete: Cascade)
+
+  @@index([tripShareId, accessedAt])
+}
+
+model EmergencyAction {
+  id             String              @id @default(cuid())
+  actorUserId    String
+  type           EmergencyActionType
+  tripId         String?
+  bookingId      String?
+  parcelOrderId  String?
+  safetyReportId String?
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([tripId, createdAt])
+  @@index([bookingId, createdAt])
+}
+
+model ModerationCase {
+  id            String               @id @default(cuid())
+  sourceType    String
+  sourceId      String
+  subjectUserId String?
+  status        ModerationCaseStatus @default(OPEN)
+  severity      SafetySeverity       @default(MEDIUM)
+  assigneeId    String?
+  decision      String?
+  reason        String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  events        ModerationCaseEvent[]
+
+  @@unique([sourceType, sourceId])
+  @@index([status, severity, createdAt])
+  @@index([subjectUserId, status])
+}
+
+model ModerationCaseEvent {
+  id          String         @id @default(cuid())
+  caseId      String
+  actorUserId String?
+  type        String
+  fromStatus  ModerationCaseStatus?
+  toStatus    ModerationCaseStatus?
+  reason      String?
+  payload     Json?
+  createdAt   DateTime       @default(now())
+  case        ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+}
+
+model AccountRestriction {
+  id              String                   @id @default(cuid())
+  userId          String
+  type            AccountRestrictionType
+  reason          String
+  startsAt        DateTime                 @default(now())
+  endsAt          DateTime?
+  status          AccountRestrictionStatus @default(ACTIVE)
+  createdByUserId String
+  removedByUserId String?
+  removedReason   String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  events          AccountRestrictionEvent[]
+
+  @@index([userId, status, type])
+  @@index([status, endsAt])
+}
+
+model AccountRestrictionEvent {
+  id            String             @id @default(cuid())
+  restrictionId String
+  actorUserId   String?
+  type          String
+  reason        String?
+  payload       Json?
+  createdAt     DateTime           @default(now())
+  restriction   AccountRestriction @relation(fields: [restrictionId], references: [id], onDelete: Cascade)
+
+  @@index([restrictionId, createdAt])
 }
 
 model BoardingCode {

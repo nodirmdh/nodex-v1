@@ -800,6 +800,21 @@ export const notificationTypes = [
   "PARCEL_ISSUE",
   "CHAT_MESSAGE",
   "SUPPORT_TICKET_UPDATED",
+  "REVIEW_AVAILABLE",
+  "REVIEW_RECEIVED",
+  "REVIEW_REPORTED",
+  "REVIEW_MODERATED",
+  "SAFETY_REPORT_SUBMITTED",
+  "SAFETY_REPORT_UPDATED",
+  "SAFETY_REPORT_RESOLVED",
+  "SAFETY_ALERT",
+  "RESTRICTION_APPLIED",
+  "RESTRICTION_EXPIRING",
+  "RESTRICTION_REMOVED",
+  "TRIP_SHARE_CREATED",
+  "TRIP_SHARE_EXPIRING",
+  "TRUSTED_CONTACT_ADDED",
+  "RELIABILITY_LEVEL_CHANGED",
   "SYSTEM_ANNOUNCEMENT",
 ] as const;
 export const notificationChannels = ["IN_APP", "TELEGRAM", "EMAIL", "SMS"] as const;
@@ -986,4 +1001,396 @@ export function calculateSlaDueAt(priority: (typeof supportPriorities)[number], 
   const minutes =
     priority === "URGENT" ? 30 : priority === "HIGH" ? 120 : priority === "LOW" ? 1440 : 480;
   return new Date(now.getTime() + minutes * 60_000);
+}
+
+export const reviewTypes = [
+  "DRIVER_BY_CLIENT",
+  "CLIENT_BY_DRIVER",
+  "PARCEL_DRIVER_BY_SENDER",
+  "PARCEL_SENDER_BY_DRIVER",
+] as const;
+export const reviewStatuses = [
+  "DRAFT",
+  "PUBLISHED",
+  "HIDDEN",
+  "UNDER_REVIEW",
+  "REJECTED",
+  "DELETED_BY_AUTHOR",
+  "REMOVED_BY_ADMIN",
+] as const;
+export const reviewCriterionCodes = [
+  "SAFETY",
+  "DRIVING_QUALITY",
+  "POLITENESS",
+  "PUNCTUALITY",
+  "VEHICLE_CLEANLINESS",
+  "COMMUNICATION",
+  "RESPECT_FOR_VEHICLE",
+  "ACCURATE_INFORMATION",
+  "PACKAGING",
+  "CAREFUL_HANDLING",
+] as const;
+export const reliabilityLevels = [
+  "NEW",
+  "STANDARD",
+  "RELIABLE",
+  "HIGHLY_RELIABLE",
+  "AT_RISK",
+  "RESTRICTED",
+] as const;
+export const reliabilityEventTypes = [
+  "TRIP_COMPLETED",
+  "BOOKING_COMPLETED",
+  "CLIENT_CANCELLED",
+  "DRIVER_CANCELLED",
+  "CLIENT_NO_SHOW",
+  "DRIVER_NO_SHOW",
+  "PARCEL_DELIVERED",
+  "PARCEL_LOST",
+  "PARCEL_DAMAGED",
+  "SAFETY_REPORT_CONFIRMED",
+  "RESTRICTION_APPLIED",
+  "RESTRICTION_REMOVED",
+] as const;
+export const safetyReportTypes = [
+  "UNSAFE_DRIVING",
+  "HARASSMENT",
+  "THREATS",
+  "VIOLENCE",
+  "DISCRIMINATION",
+  "FRAUD",
+  "IMPERSONATION",
+  "DANGEROUS_VEHICLE",
+  "INAPPROPRIATE_CONTENT",
+  "PROHIBITED_PARCEL",
+  "LOST_PARCEL",
+  "DAMAGED_PARCEL",
+  "PRIVACY_VIOLATION",
+  "OTHER",
+] as const;
+export const safetyReportStatuses = [
+  "SUBMITTED",
+  "TRIAGED",
+  "UNDER_REVIEW",
+  "ACTION_REQUIRED",
+  "RESOLVED",
+  "REJECTED",
+  "DUPLICATE",
+  "CLOSED",
+] as const;
+export const safetySeverities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+export const accountRestrictionTypes = [
+  "CHAT_RESTRICTED",
+  "BOOKING_RESTRICTED",
+  "DRIVER_TRIP_CREATION_RESTRICTED",
+  "PARCEL_RESTRICTED",
+  "TEMPORARY_SUSPENSION",
+  "FULL_SUSPENSION",
+] as const;
+export const emergencyActionTypes = [
+  "SOS_STARTED",
+  "EMERGENCY_NUMBER_CALLED",
+  "TRIP_SHARED",
+  "SUPPORT_CONTACTED",
+  "SAFETY_REPORT_CREATED",
+  "DETAILS_COPIED",
+] as const;
+
+export const defaultTrustSafetyLimits = {
+  reviewWindowDays: 30,
+  reviewEditWindowDays: 14,
+  maxReviewTextLength: 1200,
+  maxSafetyDescriptionLength: 4000,
+  maxTrustedContacts: 5,
+  tripShareTtlHours: 48,
+} as const;
+
+export const reviewSchema = z.object({
+  type: z.enum(reviewTypes),
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  tripId: z.string().trim().min(1).optional().nullable(),
+  parcelOrderId: z.string().trim().min(1).optional().nullable(),
+  revieweeUserId: z.string().trim().min(1),
+  overallRating: z.coerce.number().int().min(1).max(5),
+  text: z.string().trim().max(defaultTrustSafetyLimits.maxReviewTextLength).optional().nullable(),
+  criteria: z
+    .array(
+      z.object({
+        code: z.enum(reviewCriterionCodes),
+        score: z.coerce.number().int().min(1).max(5),
+      }),
+    )
+    .default([]),
+});
+
+export const reviewEditSchema = z.object({
+  overallRating: z.coerce.number().int().min(1).max(5).optional(),
+  text: z.string().trim().max(defaultTrustSafetyLimits.maxReviewTextLength).optional().nullable(),
+  criteria: z
+    .array(
+      z.object({
+        code: z.enum(reviewCriterionCodes),
+        score: z.coerce.number().int().min(1).max(5),
+      }),
+    )
+    .optional(),
+});
+
+export const reviewReportSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const moderationReasonSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const userBlockSchema = z.object({
+  reason: z.string().trim().max(500).optional().nullable(),
+});
+
+export const safetyReportSchema = z.object({
+  reportedUserId: z.string().trim().min(1).optional().nullable(),
+  tripId: z.string().trim().min(1).optional().nullable(),
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  parcelOrderId: z.string().trim().min(1).optional().nullable(),
+  conversationId: z.string().trim().min(1).optional().nullable(),
+  messageId: z.string().trim().min(1).optional().nullable(),
+  reviewId: z.string().trim().min(1).optional().nullable(),
+  type: z.enum(safetyReportTypes),
+  severity: z.enum(safetySeverities).default("MEDIUM"),
+  description: z.string().trim().min(5).max(defaultTrustSafetyLimits.maxSafetyDescriptionLength),
+});
+
+export const safetyReportStatusSchema = z.object({
+  status: z.enum(safetyReportStatuses),
+  reason: z.string().trim().max(1000).optional(),
+  resolutionCode: z.string().trim().max(80).optional(),
+  resolutionSummary: z.string().trim().max(2000).optional(),
+});
+
+export const safetyAssignmentSchema = z.object({
+  assigneeUserId: z.string().trim().min(1).optional().nullable(),
+  reason: z.string().trim().max(1000).optional(),
+});
+
+export const safetyInternalNoteSchema = z.object({
+  text: z.string().trim().min(1).max(4000),
+});
+
+export const trustedContactSchema = z.object({
+  displayName: z.string().trim().min(1).max(120),
+  phone: z.string().trim().min(6).max(40),
+  relationship: z.string().trim().max(80).optional().nullable(),
+});
+
+export const tripShareCreateSchema = z.object({
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  label: z.string().trim().max(120).optional().nullable(),
+  expiresAt: z.coerce.date().optional().nullable(),
+});
+
+export const accountRestrictionSchema = z.object({
+  type: z.enum(accountRestrictionTypes),
+  reason: z.string().trim().min(3).max(1000),
+  startsAt: z.coerce.date().optional(),
+  endsAt: z.coerce.date().optional().nullable(),
+});
+
+export const restrictionRevokeSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const emergencyActionSchema = z.object({
+  type: z.enum(emergencyActionTypes),
+  tripId: z.string().trim().min(1).optional().nullable(),
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  parcelOrderId: z.string().trim().min(1).optional().nullable(),
+  safetyReportId: z.string().trim().min(1).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type ReviewType = (typeof reviewTypes)[number];
+export type ReviewStatus = (typeof reviewStatuses)[number];
+export type SafetyReportStatus = (typeof safetyReportStatuses)[number];
+export type SafetyAction =
+  | "TRIAGE"
+  | "START_REVIEW"
+  | "REQUEST_ACTION"
+  | "RESOLVE"
+  | "REJECT"
+  | "DUPLICATE"
+  | "CLOSE"
+  | "REOPEN";
+
+export function stripUnsafeReviewText(value?: string | null) {
+  if (!value) return null;
+  return (
+    value
+      .replace(/<[^>]*>/g, "")
+      .replace(/javascript:/gi, "")
+      .trim() || null
+  );
+}
+
+export function reviewCriteriaForType(type: ReviewType) {
+  if (type === "DRIVER_BY_CLIENT") {
+    return [
+      "SAFETY",
+      "DRIVING_QUALITY",
+      "POLITENESS",
+      "PUNCTUALITY",
+      "VEHICLE_CLEANLINESS",
+      "COMMUNICATION",
+    ] as const;
+  }
+  if (type === "CLIENT_BY_DRIVER") {
+    return [
+      "PUNCTUALITY",
+      "POLITENESS",
+      "COMMUNICATION",
+      "RESPECT_FOR_VEHICLE",
+      "ACCURATE_INFORMATION",
+    ] as const;
+  }
+  return [
+    "COMMUNICATION",
+    "PACKAGING",
+    "PUNCTUALITY",
+    "CAREFUL_HANDLING",
+    "ACCURATE_INFORMATION",
+  ] as const;
+}
+
+export function reviewWindowOpen(
+  completedAt: Date,
+  now = new Date(),
+  windowDays = defaultTrustSafetyLimits.reviewWindowDays,
+) {
+  return now.getTime() <= completedAt.getTime() + windowDays * 24 * 60 * 60 * 1000;
+}
+
+export function evaluateReviewEligibility(input: {
+  type: ReviewType;
+  reviewerUserId: string;
+  revieweeUserId: string;
+  entityStatus: string;
+  reviewerParticipated: boolean;
+  revieweeIsCounterpart: boolean;
+  completedAt: Date;
+  now?: Date;
+}) {
+  if (input.reviewerUserId === input.revieweeUserId) {
+    return { ok: false, code: "REVIEW_SELF_FORBIDDEN", message: "Cannot review yourself" } as const;
+  }
+  const requiredStatus = input.type.startsWith("PARCEL") ? "DELIVERED" : "COMPLETED";
+  if (input.entityStatus !== requiredStatus) {
+    return {
+      ok: false,
+      code: "REVIEW_ENTITY_NOT_COMPLETED",
+      message: "Entity is not eligible for review",
+    } as const;
+  }
+  if (!input.reviewerParticipated || !input.revieweeIsCounterpart) {
+    return {
+      ok: false,
+      code: "REVIEW_ENTITY_FORBIDDEN",
+      message: "Reviewer is not allowed to review this entity",
+    } as const;
+  }
+  if (!reviewWindowOpen(input.completedAt, input.now)) {
+    return { ok: false, code: "REVIEW_WINDOW_CLOSED", message: "Review window is closed" } as const;
+  }
+  return { ok: true } as const;
+}
+
+export function calculateRatingAggregate(ratings: number[]) {
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<1 | 2 | 3 | 4 | 5, number>;
+  for (const rating of ratings) {
+    const key = Math.max(1, Math.min(5, Math.trunc(rating))) as 1 | 2 | 3 | 4 | 5;
+    distribution[key] += 1;
+  }
+  const ratingCount = ratings.length;
+  const averageRating =
+    ratingCount === 0 ? 0 : ratings.reduce((sum, value) => sum + value, 0) / ratingCount;
+  return {
+    averageRating: Math.round(averageRating * 100) / 100,
+    ratingCount,
+    ratingDistribution: distribution,
+  };
+}
+
+export function calculateReliabilityLevel(input: {
+  completedTripsCount?: number;
+  completedBookingsCount?: number;
+  clientCancellationCount?: number;
+  driverCancellationCount?: number;
+  clientNoShowCount?: number;
+  driverNoShowCount?: number;
+  parcelIssueCount?: number;
+  accountRestrictionCount?: number;
+}) {
+  if ((input.accountRestrictionCount ?? 0) > 0) return "RESTRICTED" as const;
+  const negative =
+    (input.clientCancellationCount ?? 0) +
+    (input.driverCancellationCount ?? 0) +
+    (input.clientNoShowCount ?? 0) * 2 +
+    (input.driverNoShowCount ?? 0) * 2 +
+    (input.parcelIssueCount ?? 0) * 2;
+  const completed = (input.completedTripsCount ?? 0) + (input.completedBookingsCount ?? 0);
+  if (negative >= 4) return "AT_RISK" as const;
+  if (completed >= 30 && negative <= 1) return "HIGHLY_RELIABLE" as const;
+  if (completed >= 10 && negative <= 2) return "RELIABLE" as const;
+  if (completed >= 2) return "STANDARD" as const;
+  return "NEW" as const;
+}
+
+const safetyTransitionTargets = {
+  TRIAGE: "TRIAGED",
+  START_REVIEW: "UNDER_REVIEW",
+  REQUEST_ACTION: "ACTION_REQUIRED",
+  RESOLVE: "RESOLVED",
+  REJECT: "REJECTED",
+  DUPLICATE: "DUPLICATE",
+  CLOSE: "CLOSED",
+  REOPEN: "UNDER_REVIEW",
+} as const satisfies Record<SafetyAction, SafetyReportStatus>;
+
+const safetyAllowedTransitions = {
+  TRIAGE: ["SUBMITTED"],
+  START_REVIEW: ["SUBMITTED", "TRIAGED", "ACTION_REQUIRED"],
+  REQUEST_ACTION: ["TRIAGED", "UNDER_REVIEW"],
+  RESOLVE: ["TRIAGED", "UNDER_REVIEW", "ACTION_REQUIRED"],
+  REJECT: ["TRIAGED", "UNDER_REVIEW"],
+  DUPLICATE: ["SUBMITTED", "TRIAGED", "UNDER_REVIEW"],
+  CLOSE: ["RESOLVED", "REJECTED", "DUPLICATE"],
+  REOPEN: ["RESOLVED", "REJECTED", "CLOSED"],
+} as const satisfies Record<SafetyAction, readonly SafetyReportStatus[]>;
+
+export function evaluateSafetyTransition(currentStatus: SafetyReportStatus, action: SafetyAction) {
+  const toStatus = safetyTransitionTargets[action];
+  if (currentStatus === toStatus) return { ok: true, toStatus, idempotent: true } as const;
+  const allowed: readonly SafetyReportStatus[] = safetyAllowedTransitions[action];
+  if (!allowed.includes(currentStatus)) {
+    return {
+      ok: false,
+      code: "SAFETY_REPORT_INVALID_TRANSITION",
+      message: `${currentStatus} cannot transition via ${action}`,
+    } as const;
+  }
+  return { ok: true, toStatus, idempotent: false } as const;
+}
+
+export function canCreateUserBlock(blockerUserId: string, blockedUserId: string) {
+  if (blockerUserId === blockedUserId) {
+    return {
+      ok: false,
+      code: "USER_BLOCK_SELF_FORBIDDEN",
+      message: "Cannot block yourself",
+    } as const;
+  }
+  return { ok: true } as const;
+}
+
+export function hashableTripShareToken(token: string) {
+  return token.trim();
 }
