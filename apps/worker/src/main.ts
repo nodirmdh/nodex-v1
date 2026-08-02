@@ -18,6 +18,7 @@ const queueName = "nodex.foundation.test";
 const bookingQueueName = "nodex.booking.hold-expiration";
 const operationsQueueName = "nodex.trip.operations";
 const communicationQueueName = "nodex.communication.delivery";
+const trustSafetyQueueName = "nodex.trust-safety.maintenance";
 const queue = new Queue(queueName, {
   connection,
   defaultJobOptions: {
@@ -46,6 +47,15 @@ const operationsQueue = new Queue(operationsQueueName, {
   },
 });
 const communicationQueue = new Queue(communicationQueueName, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: 100,
+    removeOnFail: 100,
+  },
+});
+const trustSafetyQueue = new Queue(trustSafetyQueueName, {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -254,7 +264,119 @@ const communicationWorker = new Worker(
   { connection, concurrency: 1 },
 );
 
+const trustSafetyWorker = new Worker(
+  trustSafetyQueueName,
+  async () => {
+    const now = new Date();
+    const expiredRestrictions = await prisma.accountRestriction.findMany({
+      where: { status: "ACTIVE", endsAt: { lte: now } },
+      take: 100,
+    });
+    for (const restriction of expiredRestrictions) {
+      await prisma.$transaction(async (tx) => {
+        await tx.accountRestriction.update({
+          where: { id: restriction.id },
+          data: { status: "EXPIRED" },
+        });
+        await tx.accountRestrictionEvent.create({
+          data: {
+            restrictionId: restriction.id,
+            actorUserId: restriction.createdByUserId,
+            type: "ACCOUNT_RESTRICTION_EXPIRED",
+            payload: { worker: true },
+          },
+        });
+        await tx.reliabilityEvent.create({
+          data: {
+            userId: restriction.userId,
+            type: "RESTRICTION_REMOVED",
+            restrictionId: restriction.id,
+            dedupeKey: `restriction:${restriction.id}:expired`,
+          },
+        });
+        await tx.outboxEvent.create({
+          data: {
+            type: "account.restriction.expired",
+            payload: { userId: restriction.userId, restrictionId: restriction.id },
+          },
+        });
+      });
+    }
+
+    const ratingRows = await prisma.review.groupBy({
+      by: ["revieweeUserId", "type"],
+      where: { status: "PUBLISHED" },
+      _count: { _all: true },
+      _avg: { overallRating: true },
+    });
+    for (const row of ratingRows) {
+      const count = row._count._all;
+      const average = Number((row._avg.overallRating ?? 0).toFixed(2));
+      await prisma.ratingAggregate.upsert({
+        where: { userId_scope: { userId: row.revieweeUserId, scope: row.type } },
+        create: {
+          userId: row.revieweeUserId,
+          scope: row.type,
+          ratingCount: count,
+          averageRating: average,
+          ratingDistribution: {},
+          lastCalculatedAt: now,
+        },
+        update: {
+          ratingCount: count,
+          averageRating: average,
+          lastCalculatedAt: now,
+          version: { increment: 1 },
+        },
+      });
+    }
+
+    const eventRows = await prisma.reliabilityEvent.groupBy({
+      by: ["userId"],
+      _count: { _all: true },
+    });
+    for (const row of eventRows) {
+      const restrictionCount = await prisma.accountRestriction.count({
+        where: { userId: row.userId, status: "ACTIVE" },
+      });
+      const level =
+        restrictionCount > 0 ? "RESTRICTED" : row._count._all >= 5 ? "AT_RISK" : "STANDARD";
+      await prisma.reliabilityProfile.upsert({
+        where: { userId: row.userId },
+        create: {
+          userId: row.userId,
+          reliabilityLevel: level,
+          accountRestrictionCount: restrictionCount,
+        },
+        update: {
+          reliabilityLevel: level,
+          accountRestrictionCount: restrictionCount,
+          lastCalculatedAt: now,
+          version: { increment: 1 },
+        },
+      });
+    }
+
+    logger.info(
+      {
+        expiredRestrictions: expiredRestrictions.length,
+        ratingRows: ratingRows.length,
+        profiles: eventRows.length,
+      },
+      "processed trust safety maintenance job",
+    );
+    return {
+      expiredRestrictions: expiredRestrictions.length,
+      ratingRows: ratingRows.length,
+      profiles: eventRows.length,
+    };
+  },
+  { connection, concurrency: 1 },
+);
+
 process.on("SIGTERM", async () => {
+  await trustSafetyWorker.close();
+  await trustSafetyQueue.close();
   await communicationWorker.close();
   await communicationQueue.close();
   await bookingWorker.close();
@@ -282,7 +404,13 @@ await communicationQueue.add(
   { createdAt: new Date().toISOString() },
   { jobId: "communication-delivery-health", repeat: { every: 60_000 } },
 );
+await trustSafetyQueue.add(
+  "trust-safety-maintenance",
+  { createdAt: new Date().toISOString() },
+  { jobId: "trust-safety-maintenance-health", repeat: { every: 60_000 } },
+);
 logger.info({ queueName }, "worker foundation started");
 logger.info({ queueName: bookingQueueName }, "worker booking hold expiration started");
 logger.info({ queueName: operationsQueueName }, "worker trip operations started");
 logger.info({ queueName: communicationQueueName }, "worker communication delivery started");
+logger.info({ queueName: trustSafetyQueueName }, "worker trust safety maintenance started");

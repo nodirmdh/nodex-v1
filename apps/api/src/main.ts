@@ -22,8 +22,12 @@ import {
   boardingCodeRegenerateSchema,
   boardingCodeVerifySchema,
   calculateSlaDueAt,
+  accountRestrictionSchema,
   chatMessageEditSchema,
   chatMessageSchema,
+  calculateRatingAggregate,
+  calculateReliabilityLevel,
+  canCreateUserBlock,
   driverBookingDecisionSchema,
   driverDocumentCompleteSchema,
   driverDocumentPresignSchema,
@@ -41,6 +45,9 @@ import {
   defaultParcelLimits,
   evaluateSupportTransition,
   evaluateParcelTransition,
+  evaluateReviewEligibility,
+  evaluateSafetyTransition,
+  emergencyActionSchema,
   messageReportSchema,
   notificationCreateSchema,
   parcelCodeCanAttempt,
@@ -53,6 +60,10 @@ import {
   parcelChatEligible,
   routeSchema,
   searchEventSchema,
+  safetyAssignmentSchema,
+  safetyInternalNoteSchema,
+  safetyReportSchema,
+  safetyReportStatusSchema,
   supportAssignmentSchema,
   supportTicketCreateSchema,
   supportTicketMessageSchema,
@@ -64,7 +75,15 @@ import {
   tripStartSchema,
   evaluateTripTransition,
   tripSearchQuerySchema,
+  tripShareCreateSchema,
   tripStopSchema,
+  reviewEditSchema,
+  reviewReportSchema,
+  reviewSchema,
+  restrictionRevokeSchema,
+  stripUnsafeReviewText,
+  trustedContactSchema,
+  userBlockSchema,
   vehicleDocumentCompleteSchema,
   vehicleDocumentPresignSchema,
   vehicleDraftSchema,
@@ -1939,6 +1958,177 @@ function phase9OpenApiPaths() {
         security: bearer,
         parameters: [ticketId],
         responses: { 200: { description: "History", content: json } },
+      },
+    },
+  };
+}
+
+function phase10OpenApiPaths() {
+  const json = { "application/json": { schema: { type: "object" } } };
+  const bearer = [{ bearer: [] }];
+  const reviewId = { name: "reviewId", in: "path", required: true, schema: { type: "string" } };
+  const reportId = { name: "reportId", in: "path", required: true, schema: { type: "string" } };
+  const userId = { name: "userId", in: "path", required: true, schema: { type: "string" } };
+  const tripId = { name: "tripId", in: "path", required: true, schema: { type: "string" } };
+  return {
+    "/api/v1/reviews/eligibility": {
+      get: {
+        operationId: "getReviewEligibility",
+        tags: ["Trust Safety"],
+        security: bearer,
+        responses: { 200: { description: "Review eligibility", content: json } },
+      },
+    },
+    "/api/v1/reviews": {
+      post: {
+        operationId: "createReview",
+        tags: ["Trust Safety"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Review", content: json } },
+      },
+    },
+    "/api/v1/reviews/mine": {
+      get: {
+        operationId: "listMyReviews",
+        tags: ["Trust Safety"],
+        security: bearer,
+        responses: { 200: { description: "Submitted reviews", content: json } },
+      },
+    },
+    "/api/v1/reviews/received": {
+      get: {
+        operationId: "listReceivedReviews",
+        tags: ["Trust Safety"],
+        security: bearer,
+        responses: { 200: { description: "Received reviews", content: json } },
+      },
+    },
+    "/api/v1/reviews/{reviewId}": {
+      get: {
+        operationId: "getReview",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [reviewId],
+        responses: { 200: { description: "Review", content: json } },
+      },
+      patch: {
+        operationId: "updateReview",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [reviewId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Review", content: json } },
+      },
+      delete: {
+        operationId: "deleteReview",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [reviewId],
+        responses: { 200: { description: "Deletion result", content: json } },
+      },
+    },
+    "/api/v1/reviews/{reviewId}/report": {
+      post: {
+        operationId: "reportReview",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [reviewId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Safety report", content: json } },
+      },
+    },
+    "/api/v1/users/{userId}/rating-summary": {
+      get: {
+        operationId: "getUserRatingSummary",
+        tags: ["Trust Safety"],
+        parameters: [userId],
+        responses: { 200: { description: "Rating summary", content: json } },
+      },
+    },
+    "/api/v1/users/{userId}/block": {
+      post: {
+        operationId: "blockUser",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [userId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Block", content: json } },
+      },
+      delete: {
+        operationId: "unblockUser",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [userId],
+        responses: { 200: { description: "Unblock result", content: json } },
+      },
+    },
+    "/api/v1/safety/reports": {
+      post: {
+        operationId: "createSafetyReport",
+        tags: ["Trust Safety"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Safety report", content: json } },
+      },
+    },
+    "/api/v1/trusted-contacts": {
+      get: {
+        operationId: "listTrustedContacts",
+        tags: ["Trust Safety"],
+        security: bearer,
+        responses: { 200: { description: "Trusted contacts", content: json } },
+      },
+      post: {
+        operationId: "createTrustedContact",
+        tags: ["Trust Safety"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Trusted contact", content: json } },
+      },
+    },
+    "/api/v1/trips/{tripId}/shares": {
+      get: {
+        operationId: "listTripShares",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [tripId],
+        responses: { 200: { description: "Trip shares", content: json } },
+      },
+      post: {
+        operationId: "createTripShare",
+        tags: ["Trust Safety"],
+        security: bearer,
+        parameters: [tripId],
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Trip share", content: json } },
+      },
+    },
+    "/api/v1/emergency/actions": {
+      post: {
+        operationId: "createEmergencyAction",
+        tags: ["Trust Safety"],
+        security: bearer,
+        requestBody: { required: true, content: json },
+        responses: { 201: { description: "Emergency action", content: json } },
+      },
+    },
+    "/api/v1/admin/safety/reports": {
+      get: {
+        operationId: "listAdminSafetyReports",
+        tags: ["Admin Trust Safety"],
+        security: bearer,
+        responses: { 200: { description: "Safety reports", content: json } },
+      },
+    },
+    "/api/v1/admin/safety/reports/{reportId}/status": {
+      post: {
+        operationId: "updateSafetyReportStatus",
+        tags: ["Admin Trust Safety"],
+        security: bearer,
+        parameters: [reportId],
+        requestBody: { required: true, content: json },
+        responses: { 200: { description: "Safety report", content: json } },
       },
     },
   };
@@ -4082,6 +4272,258 @@ function supportActionForStatus(status: Prisma.SupportTicketCreateInput["status"
   if (status === "CLOSED") return "CLOSE";
   if (status === "REJECTED") return "REJECT";
   return "START_PROGRESS";
+}
+
+const reviewInclude = {
+  scores: { include: { criterion: true } },
+  moderation: { orderBy: { createdAt: "desc" } },
+} satisfies Prisma.ReviewInclude;
+
+function serializeReview(review: Prisma.ReviewGetPayload<{ include: typeof reviewInclude }>) {
+  return serializeBigInt({
+    id: review.id,
+    type: review.type,
+    reviewerUserId: review.reviewerUserId,
+    revieweeUserId: review.revieweeUserId,
+    bookingId: review.bookingId,
+    tripId: review.tripId,
+    parcelOrderId: review.parcelOrderId,
+    overallRating: review.overallRating,
+    text: review.status === "PUBLISHED" || review.status === "UNDER_REVIEW" ? review.text : null,
+    status: review.status,
+    submittedAt: review.submittedAt,
+    publishedAt: review.publishedAt,
+    editedAt: review.editedAt,
+    createdAt: review.createdAt,
+    scores: review.scores.map((score) => ({
+      code: score.criterion.code,
+      score: score.score,
+    })),
+  });
+}
+
+function serializeRatingAggregate(aggregate: {
+  userId: string;
+  scope: string;
+  averageRating: unknown;
+  ratingCount: number;
+  ratingDistribution: Prisma.JsonValue;
+  lastCalculatedAt: Date;
+}) {
+  return serializeBigInt({
+    userId: aggregate.userId,
+    scope: aggregate.scope,
+    averageRating: Number(aggregate.averageRating),
+    ratingCount: aggregate.ratingCount,
+    ratingDistribution: aggregate.ratingDistribution,
+    lastCalculatedAt: aggregate.lastCalculatedAt,
+  });
+}
+
+function serializeReliabilityProfile(profile: {
+  userId: string;
+  completedTripsCount: number;
+  completedBookingsCount: number;
+  parcelDeliveredCount: number;
+  reliabilityLevel: string;
+  lastCalculatedAt: Date;
+}) {
+  return serializeBigInt({
+    userId: profile.userId,
+    completedTripsCount: profile.completedTripsCount,
+    completedBookingsCount: profile.completedBookingsCount,
+    parcelDeliveredCount: profile.parcelDeliveredCount,
+    reliabilityLevel: profile.reliabilityLevel,
+    lastCalculatedAt: profile.lastCalculatedAt,
+  });
+}
+
+async function ensureIdempotency<T>(
+  tx: Prisma.TransactionClient,
+  scope: string,
+  key: string,
+  payload: unknown,
+  create: () => Promise<T>,
+) {
+  const hash = requestHash(payload);
+  const existing = await tx.idempotencyRecord.findUnique({ where: { scope_key: { scope, key } } });
+  if (existing) {
+    if (existing.requestHash !== hash) {
+      throw Object.assign(new Error("Idempotency key payload mismatch"), {
+        statusCode: 409,
+        code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+      });
+    }
+    return existing.responseJson as T;
+  }
+  const result = await create();
+  await tx.idempotencyRecord.create({
+    data: {
+      scope,
+      key,
+      requestHash: hash,
+      responseJson: result as Prisma.InputJsonValue,
+      status: "COMPLETED",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+  });
+  return result;
+}
+
+async function recomputeRatingAggregate(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  scope = "OVERALL",
+) {
+  const reviews = await tx.review.findMany({
+    where: { revieweeUserId: userId, status: "PUBLISHED" },
+    select: { overallRating: true },
+  });
+  const aggregate = calculateRatingAggregate(reviews.map((review) => review.overallRating));
+  return tx.ratingAggregate.upsert({
+    where: { userId_scope: { userId, scope } },
+    create: {
+      userId,
+      scope,
+      averageRating: aggregate.averageRating,
+      ratingCount: aggregate.ratingCount,
+      ratingDistribution: aggregate.ratingDistribution,
+      lastCalculatedAt: new Date(),
+    },
+    update: {
+      averageRating: aggregate.averageRating,
+      ratingCount: aggregate.ratingCount,
+      ratingDistribution: aggregate.ratingDistribution,
+      lastCalculatedAt: new Date(),
+      version: { increment: 1 },
+    },
+  });
+}
+
+async function recomputeReliabilityProfile(tx: Prisma.TransactionClient, userId: string) {
+  const events = await tx.reliabilityEvent.findMany({ where: { userId } });
+  const counts = {
+    completedTripsCount: events.filter((event) => event.type === "TRIP_COMPLETED").length,
+    completedBookingsCount: events.filter((event) => event.type === "BOOKING_COMPLETED").length,
+    clientCancellationCount: events.filter((event) => event.type === "CLIENT_CANCELLED").length,
+    driverCancellationCount: events.filter((event) => event.type === "DRIVER_CANCELLED").length,
+    clientNoShowCount: events.filter((event) => event.type === "CLIENT_NO_SHOW").length,
+    driverNoShowCount: events.filter((event) => event.type === "DRIVER_NO_SHOW").length,
+    parcelDeliveredCount: events.filter((event) => event.type === "PARCEL_DELIVERED").length,
+    parcelIssueCount: events.filter((event) =>
+      ["PARCEL_LOST", "PARCEL_DAMAGED"].includes(event.type),
+    ).length,
+    accountRestrictionCount: events.filter((event) => event.type === "RESTRICTION_APPLIED").length,
+  };
+  const reliabilityLevel = calculateReliabilityLevel(counts);
+  return tx.reliabilityProfile.upsert({
+    where: { userId },
+    create: { userId, reliabilityLevel, ...counts },
+    update: {
+      reliabilityLevel,
+      ...counts,
+      lastCalculatedAt: new Date(),
+      version: { increment: 1 },
+    },
+  });
+}
+
+async function reviewEligibilityContext(
+  tx: Prisma.TransactionClient,
+  reviewerUserId: string,
+  input: {
+    type: string;
+    bookingId?: string | null | undefined;
+    tripId?: string | null | undefined;
+    parcelOrderId?: string | null | undefined;
+    revieweeUserId: string;
+  },
+) {
+  if (input.type === "DRIVER_BY_CLIENT" || input.type === "CLIENT_BY_DRIVER") {
+    const booking = await tx.booking.findFirst({
+      where: { id: input.bookingId ?? "" },
+      include: { trip: { include: { driverProfile: true } } },
+    });
+    if (!booking)
+      throw Object.assign(new Error("Booking not found"), {
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+      });
+    const driverUserId = booking.trip.driverProfile.userId;
+    const reviewerParticipated =
+      input.type === "DRIVER_BY_CLIENT"
+        ? booking.clientId === reviewerUserId
+        : driverUserId === reviewerUserId;
+    const revieweeIsCounterpart =
+      input.type === "DRIVER_BY_CLIENT"
+        ? input.revieweeUserId === driverUserId
+        : input.revieweeUserId === booking.clientId;
+    return {
+      entityStatus: booking.status,
+      completedAt: booking.updatedAt,
+      reviewerParticipated,
+      revieweeIsCounterpart,
+      tripId: booking.tripId,
+      bookingId: booking.id,
+      parcelOrderId: null,
+    };
+  }
+  const parcel = await tx.parcelOrder.findFirst({
+    where: { id: input.parcelOrderId ?? "" },
+    include: { driverProfile: true },
+  });
+  if (!parcel || !parcel.driverProfile) {
+    throw Object.assign(new Error("Parcel not found"), {
+      statusCode: 404,
+      code: "PARCEL_NOT_FOUND",
+    });
+  }
+  const driverUserId = parcel.driverProfile.userId;
+  const reviewerParticipated =
+    input.type === "PARCEL_DRIVER_BY_SENDER"
+      ? parcel.senderUserId === reviewerUserId
+      : driverUserId === reviewerUserId;
+  const revieweeIsCounterpart =
+    input.type === "PARCEL_DRIVER_BY_SENDER"
+      ? input.revieweeUserId === driverUserId
+      : input.revieweeUserId === parcel.senderUserId;
+  return {
+    entityStatus: parcel.status,
+    completedAt: parcel.deliveredAt ?? parcel.updatedAt,
+    reviewerParticipated,
+    revieweeIsCounterpart,
+    tripId: parcel.tripId,
+    bookingId: null,
+    parcelOrderId: parcel.id,
+  };
+}
+
+function publicShareToken() {
+  return randomBytes(32).toString("base64url");
+}
+
+function safeTripShareProjection(
+  share: Prisma.TripShareGetPayload<{ include: { accessEvents: true } }>,
+  trip: TripWithInclude | null,
+) {
+  return serializeBigInt({
+    id: share.id,
+    tripId: share.tripId,
+    bookingId: share.bookingId,
+    label: share.label,
+    expiresAt: share.expiresAt,
+    revokedAt: share.revokedAt,
+    trip: trip
+      ? {
+          origin: trip.origin?.nameRu ?? trip.originCity,
+          destination: trip.destination?.nameRu ?? trip.destinationCity,
+          departureAtUtc: trip.departureAtUtc,
+          status: trip.status,
+          driverVerified: true,
+          vehicleVerified: Boolean(trip.vehicleId),
+        }
+      : null,
+  });
 }
 
 async function expireSeatHolds(tx: Prisma.TransactionClient, tripId?: string) {
@@ -6462,6 +6904,841 @@ async function registerCommunicationRoutes(http: {
       }),
     ]);
     res.json({ statusEvents, timeline });
+  });
+}
+
+async function registerTrustSafetyRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  patch: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  delete: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.get("/api/v1/reviews/eligibility", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = reviewSchema
+        .pick({
+          type: true,
+          bookingId: true,
+          tripId: true,
+          parcelOrderId: true,
+          revieweeUserId: true,
+          overallRating: true,
+        })
+        .parse({ ...req.query, overallRating: 5 });
+      const context = await prisma.$transaction((tx) =>
+        reviewEligibilityContext(tx, req.auth!.userId, parsed),
+      );
+      const eligibility = evaluateReviewEligibility({
+        type: parsed.type,
+        reviewerUserId: req.auth!.userId,
+        revieweeUserId: parsed.revieweeUserId,
+        entityStatus: context.entityStatus,
+        reviewerParticipated: context.reviewerParticipated,
+        revieweeIsCounterpart: context.revieweeIsCounterpart,
+        completedAt: context.completedAt,
+      });
+      res.json({ eligibility });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/reviews", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = reviewSchema.parse(req.body ?? {});
+      const key = idempotencyKey(req) || `review:${req.auth!.userId}:${requestHash(parsed)}`;
+      const result = await prisma.$transaction(async (tx) =>
+        ensureIdempotency(tx, "review:create", key, parsed, async () => {
+          const context = await reviewEligibilityContext(tx, req.auth!.userId, parsed);
+          const eligibility = evaluateReviewEligibility({
+            type: parsed.type,
+            reviewerUserId: req.auth!.userId,
+            revieweeUserId: parsed.revieweeUserId,
+            entityStatus: context.entityStatus,
+            reviewerParticipated: context.reviewerParticipated,
+            revieweeIsCounterpart: context.revieweeIsCounterpart,
+            completedAt: context.completedAt,
+          });
+          if (!eligibility.ok) {
+            throw Object.assign(new Error(eligibility.message), {
+              statusCode: 409,
+              code: eligibility.code,
+            });
+          }
+          const criteria = await tx.reviewCriterion.findMany({
+            where: { type: parsed.type, isActive: true },
+          });
+          const existingReview = await tx.review.findFirst({
+            where: {
+              type: parsed.type,
+              reviewerUserId: req.auth!.userId,
+              revieweeUserId: parsed.revieweeUserId,
+              bookingId: context.bookingId,
+              parcelOrderId: context.parcelOrderId,
+            },
+          });
+          const created = existingReview
+            ? await tx.review.update({
+                where: { id: existingReview.id },
+                data: {
+                  overallRating: parsed.overallRating,
+                  text: stripUnsafeReviewText(parsed.text),
+                  editedAt: new Date(),
+                  version: { increment: 1 },
+                },
+              })
+            : await tx.review.create({
+                data: {
+                  type: parsed.type,
+                  reviewerUserId: req.auth!.userId,
+                  revieweeUserId: parsed.revieweeUserId,
+                  bookingId: context.bookingId,
+                  tripId: context.tripId,
+                  parcelOrderId: context.parcelOrderId,
+                  overallRating: parsed.overallRating,
+                  text: stripUnsafeReviewText(parsed.text),
+                  status: "PUBLISHED",
+                  submittedAt: new Date(),
+                  publishedAt: new Date(),
+                },
+              });
+          for (const score of parsed.criteria) {
+            const criterion = criteria.find((item) => item.code === score.code);
+            if (!criterion) continue;
+            await tx.reviewCriterionScore.upsert({
+              where: { reviewId_criterionId: { reviewId: created.id, criterionId: criterion.id } },
+              create: { reviewId: created.id, criterionId: criterion.id, score: score.score },
+              update: { score: score.score },
+            });
+          }
+          await recomputeRatingAggregate(tx, parsed.revieweeUserId);
+          await ensureNotification(tx, {
+            recipientUserId: parsed.revieweeUserId,
+            type: "REVIEW_RECEIVED",
+            title: "New review received",
+            body: "You received a new Nodex review.",
+            entityType: "Review",
+            entityId: created.id,
+            deduplicationKey: `review:received:${created.id}`,
+          });
+          await tx.outboxEvent.create({
+            data: { type: "review.published", payload: { reviewId: created.id } },
+          });
+          return { reviewId: created.id };
+        }),
+      );
+      const review = await prisma.review.findUniqueOrThrow({
+        where: { id: result.reviewId },
+        include: reviewInclude,
+      });
+      await writeAudit("REVIEW_SUBMITTED", "Review", review.id, req.auth!.userId, req.requestId);
+      res.status(201).json({ review: serializeReview(review) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/reviews/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const reviews = await prisma.review.findMany({
+      where: { reviewerUserId: req.auth!.userId },
+      include: reviewInclude,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ reviews: reviews.map(serializeReview) });
+  });
+
+  http.get("/api/v1/reviews/received", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const reviews = await prisma.review.findMany({
+      where: { revieweeUserId: req.auth!.userId, status: { in: ["PUBLISHED", "UNDER_REVIEW"] } },
+      include: reviewInclude,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ reviews: reviews.map(serializeReview) });
+  });
+
+  http.get("/api/v1/reviews/:reviewId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const review = await prisma.review.findFirst({
+      where: {
+        id: String(req.params.reviewId ?? ""),
+        OR: [
+          { reviewerUserId: req.auth!.userId },
+          { revieweeUserId: req.auth!.userId },
+          ...(req.auth!.roles.some((role) => role === "ADMIN" || role === "SUPPORT") ? [{}] : []),
+        ],
+      },
+      include: reviewInclude,
+    });
+    if (!review) {
+      res.status(404).json(errorBody("REVIEW_NOT_FOUND", "Review not found", req));
+      return;
+    }
+    res.json({ review: serializeReview(review) });
+  });
+
+  http.patch("/api/v1/reviews/:reviewId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = reviewEditSchema.parse(req.body ?? {});
+      const existing = await prisma.review.findFirst({
+        where: { id: String(req.params.reviewId ?? ""), reviewerUserId: req.auth!.userId },
+      });
+      if (!existing || !["DRAFT", "PUBLISHED"].includes(existing.status)) {
+        res.status(404).json(errorBody("REVIEW_NOT_EDITABLE", "Review not editable", req));
+        return;
+      }
+      const review = await prisma.$transaction(async (tx) => {
+        const updated = await tx.review.update({
+          where: { id: existing.id },
+          data: {
+            ...(parsed.overallRating ? { overallRating: parsed.overallRating } : {}),
+            ...(parsed.text !== undefined ? { text: stripUnsafeReviewText(parsed.text) } : {}),
+            editedAt: new Date(),
+            version: { increment: 1 },
+          },
+          include: reviewInclude,
+        });
+        await recomputeRatingAggregate(tx, updated.revieweeUserId);
+        return updated;
+      });
+      res.json({ review: serializeReview(review) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/reviews/:reviewId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const existing = await prisma.review.findFirst({
+      where: { id: String(req.params.reviewId ?? ""), reviewerUserId: req.auth!.userId },
+    });
+    if (!existing) {
+      res.status(404).json(errorBody("REVIEW_NOT_FOUND", "Review not found", req));
+      return;
+    }
+    const review = await prisma.$transaction(async (tx) => {
+      const updated = await tx.review.update({
+        where: { id: existing.id },
+        data: { status: "DELETED_BY_AUTHOR", version: { increment: 1 } },
+        include: reviewInclude,
+      });
+      await recomputeRatingAggregate(tx, updated.revieweeUserId);
+      return updated;
+    });
+    res.json({ review: serializeReview(review) });
+  });
+
+  http.post("/api/v1/reviews/:reviewId/report", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = reviewReportSchema.parse(req.body ?? {});
+      const key = idempotencyKey(req) || `review-report:${req.auth!.userId}:${req.params.reviewId}`;
+      const result = await prisma.$transaction((tx) =>
+        ensureIdempotency(tx, "review:report", key, parsed, async () => {
+          const review = await tx.review.findUnique({
+            where: { id: String(req.params.reviewId ?? "") },
+          });
+          if (!review)
+            throw Object.assign(new Error("Review not found"), {
+              statusCode: 404,
+              code: "REVIEW_NOT_FOUND",
+            });
+          await tx.review.update({
+            where: { id: review.id },
+            data: {
+              status: "UNDER_REVIEW",
+              reportedCount: { increment: 1 },
+              version: { increment: 1 },
+            },
+          });
+          const report = await tx.safetyReport.create({
+            data: {
+              reporterUserId: req.auth!.userId,
+              reportedUserId: review.reviewerUserId,
+              reviewId: review.id,
+              type: "INAPPROPRIATE_CONTENT",
+              severity: "MEDIUM",
+              description: parsed.reason,
+            },
+          });
+          await tx.moderationCase.upsert({
+            where: { sourceType_sourceId: { sourceType: "Review", sourceId: review.id } },
+            create: {
+              sourceType: "Review",
+              sourceId: review.id,
+              subjectUserId: review.reviewerUserId,
+              severity: "MEDIUM",
+            },
+            update: { status: "OPEN" },
+          });
+          return { reportId: report.id };
+        }),
+      );
+      res.status(201).json(result);
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/users/:userId/rating-summary", async (req, res) => {
+    const aggregate = await prisma.ratingAggregate.findUnique({
+      where: { userId_scope: { userId: String(req.params.userId ?? ""), scope: "OVERALL" } },
+    });
+    res.json({ rating: aggregate ? serializeRatingAggregate(aggregate) : null });
+  });
+
+  http.get("/api/v1/drivers/:driverId/public-reliability", async (req, res) => {
+    const driver = await prisma.driverProfile.findUnique({
+      where: { id: String(req.params.driverId ?? "") },
+    });
+    if (!driver) {
+      res.status(404).json(errorBody("DRIVER_NOT_FOUND", "Driver not found", req));
+      return;
+    }
+    const [rating, profile] = await Promise.all([
+      prisma.ratingAggregate.findUnique({
+        where: { userId_scope: { userId: driver.userId, scope: "OVERALL" } },
+      }),
+      prisma.reliabilityProfile.findUnique({ where: { userId: driver.userId } }),
+    ]);
+    res.json({
+      reliability: {
+        rating: rating ? serializeRatingAggregate(rating) : null,
+        profile: profile ? serializeReliabilityProfile(profile) : null,
+        verifiedDriver: driver.verificationStatus === "APPROVED",
+      },
+    });
+  });
+
+  http.post("/api/v1/users/:userId/block", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = userBlockSchema.parse(req.body ?? {});
+      const blockedUserId = String(req.params.userId ?? "");
+      const allowed = canCreateUserBlock(req.auth!.userId, blockedUserId);
+      if (!allowed.ok)
+        throw Object.assign(new Error(allowed.message), { statusCode: 400, code: allowed.code });
+      const existing = await prisma.userBlock.findFirst({
+        where: { blockerUserId: req.auth!.userId, blockedUserId, removedAt: null },
+      });
+      const block =
+        existing ??
+        (await prisma.userBlock.create({
+          data: { blockerUserId: req.auth!.userId, blockedUserId, reason: parsed.reason ?? null },
+        }));
+      res.status(201).json({ block });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/users/:userId/block", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const block = await prisma.userBlock.findFirst({
+      where: {
+        blockerUserId: req.auth!.userId,
+        blockedUserId: String(req.params.userId ?? ""),
+        removedAt: null,
+      },
+    });
+    if (!block) {
+      res.status(404).json(errorBody("USER_BLOCK_NOT_FOUND", "Block not found", req));
+      return;
+    }
+    const removed = await prisma.userBlock.update({
+      where: { id: block.id },
+      data: { removedAt: new Date(), version: { increment: 1 } },
+    });
+    res.json({ block: removed });
+  });
+
+  http.get("/api/v1/blocks/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const blocks = await prisma.userBlock.findMany({
+      where: { blockerUserId: req.auth!.userId },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ blocks });
+  });
+
+  http.post("/api/v1/safety/reports", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = safetyReportSchema.parse(req.body ?? {});
+      const key = idempotencyKey(req) || `safety:${req.auth!.userId}:${requestHash(parsed)}`;
+      const result = await prisma.$transaction((tx) =>
+        ensureIdempotency(tx, "safety:report", key, parsed, async () => {
+          const report = await tx.safetyReport.create({
+            data: {
+              reporterUserId: req.auth!.userId,
+              type: parsed.type,
+              severity: parsed.severity,
+              description: parsed.description,
+              tripId: parsed.tripId ?? null,
+              bookingId: parsed.bookingId ?? null,
+              parcelOrderId: parsed.parcelOrderId ?? null,
+              conversationId: parsed.conversationId ?? null,
+              messageId: parsed.messageId ?? null,
+              reviewId: parsed.reviewId ?? null,
+              reportedUserId: parsed.reportedUserId ?? null,
+            },
+          });
+          await tx.safetyIncidentEvent.create({
+            data: {
+              reportId: report.id,
+              actorUserId: req.auth!.userId,
+              type: "SAFETY_REPORT_SUBMITTED",
+              payload: { severity: parsed.severity },
+            },
+          });
+          await tx.moderationCase.upsert({
+            where: { sourceType_sourceId: { sourceType: "SafetyReport", sourceId: report.id } },
+            create: {
+              sourceType: "SafetyReport",
+              sourceId: report.id,
+              subjectUserId: parsed.reportedUserId ?? null,
+              severity: parsed.severity,
+            },
+            update: {},
+          });
+          if (parsed.severity === "HIGH" || parsed.severity === "CRITICAL") {
+            await tx.outboxEvent.create({
+              data: {
+                type: "safety.alert",
+                payload: { reportId: report.id, severity: parsed.severity },
+              },
+            });
+          }
+          return { reportId: report.id };
+        }),
+      );
+      const report = await prisma.safetyReport.findUniqueOrThrow({
+        where: { id: result.reportId },
+      });
+      await writeAudit(
+        "SAFETY_REPORT_CREATED",
+        "SafetyReport",
+        report.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ report });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/safety/reports/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const reports = await prisma.safetyReport.findMany({
+      where: { reporterUserId: req.auth!.userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ reports });
+  });
+
+  http.get("/api/v1/safety/reports/:reportId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN", "SUPPORT"]))) return;
+    const report = await prisma.safetyReport.findFirst({
+      where: {
+        id: String(req.params.reportId ?? ""),
+        OR: [
+          { reporterUserId: req.auth!.userId },
+          ...(req.auth!.roles.some((role) => role === "ADMIN" || role === "SUPPORT") ? [{}] : []),
+        ],
+      },
+      include: { attachments: true },
+    });
+    if (!report) {
+      res.status(404).json(errorBody("SAFETY_REPORT_NOT_FOUND", "Safety report not found", req));
+      return;
+    }
+    res.json({ report });
+  });
+
+  http.post("/api/v1/trusted-contacts", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = trustedContactSchema.parse(req.body ?? {});
+      const count = await prisma.trustedContact.count({
+        where: { ownerUserId: req.auth!.userId, deletedAt: null },
+      });
+      if (count >= 5)
+        throw Object.assign(new Error("Trusted contact limit reached"), {
+          statusCode: 409,
+          code: "TRUSTED_CONTACT_LIMIT",
+        });
+      const contact = await prisma.trustedContact.create({
+        data: {
+          ownerUserId: req.auth!.userId,
+          displayName: parsed.displayName,
+          phone: parsed.phone,
+          relationship: parsed.relationship ?? null,
+        },
+      });
+      res.status(201).json({ contact });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/trusted-contacts", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const contacts = await prisma.trustedContact.findMany({
+      where: { ownerUserId: req.auth!.userId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ contacts });
+  });
+
+  http.patch("/api/v1/trusted-contacts/:contactId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = trustedContactSchema.partial().parse(req.body ?? {});
+      const data: Prisma.TrustedContactUpdateManyMutationInput = {};
+      if (parsed.displayName !== undefined) data.displayName = parsed.displayName;
+      if (parsed.phone !== undefined) data.phone = parsed.phone;
+      if (parsed.relationship !== undefined) data.relationship = parsed.relationship;
+      const contact = await prisma.trustedContact.updateMany({
+        where: {
+          id: String(req.params.contactId ?? ""),
+          ownerUserId: req.auth!.userId,
+          deletedAt: null,
+        },
+        data,
+      });
+      res.json({ updated: contact.count });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/trusted-contacts/:contactId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const result = await prisma.trustedContact.updateMany({
+      where: {
+        id: String(req.params.contactId ?? ""),
+        ownerUserId: req.auth!.userId,
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date() },
+    });
+    res.json({ deleted: result.count });
+  });
+
+  http.post("/api/v1/trips/:tripId/shares", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = tripShareCreateSchema.parse(req.body ?? {});
+      const tripId = String(req.params.tripId ?? "");
+      const trip = await prisma.trip.findFirst({
+        where: {
+          id: tripId,
+          OR: [
+            { driverProfile: { userId: req.auth!.userId } },
+            { bookings: { some: { id: parsed.bookingId ?? "", clientId: req.auth!.userId } } },
+          ],
+        },
+      });
+      if (!trip)
+        throw Object.assign(new Error("Trip is not shareable"), {
+          statusCode: 403,
+          code: "TRIP_SHARE_FORBIDDEN",
+        });
+      const token = publicShareToken();
+      const share = await prisma.tripShare.create({
+        data: {
+          ownerUserId: req.auth!.userId,
+          tripId,
+          bookingId: parsed.bookingId ?? null,
+          label: parsed.label ?? null,
+          tokenHash: hashSecret(token),
+          expiresAt: parsed.expiresAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000),
+        },
+      });
+      res.status(201).json({ share: serializeBigInt(share), token });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/trips/:tripId/shares", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const shares = await prisma.tripShare.findMany({
+      where: { ownerUserId: req.auth!.userId, tripId: String(req.params.tripId ?? "") },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ shares: serializeBigInt(shares) });
+  });
+
+  http.delete("/api/v1/trip-shares/:shareId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const result = await prisma.tripShare.updateMany({
+      where: {
+        id: String(req.params.shareId ?? ""),
+        ownerUserId: req.auth!.userId,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+    res.json({ revoked: result.count });
+  });
+
+  http.get("/api/v1/public/trip-shares/:token", async (req, res) => {
+    const tokenHash = hashSecret(String(req.params.token ?? ""));
+    const share = await prisma.tripShare.findUnique({
+      where: { tokenHash },
+      include: { accessEvents: true },
+    });
+    if (!share || share.revokedAt || share.expiresAt <= new Date()) {
+      res.status(404).json(errorBody("TRIP_SHARE_NOT_FOUND", "Trip share not found", req));
+      return;
+    }
+    await prisma.tripShareAccessEvent.create({
+      data: { tripShareId: share.id, userAgent: req.headers["user-agent"] ?? null },
+    });
+    const trip = await prisma.trip.findUnique({
+      where: { id: share.tripId },
+      include: tripInclude,
+    });
+    res.json({ share: safeTripShareProjection(share, trip) });
+  });
+
+  http.post("/api/v1/emergency/actions", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = emergencyActionSchema.parse(req.body ?? {});
+      const action = await prisma.emergencyAction.create({
+        data: {
+          actorUserId: req.auth!.userId,
+          type: parsed.type,
+          tripId: parsed.tripId ?? null,
+          bookingId: parsed.bookingId ?? null,
+          parcelOrderId: parsed.parcelOrderId ?? null,
+          safetyReportId: parsed.safetyReportId ?? null,
+          metadata: (parsed.metadata ?? {}) as Prisma.InputJsonValue,
+        },
+      });
+      await writeAudit(
+        "EMERGENCY_ACTION_CREATED",
+        "EmergencyAction",
+        action.id,
+        req.auth!.userId,
+        req.requestId,
+        { type: parsed.type },
+      );
+      res.status(201).json({ action });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/safety/reports", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const reports = await prisma.safetyReport.findMany({
+      include: { attachments: true, internalNotes: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ reports });
+  });
+
+  http.post("/api/v1/admin/safety/reports/:reportId/assign", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = safetyAssignmentSchema.parse(req.body ?? {});
+      const report = await prisma.safetyReport.update({
+        where: { id: String(req.params.reportId ?? "") },
+        data: { assignedToUserId: parsed.assigneeUserId ?? null, version: { increment: 1 } },
+      });
+      await writeAudit(
+        "SAFETY_REPORT_ASSIGNED",
+        "SafetyReport",
+        report.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.json({ report });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/safety/reports/:reportId/status", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = safetyReportStatusSchema.parse(req.body ?? {});
+      const current = await prisma.safetyReport.findUnique({
+        where: { id: String(req.params.reportId ?? "") },
+      });
+      if (!current)
+        throw Object.assign(new Error("Safety report not found"), {
+          statusCode: 404,
+          code: "SAFETY_REPORT_NOT_FOUND",
+        });
+      const action =
+        parsed.status === "TRIAGED"
+          ? "TRIAGE"
+          : parsed.status === "UNDER_REVIEW"
+            ? "START_REVIEW"
+            : parsed.status === "ACTION_REQUIRED"
+              ? "REQUEST_ACTION"
+              : parsed.status === "RESOLVED"
+                ? "RESOLVE"
+                : parsed.status === "REJECTED"
+                  ? "REJECT"
+                  : parsed.status === "DUPLICATE"
+                    ? "DUPLICATE"
+                    : "CLOSE";
+      const transition = evaluateSafetyTransition(current.status, action);
+      if (!transition.ok)
+        throw Object.assign(new Error(transition.message), {
+          statusCode: 409,
+          code: transition.code,
+        });
+      const report = await prisma.safetyReport.update({
+        where: { id: current.id },
+        data: {
+          status: transition.toStatus,
+          resolutionCode: parsed.resolutionCode ?? current.resolutionCode,
+          resolutionSummary: parsed.resolutionSummary ?? current.resolutionSummary,
+          resolvedAt: ["RESOLVED", "REJECTED", "DUPLICATE", "CLOSED"].includes(transition.toStatus)
+            ? new Date()
+            : current.resolvedAt,
+          version: { increment: 1 },
+        },
+      });
+      await prisma.safetyIncidentEvent.create({
+        data: {
+          reportId: report.id,
+          actorUserId: req.auth!.userId,
+          type: `SAFETY_REPORT_${transition.toStatus}`,
+          payload: { reason: parsed.reason ?? null },
+        },
+      });
+      await writeAudit(
+        "SAFETY_REPORT_STATUS_CHANGED",
+        "SafetyReport",
+        report.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.json({ report });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/safety/reports/:reportId/internal-notes", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = safetyInternalNoteSchema.parse(req.body ?? {});
+      const note = await prisma.safetyReportInternalNote.create({
+        data: {
+          reportId: String(req.params.reportId ?? ""),
+          authorUserId: req.auth!.userId,
+          text: parsed.text,
+        },
+      });
+      res.status(201).json({ note });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/users/:userId/restrictions", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = accountRestrictionSchema.parse(req.body ?? {});
+      const restriction = await prisma.accountRestriction.create({
+        data: {
+          userId: String(req.params.userId ?? ""),
+          createdByUserId: req.auth!.userId,
+          type: parsed.type,
+          reason: parsed.reason,
+          startsAt: parsed.startsAt ?? new Date(),
+          endsAt: parsed.endsAt ?? null,
+        },
+      });
+      await prisma.reliabilityEvent.create({
+        data: {
+          userId: restriction.userId,
+          type: "RESTRICTION_APPLIED",
+          restrictionId: restriction.id,
+          dedupeKey: `restriction:${restriction.id}:applied`,
+        },
+      });
+      await prisma.$transaction((tx) => recomputeReliabilityProfile(tx, restriction.userId));
+      await writeAudit(
+        "ACCOUNT_RESTRICTION_APPLIED",
+        "AccountRestriction",
+        restriction.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.status(201).json({ restriction });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.post("/api/v1/admin/restrictions/:restrictionId/revoke", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    try {
+      const parsed = restrictionRevokeSchema.parse(req.body ?? {});
+      const restriction = await prisma.accountRestriction.update({
+        where: { id: String(req.params.restrictionId ?? "") },
+        data: {
+          status: "REVOKED",
+          removedByUserId: req.auth!.userId,
+          removedReason: parsed.reason,
+        },
+      });
+      await writeAudit(
+        "ACCOUNT_RESTRICTION_REVOKED",
+        "AccountRestriction",
+        restriction.id,
+        req.auth!.userId,
+        req.requestId,
+        parsed,
+      );
+      res.json({ restriction });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/moderation/queue", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const [cases, messageReports, reviewReports] = await Promise.all([
+      prisma.moderationCase.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.messageReport.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.safetyReport.findMany({
+        where: { reviewId: { not: null } },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+    ]);
+    res.json({ cases, messageReports, reviewReports });
   });
 }
 
@@ -9279,6 +10556,7 @@ async function bootstrap() {
   await registerTripSupplyRoutes(http);
   await registerParcelRoutes(http);
   await registerCommunicationRoutes(http);
+  await registerTrustSafetyRoutes(http);
   await registerBookingRoutes(http);
   await registerVehicleRoutes(http);
   await registerAdminVehicleRoutes(http);
@@ -9305,6 +10583,7 @@ async function bootstrap() {
     ...(phase7OpenApiPaths() as typeof document.paths),
     ...(phase8OpenApiPaths() as typeof document.paths),
     ...(phase9OpenApiPaths() as typeof document.paths),
+    ...(phase10OpenApiPaths() as typeof document.paths),
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));
