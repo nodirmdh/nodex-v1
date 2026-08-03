@@ -111,7 +111,10 @@ export default function DriversPage() {
               className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm"
               placeholder="Search name, phone, plate"
             />
-            <select className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm">
+            <select
+              aria-label="Filter driver verification status"
+              className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm"
+            >
               <option>All statuses</option>
               <option>Submitted</option>
               <option>Under review</option>
@@ -198,6 +201,7 @@ export default function DriversPage() {
           <h2 className="m-0 mb-3 text-base font-bold">Decision</h2>
           <div className="grid gap-3">
             <select
+              aria-label="Driver verification decision reason"
               className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm"
               value={reason}
               onChange={(event) => setReason(event.target.value)}

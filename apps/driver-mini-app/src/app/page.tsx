@@ -39,7 +39,11 @@ export default function DriverHome() {
           </div>
           <div
             aria-label="Verification progress"
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={completion}
             className="h-2 overflow-hidden rounded-full bg-[rgb(var(--surface-muted))]"
+            role="progressbar"
           >
             <div
               className="h-full rounded-full bg-[rgb(var(--primary))]"

@@ -7,6 +7,7 @@ export function cn(...inputs: Array<string | false | null | undefined>) {
 
 export function Button({
   className,
+  style,
   variant = "primary",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
@@ -14,13 +15,13 @@ export function Button({
     <button
       className={cn(
         "inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] px-4 text-sm font-semibold transition",
-        variant === "primary" &&
-          "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-soft)]",
+        variant === "primary" && "bg-[rgb(var(--primary))] text-white shadow-[var(--shadow-soft)]",
         variant === "secondary" &&
           "border border-[rgb(var(--border))] bg-[rgb(var(--surface))] text-[rgb(var(--foreground))]",
         variant === "ghost" && "text-[rgb(var(--foreground))] hover:bg-[rgb(var(--surface-muted))]",
         className,
       )}
+      style={variant === "primary" ? { color: "white", ...style } : style}
       {...props}
     />
   );
