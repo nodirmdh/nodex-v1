@@ -10,7 +10,7 @@ Push status: not pushed.
 
 Current pass status: `FINAL_LOCAL_ACCEPTANCE_FAILED`.
 
-Reason: final isolated acceptance execution is blocked locally because Docker Desktop's Linux engine pipe is unavailable, so PostgreSQL on `localhost:15432` and MinIO on `localhost:9000` cannot be started for the required replay.
+Reason: functional local acceptance passed, but the production dependency audit reports high-severity advisories that need a dependency update pass before launch.
 
 ## Environment
 
@@ -24,20 +24,20 @@ Reason: final isolated acceptance execution is blocked locally because Docker De
 ## Infrastructure Readiness
 
 - PostgreSQL: `nodex-intercity-postgres-1`, healthy, `localhost:15432`, `pg_isready` passed.
-- Redis: `nodex-intercity-redis-1`, healthy, `localhost:6379`, `redis-cli ping` returned `PONG`.
-- MinIO: `nodex-intercity-minio-1`, healthy, `localhost:9000`, `/minio/health/live` and `/minio/health/ready` returned `200`.
+- Redis: `nodex-intercity-redis-1`, local host port `6387`, container port `6379`.
+- MinIO: `nodex-intercity-minio-1`, local host ports `9100` API and `9101` console, container ports `9000` and `9001`.
 - Mailpit: `nodex-intercity-mailpit-1`, healthy.
-- MinIO anonymous bucket listing returned `Access Denied`; health endpoints and init container status confirm service readiness, but bucket-level credentials should be checked before launch.
+- MinIO health endpoints and init container status confirm service readiness.
 
 ## Database
 
 - `pnpm install --frozen-lockfile`: passed, already up to date.
 - `pnpm db:generate`: passed.
-- `pnpm db:deploy`: passed, no pending migrations.
+- `pnpm db:deploy`: passed with local `DATABASE_URL`, no pending migrations.
 - `pnpm db:seed`: passed.
 - Repeated `pnpm db:seed`: passed.
 
-Seed counts after acceptance baseline included 11 users, 8 driver profiles, 5 vehicles, 5 trips, 6 bookings, 9 parcel orders, 2 payments, 1 payment intent, 1 refund, 1 driver earning, 1 payout, 4 support tickets, 2 conversations, 4 notifications, 1 review, 5 safety reports, 4 regions, 12 cities, 36 pickup points, 6 routes, 5 analytics events, and 1 financial transaction.
+Acceptance seed counts: 4 regions, 12 cities, 36 pickup points, 6 routes, and 8 trips. Repeated acceptance seed returned the same counts.
 
 ## Service Readiness
 
@@ -60,32 +60,27 @@ No real secrets were printed.
 
 ## Acceptance Results
 
-- Foundation client/driver/admin/API UI shell: passed in serial regression.
-- Phase 1 auth: client and admin checks passed; driver profile expectation is state-sensitive because the shared mock driver is approved by later phases.
-- Phase 2 driver verification: protected access and UI checks passed; mutation flow is state-sensitive on the shared driver fixture.
-- Phase 3 vehicle management: passed.
-- Phase 4 trip supply: passed.
-- Phase 5 client UI search/detail: passed; API search tests are state-sensitive after safety block or trip/seat mutations.
-- Phase 6 booking UI surfaces: partially passed; API hold/confirm tests and bookings status are state-sensitive after trip operation tests mutate shared bookings.
-- Phase 7 trip operations: passed.
-- Phase 8 parcel delivery: passed.
-- Phase 9 chat, notifications, and support: passed.
-- Phase 10 reviews/reliability/safety: review flow and UI surfaces passed; trusted contact creation hit `409` in repeat local state.
-- Phase 11 payments/analytics: passed.
-- Accessibility: fixed and re-run; 5/5 pages passed, with CLI exit `124` due known open handle after assertions.
+- Final isolated scenarios A-H: passed.
+- Negative access matrix: passed.
+- Mobile viewport matrix: passed.
+- MinIO/private storage and public DTO privacy: passed.
+- Targeted final acceptance total: 19/19 assertions passed.
+- Playwright process exit: external timeout `124` after assertions because of the known open-handle issue; ports `3100-3104` were free after timeout.
 
 ## Quality Gates
 
-- Format check: passed after fixes.
-- Targeted typecheck: `@nodex/ui`, `@nodex/driver-mini-app`, and `@nodex/admin-web` passed after fixes.
-- Full gates should be re-run before final merge after acceptance docs are committed: lint, typecheck, unit, integration, Prisma validate/deploy/seed, Orval generation, build, production audit.
-- Final acceptance follow-up pass:
-  - `pnpm install --frozen-lockfile`: passed after local `node_modules` was found incomplete.
-  - `pnpm db:generate`: passed.
-  - `pnpm --filter @nodex/database typecheck`: passed after Prisma Client generation.
-  - New acceptance file formatting: applied with Prettier.
-  - `pnpm acceptance:reset`: blocked because PostgreSQL is not reachable on `localhost:15432`.
-  - `docker compose up -d postgres redis minio mailpit`: blocked because Docker Desktop Linux engine pipe is unavailable.
+- Format check: passed.
+- Lint: passed with one warning in the acceptance seed script.
+- Typecheck: passed.
+- Unit tests: passed.
+- Integration tests: passed.
+- Prisma validate: passed.
+- Migration deploy: passed with local `DATABASE_URL`.
+- Seed: passed; repeated seed passed.
+- Acceptance reset/seed repeatability: passed.
+- OpenAPI/Orval generation: passed.
+- Build: passed.
+- Production dependency audit: failed with high advisories in transitive dependencies (`fast-uri`, `brace-expansion`, `nanoid`).
 
 ## Playwright Status
 

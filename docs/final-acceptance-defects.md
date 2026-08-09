@@ -6,10 +6,10 @@ None found in the bounded local acceptance pass.
 
 ## P1 Must Fix Before Launch
 
-- `ACC-INFRA-001` Final isolated local acceptance cannot run because Docker Desktop's Linux engine pipe is unavailable on this host.
-  - Evidence: `docker compose up -d postgres redis minio mailpit` failed with `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`.
-  - Impact: PostgreSQL `localhost:15432` and MinIO `localhost:9000` are unavailable, so required isolated scenarios, negative matrix, mobile storage-backed flows, seed/reset replay, migration deploy, and MinIO checks cannot be completed locally.
-  - Required action: start Docker Desktop/Linux engine or provide an equivalent reachable local PostgreSQL, Redis, and MinIO stack, then rerun the final acceptance commands.
+- `SEC-AUDIT-001` Production dependency audit reports high-severity advisories.
+  - Evidence: `pnpm audit:production` reported high advisories for transitive `fast-uri`, `brace-expansion`, and `nanoid` paths.
+  - Impact: production dependency audit gate is not green.
+  - Required action: run a dedicated dependency remediation pass and rerun `pnpm audit:production`.
 
 Fixed P1:
 
@@ -19,12 +19,13 @@ Fixed P1:
   - Fix: primary `Button` now sets computed text color to white for the primary variant.
 - `ACC-003` Admin driver verification selects had no accessible names.
   - Fix: added explicit `aria-label` values for status filter and decision reason.
+- `ACC-INFRA-001` Local acceptance could not run while Windows reserved host Redis port `6379`.
+  - Fix: local/dev config now maps Redis host `6387` to container `6379`, maps MinIO host `9100/9101` to container `9000/9001`, and keeps Docker-internal Redis access on `redis:6379`.
 
 ## P2 High-Priority Polish
 
-- `E2E-ISO-001` Existing e2e suites share mutable mock users and seeded entities. Running all phase suites together, especially in parallel, causes state pollution: safety blocking hides public trips, trip operations alter booking statuses, and driver verification approval changes the default driver profile.
-  - Evidence: serial regression passed 39/50 and failed state-sensitive tests after earlier suites mutated shared fixtures.
-  - Fix in progress: added guarded `acceptance:reset`, `acceptance:seed`, and `acceptance:scenario` scripts plus isolated final acceptance specs. Execution is blocked by `ACC-INFRA-001`.
+- `E2E-ISO-001` Existing e2e suites share mutable mock users and seeded entities. Running all phase suites together, especially in parallel, can cause state pollution.
+  - Fix in progress: guarded `acceptance:reset`, `acceptance:seed`, and isolated final acceptance specs now pass in the targeted acceptance replay.
 - `MINIO-001` MinIO health is green, but unauthenticated `mc ls local` returned `Access Denied`.
   - Suggested fix: document expected credentialed bucket verification command and include it in local acceptance.
 
@@ -32,4 +33,4 @@ Fixed P1:
 
 - `PW-001` Playwright wrapper keeps an open handle after assertions pass and exits through external timeout `124`; ports are released.
 - `DEV-001` PowerShell blocks `npx.ps1`; use `npx.cmd` or adjust local execution policy.
-- `DOCKER-001` Docker daemon access requires elevated execution on this Windows host; on the final follow-up pass Docker Desktop was not running.
+- `DOCKER-001` Docker daemon access requires elevated execution on this Windows host.

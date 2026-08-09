@@ -43,7 +43,7 @@ export default defineConfig({
     },
     {
       command:
-        "pnpm exec cross-env API_PORT=3103 AUTH_ACCESS_TOKEN_SECRET=replace-with-access-token-secret AUTH_MOCK_ENABLED=true DATABASE_URL=postgresql://nodex:nodex@localhost:15432/nodex?schema=public JWT_SECRET=replace-with-local-secret REDIS_URL=redis://localhost:6379 pnpm --filter @nodex/api dev",
+        "pnpm exec cross-env API_PORT=3103 AUTH_ACCESS_TOKEN_SECRET=replace-with-access-token-secret AUTH_MOCK_ENABLED=true DATABASE_URL=postgresql://nodex:nodex@localhost:15432/nodex?schema=public JWT_SECRET=replace-with-local-secret REDIS_URL=redis://localhost:6387 S3_ENDPOINT=http://localhost:9100 pnpm --filter @nodex/api dev",
       cwd: ".",
       url: apiHealthURL,
       timeout: 120_000,

@@ -13,7 +13,7 @@ export const appEnvSchema = z.object({
     .string()
     .url()
     .default("postgresql://nodex:nodex@localhost:15432/nodex?schema=public"),
-  REDIS_URL: z.string().url().default("redis://localhost:6379"),
+  REDIS_URL: z.string().url().default("redis://localhost:6387"),
   JWT_ISSUER: z.string().default("nodex-local"),
   JWT_AUDIENCE: z.string().default("nodex"),
   JWT_SECRET: z.string().min(16).default("replace-with-local-secret"),

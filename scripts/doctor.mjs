@@ -4,7 +4,7 @@ import net from "node:net";
 
 const requiredNode = "24.13.1";
 const requiredPnpmMajor = "11.";
-const requiredPorts = [3000, 3001, 3002, 3003, 15432, 6379, 9000, 9001, 11025, 18025];
+const requiredPorts = [3000, 3001, 3002, 3003, 15432, 6387, 9100, 9101, 11025, 18025];
 
 function fail(message) {
   console.error(`doctor: ${message}`);

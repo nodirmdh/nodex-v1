@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:8.4.0-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6387}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,8 +36,8 @@ services:
       MINIO_ROOT_USER: nodex
       MINIO_ROOT_PASSWORD: nodex-secret
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_HOST_PORT:-9100}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9101}:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -73,6 +73,8 @@ services:
     working_dir: /workspace
     command: sh -c "corepack enable && pnpm --filter @nodex/api dev"
     env_file: .env.example
+    environment:
+      REDIS_URL: redis://redis:6379
     ports:
       - "4000:4000"
     volumes:
@@ -89,6 +91,8 @@ services:
     working_dir: /workspace
     command: sh -c "corepack enable && pnpm --filter @nodex/worker dev"
     env_file: .env.example
+    environment:
+      REDIS_URL: redis://redis:6379
     volumes:
       - .:/workspace
     depends_on:

@@ -1,5 +1,11 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { api, mockAuth, privateFieldNames, signedMockWebhook } from "./final-acceptance-helpers";
+import {
+  api,
+  mockAuth,
+  privateFieldNames,
+  searchableTripId,
+  signedMockWebhook,
+} from "./final-acceptance-helpers";
 
 async function expectDenied(
   request: APIRequestContext,
@@ -10,6 +16,7 @@ async function expectDenied(
     token?: string;
     data?: unknown;
     expected?: number[];
+    zeroMutation?: "updated" | "deleted" | "revoked";
   },
 ) {
   const method = input.method ?? "get";
@@ -20,6 +27,11 @@ async function expectDenied(
   expect(input.expected ?? [400, 401, 403, 404, 409, 422, 429], input.label).toContain(
     response.status(),
   );
+  if (input.zeroMutation) {
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body[input.zeroMutation], input.label).toBe(0);
+    return;
+  }
   expect(response.status(), input.label).not.toBe(200);
   expect(response.status(), input.label).not.toBe(201);
 }
@@ -74,6 +86,8 @@ test.describe("final acceptance negative access matrix", () => {
         url: `${api}/trusted-contacts/not-owned-contact`,
         token: clientAuth.accessToken,
         data: { displayName: "Denied" },
+        expected: [200],
+        zeroMutation: "updated" as const,
       },
       {
         label: "client foreign trip share revoke",
@@ -81,6 +95,7 @@ test.describe("final acceptance negative access matrix", () => {
         url: `${api}/trip-shares/not-owned-share`,
         token: clientAuth.accessToken,
         expected: [200, 404],
+        zeroMutation: "revoked" as const,
       },
       {
         label: "client foreign file",
@@ -262,7 +277,8 @@ test.describe("final acceptance negative access matrix", () => {
       await expectDenied(request, item);
     }
 
-    const publicTrip = await request.get(`${api}/trips/public/phase5-nukus-urgench-morning`);
+    const tripId = await searchableTripId(request, "acceptance-negative-public-privacy");
+    const publicTrip = await request.get(`${api}/trips/public/${tripId}`);
     await expect(publicTrip).toBeOK();
     const names = privateFieldNames(await publicTrip.json());
     expect(names).not.toContain("telegramIdentity");

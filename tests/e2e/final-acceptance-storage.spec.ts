@@ -3,9 +3,9 @@ import { api, mockAuth, privateFieldNames, searchableTripId } from "./final-acce
 
 test.describe("final acceptance MinIO and private storage", () => {
   test("verifies health, signed storage flows, and public DTO privacy", async ({ request }) => {
-    const minioLive = await request.get("http://127.0.0.1:9000/minio/health/live");
+    const minioLive = await request.get("http://127.0.0.1:9100/minio/health/live");
     expect(minioLive.status()).toBe(200);
-    const minioReady = await request.get("http://127.0.0.1:9000/minio/health/ready");
+    const minioReady = await request.get("http://127.0.0.1:9100/minio/health/ready");
     expect(minioReady.status()).toBe(200);
 
     const driverAuth = await mockAuth(request, "DRIVER_APP");
@@ -22,7 +22,8 @@ test.describe("final acceptance MinIO and private storage", () => {
         type: "FRONT",
         originalFileName: "acceptance-vehicle.jpg",
         mimeType: "image/jpeg",
-        sizeBytes: 1000,
+        size: 1000,
+        checksum: "acceptance-vehicle-checksum-0001",
       },
     });
     await expect(vehiclePresign).toBeOK();
@@ -80,7 +81,7 @@ test.describe("final acceptance MinIO and private storage", () => {
     expect(publicFields).not.toContain("storageKey");
     expect(publicFields).not.toContain("key");
 
-    const expiredLikeRaw = await request.get("http://127.0.0.1:9000/nodex-private/missing-object");
+    const expiredLikeRaw = await request.get("http://127.0.0.1:9100/nodex-private/missing-object");
     expect([403, 404]).toContain(expiredLikeRaw.status());
   });
 });

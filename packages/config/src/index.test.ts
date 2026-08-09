@@ -5,7 +5,7 @@ describe("config", () => {
   it("validates required environment", () => {
     const env = parseAppEnv({
       DATABASE_URL: "postgresql://nodex:nodex@localhost:5432/nodex",
-      REDIS_URL: "redis://localhost:6379",
+      REDIS_URL: "redis://localhost:6387",
       JWT_SECRET: "local-secret-with-enough-length",
     });
 

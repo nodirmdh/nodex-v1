@@ -14,7 +14,12 @@ export type AuthBody = {
 };
 
 export function resetAcceptanceState() {
-  execFileSync("pnpm.cmd", ["acceptance:reset"], {
+  const command = process.platform === "win32" ? "cmd.exe" : "pnpm";
+  const args =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", "pnpm acceptance:reset"]
+      : ["acceptance:reset"];
+  execFileSync(command, args, {
     cwd: process.cwd(),
     env: { ...process.env, ACCEPTANCE_MODE: "true", NODE_ENV: "development" },
     stdio: "pipe",
@@ -35,9 +40,11 @@ export async function cityIds(request: APIRequestContext) {
   };
   const nukus = body.cities.find((city) => city.code === "nukus")?.id;
   const urgench = body.cities.find((city) => city.code === "urgench")?.id;
+  const khiva = body.cities.find((city) => city.code === "khiva")?.id;
   expect(nukus).toBeTruthy();
   expect(urgench).toBeTruthy();
-  return { nukus: nukus!, urgench: urgench! };
+  expect(khiva).toBeTruthy();
+  return { nukus: nukus!, urgench: urgench!, khiva: khiva! };
 }
 
 export async function searchableTripId(request: APIRequestContext, sessionId: string) {
@@ -46,7 +53,7 @@ export async function searchableTripId(request: APIRequestContext, sessionId: st
     params: {
       originCityId: ids.nukus,
       destinationCityId: ids.urgench,
-      date: "2026-08-08",
+      date: "2026-08-13",
       passengers: "1",
       sessionId,
     },
@@ -75,6 +82,8 @@ export async function createConfirmedBooking(
   const auth = await mockAuth(request, "CLIENT_APP");
   const tripId = await searchableTripId(request, input.idempotencyKey);
   const seatKey = await availableSeat(request, tripId);
+  const bookingPaymentMethod =
+    input.paymentMethod === "ONLINE" ? "MANUAL_TRANSFER" : input.paymentMethod;
   const hold = await request.post(`${api}/bookings/holds`, {
     headers: {
       authorization: `Bearer ${auth.accessToken}`,
@@ -85,7 +94,7 @@ export async function createConfirmedBooking(
       type: "SEAT",
       seatKeys: [seatKey],
       passengerCount: 1,
-      paymentMethod: input.paymentMethod,
+      paymentMethod: bookingPaymentMethod,
     },
   });
   expect(hold.status()).toBe(201);
@@ -95,7 +104,7 @@ export async function createConfirmedBooking(
     data: {
       passengers: [{ firstName: "Acceptance", lastName: "Passenger", ageCategory: "ADULT" }],
       baggage: [{ type: "SUITCASE", quantity: 1, weightKg: 8 }],
-      paymentMethod: input.paymentMethod,
+      paymentMethod: bookingPaymentMethod,
       consentAccepted: true,
     },
   });

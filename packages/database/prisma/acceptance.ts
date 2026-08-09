@@ -102,11 +102,7 @@ async function resetMutableAcceptanceState() {
   const profileId = await driverProfileId();
 
   await prisma.$transaction(async (tx) => {
-    const contacts = await tx.trustedContact.findMany({
-      where: { ownerUserId: clientId, displayName: { startsWith: "Acceptance " } },
-      select: { id: true },
-    });
-    await tx.trustedContact.deleteMany({ where: { id: { in: contacts.map((item) => item.id) } } });
+    await tx.trustedContact.deleteMany({ where: { ownerUserId: clientId } });
 
     await tx.userBlock.deleteMany({ where: { blockerUserId: clientId, blockedUserId: driverId } });
 
@@ -198,13 +194,23 @@ async function resetMutableAcceptanceState() {
     await tx.parcelOrder.deleteMany({ where: { id: { in: parcelIds } } });
 
     await tx.paymentRefund.deleteMany({
-      where: { idempotencyKey: { startsWith: "acceptance:" } },
+      where: {
+        OR: [
+          { idempotencyKey: { startsWith: "acceptance:" } },
+          { idempotencyKey: { startsWith: "acceptance-" } },
+        ],
+      },
     });
     await tx.paymentWebhookEvent.deleteMany({
       where: { eventId: { startsWith: "acceptance-" } },
     });
     const payments = await tx.payment.findMany({
-      where: { idempotencyKey: { startsWith: "acceptance:" } },
+      where: {
+        OR: [
+          { idempotencyKey: { startsWith: "acceptance:" } },
+          { idempotencyKey: { startsWith: "acceptance-" } },
+        ],
+      },
       select: { id: true },
     });
     const paymentIds = payments.map((payment) => payment.id);
@@ -220,10 +226,43 @@ async function resetMutableAcceptanceState() {
     await tx.cashSettlement.deleteMany({ where: { paymentId: { in: paymentIds } } });
     await tx.payment.deleteMany({ where: { id: { in: paymentIds } } });
 
+    const holds = await tx.seatHold.findMany({
+      where: { idempotencyKey: { startsWith: "acceptance-" } },
+      select: { id: true, bookingId: true },
+    });
+    const holdIds = holds.map((hold) => hold.id);
+    const bookingIds = holds
+      .map((hold) => hold.bookingId)
+      .filter((id): id is string => Boolean(id));
+    await tx.conversationParticipant.deleteMany({
+      where: { conversation: { bookingId: { in: bookingIds } } },
+    });
+    await tx.chatMessageReceipt.deleteMany({
+      where: { message: { conversation: { bookingId: { in: bookingIds } } } },
+    });
+    await tx.messageReport.deleteMany({
+      where: { message: { conversation: { bookingId: { in: bookingIds } } } },
+    });
+    await tx.chatMessage.deleteMany({
+      where: { conversation: { bookingId: { in: bookingIds } } },
+    });
+    await tx.conversation.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingTimelineEvent.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingOperationEvent.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingCancellation.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.boardingCode.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingBaggage.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingPassenger.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.bookingSeat.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    await tx.seatHoldItem.deleteMany({ where: { seatHoldId: { in: holdIds } } });
+    await tx.seatHold.deleteMany({ where: { id: { in: holdIds } } });
+    await tx.booking.deleteMany({ where: { id: { in: bookingIds } } });
+
     await tx.idempotencyRecord.deleteMany({
       where: {
         OR: [
           { key: { startsWith: "acceptance-" } },
+          { key: { startsWith: "acceptance:" } },
           { key: { startsWith: "phase7-" } },
           { scope: { contains: "acceptance" } },
         ],
@@ -242,8 +281,120 @@ async function resetMutableAcceptanceState() {
   await resetBookingOperationFixture();
 }
 
+async function seedAcceptanceTrip() {
+  const driverId = await driverUserId();
+  const profileId = await driverProfileId();
+  const vehicle = await prisma.vehicle.findFirstOrThrow({
+    where: { driverProfileId: profileId, status: "APPROVED", archivedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
+  const origin = await prisma.city.findUniqueOrThrow({ where: { code: "nukus" } });
+  const destination = await prisma.city.findUniqueOrThrow({ where: { code: "urgench" } });
+  const route = await prisma.route.findUniqueOrThrow({
+    where: {
+      originCityId_destinationCityId: {
+        originCityId: origin.id,
+        destinationCityId: destination.id,
+      },
+    },
+  });
+  const departureAtUtc = new Date("2026-08-13T05:00:00.000Z");
+  const trip = await prisma.trip.upsert({
+    where: { id: "acceptance-trip-public-1" },
+    create: {
+      id: "acceptance-trip-public-1",
+      driverProfileId: profileId,
+      vehicleId: vehicle.id,
+      routeId: route.id,
+      originCityId: origin.id,
+      destinationCityId: destination.id,
+      originCity: origin.nameRu,
+      destinationCity: destination.nameRu,
+      departureAtUtc,
+      arrivalEstimateAtUtc: new Date(
+        departureAtUtc.getTime() + (route.estimatedDurationMinutes ?? 180) * 60_000,
+      ),
+      timezone: origin.timezone,
+      status: "PUBLISHED",
+      passengerSeatCapacity: 4,
+      availableSeatCount: 4,
+      pricePerSeatMinor: 9500000n,
+      wholeCarPriceMinor: 38000000n,
+      parcelSupported: true,
+      parcelPriceMinor: 2500000n,
+      currency: "UZS",
+      luggageRules: "One suitcase and one small bag per passenger",
+      comment: "Acceptance deterministic public trip",
+      publishedAt: new Date("2026-08-09T00:00:00.000Z"),
+      publicationValidationSnapshot: { acceptance: true, errors: [] },
+    },
+    update: {
+      driverProfileId: profileId,
+      vehicleId: vehicle.id,
+      routeId: route.id,
+      originCityId: origin.id,
+      destinationCityId: destination.id,
+      originCity: origin.nameRu,
+      destinationCity: destination.nameRu,
+      departureAtUtc,
+      arrivalEstimateAtUtc: new Date(
+        departureAtUtc.getTime() + (route.estimatedDurationMinutes ?? 180) * 60_000,
+      ),
+      status: "PUBLISHED",
+      availableSeatCount: 4,
+      passengerSeatCapacity: 4,
+      blockedAt: null,
+      blockReason: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      parcelSupported: true,
+      parcelPriceMinor: 2500000n,
+      publishedAt: new Date("2026-08-09T00:00:00.000Z"),
+    },
+  });
+  const seats = [
+    ["ROW_1_RIGHT", "Row 1 right", 1, 1],
+    ["ROW_2_LEFT", "Row 2 left", 2, 0],
+    ["ROW_2_RIGHT", "Row 2 right", 2, 1],
+    ["ROW_3_LEFT", "Row 3 left", 3, 0],
+  ] as const;
+  for (const [seatKey, label, row, column] of seats) {
+    await prisma.tripSeat.upsert({
+      where: { tripId_seatKey: { tripId: trip.id, seatKey } },
+      create: {
+        tripId: trip.id,
+        seatKey,
+        label,
+        row,
+        column,
+        seatType: "STANDARD",
+        priceMinor: trip.pricePerSeatMinor,
+        status: "AVAILABLE",
+      },
+      update: { label, row, column, priceMinor: trip.pricePerSeatMinor, status: "AVAILABLE" },
+    });
+  }
+  await prisma.tripSeatSnapshot.upsert({
+    where: { tripId: trip.id },
+    create: {
+      tripId: trip.id,
+      vehicleId: vehicle.id,
+      passengerSeatCapacity: 4,
+      availableSeatCount: 4,
+      seatLabels: seats.map(([seatKey]) => seatKey),
+    },
+    update: { vehicleId: vehicle.id, passengerSeatCapacity: 4, availableSeatCount: 4 },
+  });
+  const actorUserId = driverId;
+  await prisma.tripTimelineEvent.deleteMany({ where: { tripId: trip.id } });
+  await prisma.tripTimelineEvent.create({
+    data: { tripId: trip.id, type: "ACCEPTANCE_TRIP_READY", payload: { actorUserId } },
+  });
+}
+
 async function seedAcceptanceState() {
   await resetMutableAcceptanceState();
+  await seedAcceptanceTrip();
   const [regions, cities, pickupPoints, routes, trips] = await Promise.all([
     prisma.region.count(),
     prisma.city.count(),

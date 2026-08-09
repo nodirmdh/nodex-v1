@@ -30,7 +30,7 @@ test.describe("final acceptance viewport matrix", () => {
     test(`driver mobile ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
       await page.goto(`${driver}/trips`);
-      await expect(page.getByRole("heading", { name: "My trips" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Trips" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Create trip" })).toBeVisible();
       await page.screenshot({
         path: `artifacts/final-acceptance/mobile/driver-${viewport.width}x${viewport.height}.png`,
