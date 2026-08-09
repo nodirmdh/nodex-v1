@@ -8,6 +8,10 @@ Baseline: created from `feat/payments-analytics-launch` at `18695d6`.
 
 Push status: not pushed.
 
+Current pass status: `FINAL_LOCAL_ACCEPTANCE_FAILED`.
+
+Reason: final isolated acceptance execution is blocked locally because Docker Desktop's Linux engine pipe is unavailable, so PostgreSQL on `localhost:15432` and MinIO on `localhost:9000` cannot be started for the required replay.
+
 ## Environment
 
 - Node: `v24.13.1`
@@ -75,6 +79,13 @@ No real secrets were printed.
 - Format check: passed after fixes.
 - Targeted typecheck: `@nodex/ui`, `@nodex/driver-mini-app`, and `@nodex/admin-web` passed after fixes.
 - Full gates should be re-run before final merge after acceptance docs are committed: lint, typecheck, unit, integration, Prisma validate/deploy/seed, Orval generation, build, production audit.
+- Final acceptance follow-up pass:
+  - `pnpm install --frozen-lockfile`: passed after local `node_modules` was found incomplete.
+  - `pnpm db:generate`: passed.
+  - `pnpm --filter @nodex/database typecheck`: passed after Prisma Client generation.
+  - New acceptance file formatting: applied with Prettier.
+  - `pnpm acceptance:reset`: blocked because PostgreSQL is not reachable on `localhost:15432`.
+  - `docker compose up -d postgres redis minio mailpit`: blocked because Docker Desktop Linux engine pipe is unavailable.
 
 ## Playwright Status
 
@@ -85,3 +96,4 @@ Known issue remains: tests complete assertions, but Playwright wrapper keeps an 
 - Playwright HTML report: `artifacts/playwright-report`
 - Failure contexts and screenshots: `test-results`
 - Acceptance docs: `docs/final-local-acceptance.md`, `docs/final-acceptance-defects.md`, `docs/final-acceptance-scenarios.md`
+- Final isolated acceptance result: `artifacts/final-acceptance/final-local-run.json`

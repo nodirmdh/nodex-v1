@@ -1,55 +1,87 @@
 # Final Acceptance Scenario Matrix
 
+Final isolated replay status: `blocked`.
+
+Acceptance isolation added:
+
+- `pnpm acceptance:reset` restores mutable shared fixtures and removes acceptance-created records behind `ACCEPTANCE_MODE=true`.
+- `pnpm acceptance:seed` and `pnpm acceptance:scenario` use the same guarded deterministic reset path.
+- New targeted suites:
+  - `tests/e2e/final-acceptance-scenarios.spec.ts`
+  - `tests/e2e/final-acceptance-negative.spec.ts`
+  - `tests/e2e/final-acceptance-mobile.spec.ts`
+  - `tests/e2e/final-acceptance-storage.spec.ts`
+
+Execution blocker: Docker Desktop Linux engine is unavailable, so PostgreSQL and MinIO cannot be started and the suites were not executed in this pass.
+
 ## Scenario A: Cash Passenger Ride
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: booking UI renders cash booking and client booking detail; Phase 7 trip operation suite passed boarding/start/complete/admin visibility. Combined all-suite run is state-sensitive because trip operation tests mutate shared booking status before Phase 6 UI assertions.
+Prepared coverage: creates a fresh cash booking from public search, confirms it, creates cash payment intent, and verifies client booking access.
 
 ## Scenario B: Online Mock Ride
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: Phase 11 payment checkout UI, admin finance, analytics, and OpenAPI checks passed. Mock provider/webhook integrity was accepted in Phase 11 launch audit. Full end-to-end booking-to-webhook flow was not re-run as one isolated scenario in this pass.
+Prepared coverage: creates a fresh online booking, creates mock payment intent, signs and posts mock success webhook, and verifies succeeded payment status.
 
 ## Scenario C: Online Payment Failure
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: worker finance maintenance processed expired payments and refunds in bounded startup logs. Dedicated isolated failed-payment UI flow remains recommended before launch.
+Prepared coverage: posts signed failed mock webhook and rejects an expired signed webhook.
 
 ## Scenario D: Refund
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: seeded refund and Phase 11 finance surfaces passed; worker finance maintenance processed refunds. Isolated refund journey should be replayed with fresh payment fixture before launch.
+Prepared coverage: creates a fresh successful online payment and requests a refund with a deterministic idempotency key.
 
 ## Scenario E: Parcel
 
-Status: passed for available smoke scope.
+Status: not executed in final isolated replay.
 
-Evidence: Phase 8 API directory privacy, client parcel creation/tracking UI, driver parcel operations UI, and admin parcel moderation UI passed.
+Prepared coverage: creates a fresh parcel on a public available trip and checks UZS minor-unit pricing.
 
 ## Scenario F: Chat And Support
 
-Status: passed for available smoke scope.
+Status: not executed in final isolated replay.
 
-Evidence: Phase 9 conversation creation, idempotent message send, notifications read lifecycle, support ticket creation/admin history, and communication surfaces passed.
+Prepared coverage: creates booking conversation, posts deterministic chat message, and opens a support ticket.
 
 ## Scenario G: Safety
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: review flow, admin trust/safety workspace, and client/driver/admin safety surfaces passed. Repeated trusted contact creation returned `409` in a reused local database, so isolated fixture reset is needed for a clean full replay.
+Prepared coverage: creates a deterministic trusted contact and safety report after reset, eliminating the reused-state `409` source.
 
 ## Scenario H: Admin Finance
 
-Status: passed for available smoke scope.
+Status: not executed in final isolated replay.
 
-Evidence: Phase 11 admin finance workspace, ledger entries, analytics dashboard, and OpenAPI finance/analytics paths passed.
+Prepared coverage: verifies admin finance payments and ledger APIs and client/driver/admin finance UI surfaces.
 
 ## Negative Access
 
-Status: partial.
+Status: not executed in final isolated replay.
 
-Evidence: Phase 1 driver forbidden admin access passed in clean scope historically; Phase 2 client forbidden driver verification passed; Phase 11 payment integrity and duplicate guards were accepted in database/API launch audit. A full negative-access matrix should be run with isolated fixtures to avoid false positives from shared state.
+Prepared coverage: client, driver, public/token, code, finance, and restriction denial checks are captured in `tests/e2e/final-acceptance-negative.spec.ts`.
+
+## Mobile Matrix
+
+Status: not executed in final isolated replay.
+
+Prepared coverage:
+
+- Client 360x800, 390x844, 430x932.
+- Driver 360x800, 390x844, 430x932.
+- Admin 1280x800, 1440x900, 1024x768.
+
+Screenshots are configured to save under `artifacts/final-acceptance/mobile`.
+
+## MinIO And Storage
+
+Status: not executed in final isolated replay.
+
+Prepared coverage: MinIO live/ready checks, signed vehicle upload URL, parcel photo storage key write, public DTO raw storage key absence, and raw object access denial.
