@@ -94,6 +94,15 @@ No real secrets were printed.
 - Confirmed relevant runtime paths after the override update: API boot and validation, Prisma/Nest startup, Next client/driver/admin startup, lint, typecheck, unit, integration, build, and targeted smoke.
 - Acceptance trip fixtures now use a bounded future UTC date so final smoke searches do not expire as wall-clock time advances.
 
+## Migration Whitespace Exception
+
+`git diff --check main...HEAD` reports `new blank line at EOF` for two historical migration files:
+
+- `packages/database/prisma/migrations/20260802100000_phase_10_reviews_reliability_safety/migration.sql`
+- `packages/database/prisma/migrations/20260803110000_phase_11_payments_analytics_launch/migration.sql`
+
+The flagged lines are empty EOF lines with no spaces, no tabs, and no SQL content. Removing them would be formatting-only and would not change SQL semantics. The migrations were already applied during final local acceptance, later migrations depend on that historical chain, and these historical migration files are intentionally left immutable to avoid changing accepted migration checksums/history. A targeted whitespace validation of `main...HEAD` excluding only these two exact files passes.
+
 ## Playwright Status
 
 Known issue remains: tests complete assertions, but Playwright wrapper keeps an open handle and exits through external timeout `124`. webServer processes and ports are released.
