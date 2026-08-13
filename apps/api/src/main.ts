@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import { Socket } from "node:net";
+import { dirname, resolve } from "node:path";
 import { Catch, HttpException, Module } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -153,6 +155,10 @@ const appContextRoles: Record<AppContext, RoleCode> = {
   ADMIN_WEB: "ADMIN",
   LOCAL_MOCK: "CLIENT",
 };
+
+const openApiOutputArgIndex = process.argv.indexOf("--openapi-output");
+const openApiOutputPath =
+  openApiOutputArgIndex >= 0 ? process.argv[openApiOutputArgIndex + 1] : undefined;
 
 @Catch()
 class ApiExceptionFilter implements ExceptionFilter {
@@ -11603,6 +11609,14 @@ async function bootstrap() {
   };
   SwaggerModule.setup("docs", app, document);
   http.get("/openapi.json", (_req: unknown, res: Response) => res.json(document));
+
+  if (openApiOutputPath) {
+    const outputPath = resolve(process.cwd(), openApiOutputPath);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, JSON.stringify(document, null, 2));
+    await app.close();
+    return;
+  }
 
   await app.listen(Number(env.API_PORT));
 }
