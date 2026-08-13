@@ -4,6 +4,12 @@ const prisma = new PrismaClient();
 
 const mode = process.argv[2] ?? "reset";
 const guardedModes = new Set(["reset", "seed", "scenario"]);
+const acceptanceTripOffsetMs = 7 * 24 * 60 * 60 * 1000;
+
+function acceptanceTripDepartureAtUtc() {
+  const date = new Date(Date.now() + acceptanceTripOffsetMs);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 5, 0, 0));
+}
 
 function requireAcceptanceMode() {
   if (!guardedModes.has(mode)) {
@@ -298,7 +304,7 @@ async function seedAcceptanceTrip() {
       },
     },
   });
-  const departureAtUtc = new Date("2026-08-13T05:00:00.000Z");
+  const departureAtUtc = acceptanceTripDepartureAtUtc();
   const trip = await prisma.trip.upsert({
     where: { id: "acceptance-trip-public-1" },
     create: {

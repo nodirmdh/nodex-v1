@@ -7,6 +7,15 @@ export const driver = "http://127.0.0.1:3101";
 export const admin = "http://127.0.0.1:3102";
 export const api = "http://127.0.0.1:3103/api/v1";
 
+const acceptanceTripOffsetMs = 7 * 24 * 60 * 60 * 1000;
+
+function acceptanceSearchDate() {
+  const date = new Date(Date.now() + acceptanceTripOffsetMs);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+    .toISOString()
+    .slice(0, 10);
+}
+
 export type AuthBody = {
   accessToken: string;
   roles: string[];
@@ -53,7 +62,7 @@ export async function searchableTripId(request: APIRequestContext, sessionId: st
     params: {
       originCityId: ids.nukus,
       destinationCityId: ids.urgench,
-      date: "2026-08-13",
+      date: acceptanceSearchDate(),
       passengers: "1",
       sessionId,
     },

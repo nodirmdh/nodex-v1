@@ -6,13 +6,13 @@ None found in the bounded local acceptance pass.
 
 ## P1 Must Fix Before Launch
 
-- `SEC-AUDIT-001` Production dependency audit reports high-severity advisories.
-  - Evidence: `pnpm audit:production` reported high advisories for transitive `fast-uri`, `brace-expansion`, and `nanoid` paths.
-  - Impact: production dependency audit gate is not green.
-  - Required action: run a dedicated dependency remediation pass and rerun `pnpm audit:production`.
+None open.
 
 Fixed P1:
 
+- `SEC-AUDIT-001` Production dependency audit reports high-severity advisories.
+  - Fix: updated overrides and lockfile for production-impacting `fast-uri`, `brace-expansion`, and `nanoid` paths.
+  - Verification: `pnpm audit:production` reports no known vulnerabilities.
 - `ACC-001` Driver dashboard progress bar used `aria-label` on a generic `div`.
   - Fix: added `role="progressbar"` with `aria-valuemin`, `aria-valuemax`, and `aria-valuenow`.
 - `ACC-002` Primary buttons failed WCAG AA color contrast in axe computed styles.
@@ -29,8 +29,17 @@ Fixed P1:
 - `MINIO-001` MinIO health is green, but unauthenticated `mc ls local` returned `Access Denied`.
   - Suggested fix: document expected credentialed bucket verification command and include it in local acceptance.
 
+Fixed P2:
+
+- `ACC-SMOKE-001` Final acceptance booking smoke searched for an acceptance trip on a fixed 2026-08-13 date.
+  - Fix: acceptance seed and smoke helper now derive the deterministic trip/search date from a future UTC day.
+  - Verification: split booking, payment, chat/support, and MinIO smoke assertions passed.
+
 ## P3 Post-Launch Debt
 
 - `PW-001` Playwright wrapper keeps an open handle after assertions pass and exits through external timeout `124`; ports are released.
+- `SEC-DEV-001` Full dependency audit reports dev-only Storybook `image-size@2.0.2` advisories.
+  - Classification: not production-impacting; `pnpm audit:production` is clean.
+  - Follow-up: upgrade once a patched `image-size` release is available through the Storybook dependency chain.
 - `DEV-001` PowerShell blocks `npx.ps1`; use `npx.cmd` or adjust local execution policy.
 - `DOCKER-001` Docker daemon access requires elevated execution on this Windows host.

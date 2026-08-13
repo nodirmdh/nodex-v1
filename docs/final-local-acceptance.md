@@ -8,9 +8,9 @@ Baseline: created from `feat/payments-analytics-launch` at `18695d6`.
 
 Push status: not pushed.
 
-Current pass status: `FINAL_LOCAL_ACCEPTANCE_FAILED`.
+Current pass status: `FINAL_LOCAL_ACCEPTANCE_PASSED`.
 
-Reason: functional local acceptance passed, but the production dependency audit reports high-severity advisories that need a dependency update pass before launch.
+Reason: production dependency audit is clean, final acceptance assertions pass in bounded isolated smoke slices, and the remaining Playwright exit `124` occurs only after assertions complete with ports released.
 
 ## Environment
 
@@ -60,12 +60,16 @@ No real secrets were printed.
 
 ## Acceptance Results
 
-- Final isolated scenarios A-H: passed.
-- Negative access matrix: passed.
-- Mobile viewport matrix: passed.
-- MinIO/private storage and public DTO privacy: passed.
-- Targeted final acceptance total: 19/19 assertions passed.
-- Playwright process exit: external timeout `124` after assertions because of the known open-handle issue; ports `3100-3104` were free after timeout.
+- Final isolated scenarios A-H: previously passed.
+- Negative access matrix: previously passed.
+- Mobile viewport matrix: previously passed.
+- MinIO/private storage and public DTO privacy: passed in the split targeted replay.
+- Targeted dependency-closure smoke slices:
+  - Booking cash passenger ride: assertions passed in 3.8s; process later exited by external timeout `124`.
+  - Online mock ride: assertions passed in 4.4s; process later exited by external timeout `124`.
+  - Chat/support smoke: assertions passed in 3.1s; process later exited by external timeout `124`.
+  - MinIO/private storage and public DTO privacy: assertions passed in 1.2s; process later exited by external timeout `124`.
+- Ports `3100-3104` were free after each bounded smoke slice.
 
 ## Quality Gates
 
@@ -80,7 +84,15 @@ No real secrets were printed.
 - Acceptance reset/seed repeatability: passed.
 - OpenAPI/Orval generation: passed.
 - Build: passed.
-- Production dependency audit: failed with high advisories in transitive dependencies (`fast-uri`, `brace-expansion`, `nanoid`).
+- Production dependency audit: passed; `pnpm audit:production` reported no known vulnerabilities.
+- Full dependency audit: still reports two high advisories for dev-only `image-size@2.0.2` through `@nodex/ui > @storybook/nextjs-vite > vite-plugin-storybook-nextjs > image-size`. The patched version requested by the advisory is `>=2.0.3`, but no `image-size@2.0.3` package is currently available in the registry used by pnpm.
+
+## Dependency Security Closure
+
+- Updated production-impacting overrides for `fast-uri`, `brace-expansion`, and `nanoid`.
+- Updated tooling overrides for `orval > js-yaml` and `esbuild`.
+- Confirmed relevant runtime paths after the override update: API boot and validation, Prisma/Nest startup, Next client/driver/admin startup, lint, typecheck, unit, integration, build, and targeted smoke.
+- Acceptance trip fixtures now use a bounded future UTC date so final smoke searches do not expire as wall-clock time advances.
 
 ## Playwright Status
 

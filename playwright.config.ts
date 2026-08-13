@@ -9,6 +9,7 @@ const apiHealthURL = `${apiURL}/api/v1/health`;
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
+  globalTimeout: 10 * 60_000,
   expect: { timeout: 8_000 },
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
