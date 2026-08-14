@@ -251,6 +251,11 @@ function hashSecret(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function futureFixtureDateAtUtc(offsetDays: number, hourUtc: number) {
+  const date = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hourUtc));
+}
+
 async function seedDriverVerificationFixtures() {
   const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
   const statuses = [
@@ -804,7 +809,7 @@ async function seedTripSupplyFixtures() {
       where: { id: row.route.destinationCityId },
     });
     const departureHourUtc = index === 0 ? 3 : index === 2 ? 13 : 5;
-    const departureAtUtc = new Date(Date.UTC(2026, 7, 1 + row.offsetDays, departureHourUtc, 0, 0));
+    const departureAtUtc = futureFixtureDateAtUtc(row.offsetDays, departureHourUtc);
     const existing = await prisma.trip.findFirst({
       where: { driverProfileId: driverProfile.id, routeId: row.route.id, departureAtUtc },
     });
@@ -1158,187 +1163,241 @@ async function seedBookingFixtures() {
 async function seedTripOperationsFixtures() {
   const client = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000003n } });
   const driver = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000002n } });
-  const admin = await prisma.user.findUniqueOrThrow({ where: { telegramId: 900000001n } });
   const driverProfile = await prisma.driverProfile.findUniqueOrThrow({
     where: { userId: driver.id },
   });
-  const trips = await prisma.trip.findMany({
-    where: { driverProfileId: driverProfile.id },
-    orderBy: { departureAtUtc: "asc" },
-    include: { bookings: { include: { seats: true } } },
-    take: 5,
+  const vehicle = await prisma.vehicle.findFirstOrThrow({
+    where: { driverProfileId: driverProfile.id, status: "APPROVED", archivedAt: null },
+    orderBy: { createdAt: "asc" },
   });
-  const boardingTrip = trips.find((trip) => trip.bookings.length > 0) ?? trips[0];
-  const inProgressTrip = trips.find(
-    (trip) => trip.id !== boardingTrip?.id && trip.status === "PUBLISHED",
-  );
-  const completedTrip = trips.find(
-    (trip) => trip.id !== boardingTrip?.id && trip.id !== inProgressTrip?.id,
-  );
-  if (!boardingTrip) return;
+  const origin = await prisma.city.findUniqueOrThrow({ where: { code: "nukus" } });
+  const destination = await prisma.city.findUniqueOrThrow({ where: { code: "urgench" } });
+  const route = await prisma.route.findUniqueOrThrow({
+    where: {
+      originCityId_destinationCityId: {
+        originCityId: origin.id,
+        destinationCityId: destination.id,
+      },
+    },
+  });
+  const layout = bookingSeatLayout(4);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.trip.update({
-      where: { id: boardingTrip.id },
-      data: { status: "BOARDING", version: { increment: 1 } },
-    });
-    await tx.tripOperationEvent.deleteMany({ where: { tripId: boardingTrip.id } });
-    await tx.tripStatusTransition.deleteMany({ where: { tripId: boardingTrip.id } });
-    await tx.noShowRecord.deleteMany({ where: { tripId: boardingTrip.id } });
-    await tx.tripOperationEvent.createMany({
-      data: [
-        {
-          tripId: boardingTrip.id,
+  for (const retry of [0, 1, 2]) {
+    const tripId = `phase7-trip-operations-${retry}`;
+    const bookingId = `phase7-booking-confirmed-${retry}`;
+    const seat = layout[retry % layout.length]!;
+    const departureAtUtc = futureFixtureDateAtUtc(8 + retry, 6);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.trip.upsert({
+        where: { id: tripId },
+        create: {
+          id: tripId,
+          driverProfileId: driverProfile.id,
+          vehicleId: vehicle.id,
+          routeId: route.id,
+          originCityId: origin.id,
+          destinationCityId: destination.id,
+          originCity: origin.nameRu,
+          destinationCity: destination.nameRu,
+          departureAtUtc,
+          arrivalEstimateAtUtc: new Date(
+            departureAtUtc.getTime() + (route.estimatedDurationMinutes ?? 180) * 60_000,
+          ),
+          timezone: origin.timezone,
+          status: "BOARDING",
+          passengerSeatCapacity: 4,
+          availableSeatCount: 3,
+          pricePerSeatMinor: 8500000n,
+          wholeCarPriceMinor: 34000000n,
+          parcelSupported: false,
+          currency: "UZS",
+          luggageRules: "One suitcase and one small bag per passenger",
+          comment: "Phase 7 isolated operation fixture",
+          publishedAt: new Date(),
+          publicationValidationSnapshot: { fixture: true, phase: 7, errors: [] },
+        },
+        update: {
+          driverProfileId: driverProfile.id,
+          vehicleId: vehicle.id,
+          routeId: route.id,
+          originCityId: origin.id,
+          destinationCityId: destination.id,
+          departureAtUtc,
+          arrivalEstimateAtUtc: new Date(
+            departureAtUtc.getTime() + (route.estimatedDurationMinutes ?? 180) * 60_000,
+          ),
+          status: "BOARDING",
+          availableSeatCount: 3,
+          passengerSeatCapacity: 4,
+          blockedAt: null,
+          blockReason: null,
+          cancelledAt: null,
+          cancellationReason: null,
+        },
+      });
+
+      for (const item of layout) {
+        await tx.tripSeat.upsert({
+          where: { tripId_seatKey: { tripId, seatKey: item.seatKey } },
+          create: {
+            tripId,
+            seatKey: item.seatKey,
+            label: item.label,
+            row: item.row,
+            column: item.column,
+            seatType: item.seatType,
+            priceMinor: 8500000n,
+            status: item.seatKey === seat.seatKey ? "BOOKED" : "AVAILABLE",
+          },
+          update: {
+            label: item.label,
+            row: item.row,
+            column: item.column,
+            seatType: item.seatType,
+            priceMinor: 8500000n,
+            status: item.seatKey === seat.seatKey ? "BOOKED" : "AVAILABLE",
+          },
+        });
+      }
+
+      await tx.tripSeatSnapshot.upsert({
+        where: { tripId },
+        create: {
+          tripId,
+          vehicleId: vehicle.id,
+          passengerSeatCapacity: 4,
+          availableSeatCount: 3,
+          seatLabels: layout.map((item) => item.seatKey),
+        },
+        update: { vehicleId: vehicle.id, passengerSeatCapacity: 4, availableSeatCount: 3 },
+      });
+
+      await tx.tripOperationEvent.deleteMany({ where: { tripId } });
+      await tx.tripStatusTransition.deleteMany({ where: { tripId } });
+      await tx.tripExecution.deleteMany({ where: { tripId } });
+      await tx.tripCompletionSummary.deleteMany({ where: { tripId } });
+      await tx.tripOperationEvent.create({
+        data: {
+          tripId,
           actorUserId: driver.id,
           type: "TRIP_BOARDING",
-          payload: { fixture: true },
+          payload: { fixture: true, retry },
         },
-        {
-          tripId: boardingTrip.id,
-          actorUserId: driver.id,
-          type: "BOARDING_CODE_GENERATED",
-          payload: { fixture: true },
-        },
-      ],
-    });
-    await tx.tripStatusTransition.create({
-      data: {
-        tripId: boardingTrip.id,
-        actorUserId: driver.id,
-        fromStatus: "PUBLISHED",
-        toStatus: "BOARDING",
-        reason: "Phase 7 fixture boarding",
-      },
-    });
-
-    const confirmed = await tx.booking.findUnique({
-      where: { id: "phase6-booking-confirmed" },
-      include: { seats: true },
-    });
-    if (confirmed) {
-      await tx.booking.update({
-        where: { id: confirmed.id },
-        data: { status: "BOARDING", version: { increment: 1 } },
       });
-      await tx.bookingSeat.updateMany({
-        where: { bookingId: confirmed.id, status: "BOOKED" },
-        data: { status: "OCCUPIED" },
-      });
-      await tx.tripSeat.updateMany({
-        where: {
-          tripId: confirmed.tripId,
-          seatKey: { in: confirmed.seats.map((seat) => seat.seatKey) },
-        },
-        data: { status: "OCCUPIED", version: { increment: 1 } },
-      });
-      await tx.boardingCode.deleteMany({ where: { bookingId: confirmed.id } });
-      await tx.boardingCode.create({
+      await tx.tripStatusTransition.create({
         data: {
-          bookingId: confirmed.id,
-          codeHash: hashSecret("482913"),
-          codeLength: 6,
-          status: "ACTIVE",
-          expiresAt: new Date("2026-08-08T06:25:00.000Z"),
-          maxAttempts: 5,
+          tripId,
+          actorUserId: driver.id,
+          fromStatus: "PUBLISHED",
+          toStatus: "BOARDING",
+          reason: "Phase 7 isolated fixture boarding",
         },
       });
-      await tx.bookingOperationEvent.deleteMany({ where: { bookingId: confirmed.id } });
-      await tx.bookingOperationEvent.createMany({
+
+      await tx.boardingCode.deleteMany({ where: { bookingId } });
+      await tx.bookingOperationEvent.deleteMany({ where: { bookingId } });
+      await tx.bookingTimelineEvent.deleteMany({ where: { bookingId } });
+      await tx.bookingBaggage.deleteMany({ where: { bookingId } });
+      await tx.bookingPassenger.deleteMany({ where: { bookingId } });
+      await tx.bookingSeat.deleteMany({ where: { bookingId } });
+
+      const booking = await tx.booking.upsert({
+        where: { id: bookingId },
+        create: {
+          id: bookingId,
+          tripId,
+          clientId: client.id,
+          type: "SEAT",
+          status: "BOARDING",
+          paymentMethod: "CASH",
+          currency: "UZS",
+          totalMinor: 8500000n,
+          passengerCount: 1,
+          pricingSnapshot: { fixture: true, totalMinor: "8500000" },
+          tripSnapshot: {
+            fixture: true,
+            originCity: origin.nameRu,
+            destinationCity: destination.nameRu,
+            departureAtUtc: departureAtUtc.toISOString(),
+          },
+          termsSnapshot: { version: "0.1-local" },
+          confirmedAt: new Date(),
+        },
+        update: {
+          tripId,
+          clientId: client.id,
+          status: "BOARDING",
+          paymentMethod: "CASH",
+          totalMinor: 8500000n,
+          passengerCount: 1,
+          confirmedAt: new Date(),
+          cancelledAt: null,
+          cancellationReason: null,
+        },
+      });
+
+      await tx.seatHold.upsert({
+        where: { tripId_idempotencyKey: { tripId, idempotencyKey: `${bookingId}-hold` } },
+        create: {
+          id: `${bookingId}-hold`,
+          tripId,
+          clientId: client.id,
+          bookingId: booking.id,
+          idempotencyKey: `${bookingId}-hold`,
+          status: "CONFIRMED",
+          expiresAt: new Date(departureAtUtc.getTime() + 15 * 60_000),
+          confirmedAt: new Date(),
+        },
+        update: { bookingId: booking.id, status: "CONFIRMED", confirmedAt: new Date() },
+      });
+
+      const tripSeat = await tx.tripSeat.findUniqueOrThrow({
+        where: { tripId_seatKey: { tripId, seatKey: seat.seatKey } },
+      });
+      await tx.seatHoldItem.upsert({
+        where: { seatHoldId_seatKey: { seatHoldId: `${bookingId}-hold`, seatKey: seat.seatKey } },
+        create: { seatHoldId: `${bookingId}-hold`, tripSeatId: tripSeat.id, seatKey: seat.seatKey },
+        update: { tripSeatId: tripSeat.id },
+      });
+      await tx.bookingSeat.create({
+        data: {
+          bookingId,
+          tripSeatId: tripSeat.id,
+          seatKey: seat.seatKey,
+          priceMinor: 8500000n,
+          status: "BOOKED",
+        },
+      });
+      await tx.bookingPassenger.create({
+        data: {
+          bookingId,
+          firstName: "Phase7",
+          lastName: "Passenger",
+          phone: "+998900007777",
+          ageCategory: "ADULT",
+          isPrimary: true,
+          seatKey: seat.seatKey,
+        },
+      });
+      await tx.bookingBaggage.create({
+        data: { bookingId, type: "SUITCASE", quantity: 1, weightKg: 12 },
+      });
+      await tx.bookingTimelineEvent.createMany({
         data: [
-          {
-            bookingId: confirmed.id,
-            actorUserId: client.id,
-            type: "BOARDING_CODE_GENERATED",
-            payload: { fixture: true },
-          },
-          {
-            bookingId: confirmed.id,
-            actorUserId: driver.id,
-            type: "BOOKING_BOARDED",
-            payload: { fixture: true },
-          },
+          { bookingId, actorUserId: client.id, type: "BOOKING_HOLD_CREATED" },
+          { bookingId, actorUserId: client.id, type: "BOOKING_CONFIRMED" },
+          { bookingId, actorUserId: driver.id, type: "BOOKING_BOARDING_READY" },
         ],
       });
-    }
-
-    const hold = await tx.booking.findUnique({ where: { id: "phase6-booking-hold" } });
-    if (hold) {
-      await tx.booking.update({
-        where: { id: hold.id },
-        data: { status: "NO_SHOW_CLIENT", cancellationReason: "Phase 7 fixture no-show" },
-      });
-      await tx.noShowRecord.create({
+      await tx.bookingOperationEvent.create({
         data: {
-          tripId: hold.tripId,
-          bookingId: hold.id,
+          bookingId,
           actorUserId: driver.id,
-          actorRole: "DRIVER",
-          type: "CLIENT",
-          reason: "Phase 7 fixture no-show",
+          type: "BOOKING_BOARDING_READY",
+          payload: { fixture: true, retry },
         },
       });
-    }
-  });
-
-  if (inProgressTrip) {
-    await prisma.trip.update({
-      where: { id: inProgressTrip.id },
-      data: { status: "IN_PROGRESS", version: { increment: 1 } },
-    });
-    await prisma.tripExecution.upsert({
-      where: { tripId: inProgressTrip.id },
-      create: {
-        tripId: inProgressTrip.id,
-        status: "IN_PROGRESS",
-        startedAt: new Date("2026-08-08T05:05:00.000Z"),
-      },
-      update: { status: "IN_PROGRESS", startedAt: new Date("2026-08-08T05:05:00.000Z") },
-    });
-  }
-
-  if (completedTrip) {
-    await prisma.trip.update({
-      where: { id: completedTrip.id },
-      data: { status: "COMPLETED", version: { increment: 1 } },
-    });
-    await prisma.tripCompletionSummary.upsert({
-      where: { tripId: completedTrip.id },
-      create: {
-        tripId: completedTrip.id,
-        completedByUserId: driver.id,
-        boardedCount: 1,
-        noShowClientCount: 0,
-        cancelledCount: 0,
-        totalBookingsCount: 1,
-        notes: "Phase 7 completed trip fixture",
-      },
-      update: { completedByUserId: driver.id, notes: "Phase 7 completed trip fixture" },
-    });
-  }
-
-  const cancelledTrip = trips.find(
-    (trip) =>
-      trip.id !== boardingTrip.id &&
-      trip.id !== inProgressTrip?.id &&
-      trip.id !== completedTrip?.id,
-  );
-  if (cancelledTrip) {
-    await prisma.trip.update({
-      where: { id: cancelledTrip.id },
-      data: {
-        status: "CANCELLED",
-        cancelledAt: new Date("2026-08-08T06:00:00.000Z"),
-        cancellationReason: "Phase 7 operational cancellation fixture",
-      },
-    });
-    await prisma.tripCancellation.deleteMany({ where: { tripId: cancelledTrip.id } });
-    await prisma.tripCancellation.create({
-      data: {
-        tripId: cancelledTrip.id,
-        actorUserId: admin.id,
-        actorRole: "ADMIN",
-        reason: "Phase 7 operational cancellation fixture",
-      },
     });
   }
 }

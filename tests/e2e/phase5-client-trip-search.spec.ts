@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { futureTripSearchDate } from "./e2e-fixtures";
 
 const client = "http://127.0.0.1:3100";
 const api = "http://127.0.0.1:3103";
@@ -44,7 +45,7 @@ test.describe("phase 5 public trip search", () => {
       params: {
         originCityId: ids.nukus!,
         destinationCityId: ids.urgench!,
-        date: "2026-08-08",
+        date: futureTripSearchDate(),
         passengers: "2",
         sort: "price_asc",
         parcelSupported: "false",
@@ -72,7 +73,7 @@ test.describe("phase 5 public trip search", () => {
       params: {
         originCityId: ids.nukus!,
         destinationCityId: ids.urgench!,
-        date: "2026-08-08",
+        date: futureTripSearchDate(),
         passengers: "1",
         sessionId: "phase5-e2e-session",
       },

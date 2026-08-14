@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { futureTripSearchDate } from "./e2e-fixtures";
 
 const client = "http://127.0.0.1:3100";
 const api = "http://127.0.0.1:3103/api/v1";
@@ -9,14 +10,18 @@ async function mockAuth(request: APIRequestContext, appContext: string) {
   return response.json() as Promise<{ accessToken: string; roles: string[]; user: { id: string } }>;
 }
 
-async function publicTripId(request: APIRequestContext) {
+async function publicTripId(
+  request: APIRequestContext,
+  options: { destinationCode?: string; offsetDays?: number; sessionId?: string } = {},
+) {
   const cities = await request.get(`${api}/cities`);
   await expect(cities).toBeOK();
   const body = (await cities.json()) as {
     cities: Array<{ id: string; code: string }>;
   };
   const nukus = body.cities.find((city) => city.code === "nukus")?.id;
-  const urgench = body.cities.find((city) => city.code === "urgench")?.id;
+  const destinationCode = options.destinationCode ?? "urgench";
+  const urgench = body.cities.find((city) => city.code === destinationCode)?.id;
   expect(nukus).toBeTruthy();
   expect(urgench).toBeTruthy();
 
@@ -24,9 +29,9 @@ async function publicTripId(request: APIRequestContext) {
     params: {
       originCityId: nukus!,
       destinationCityId: urgench!,
-      date: "2026-08-08",
+      date: futureTripSearchDate(options.offsetDays),
       passengers: "1",
-      sessionId: "phase6-e2e",
+      sessionId: options.sessionId ?? "phase6-e2e",
     },
   });
   await expect(search).toBeOK();
@@ -39,8 +44,13 @@ async function publicTripId(request: APIRequestContext) {
 test.describe("phase 6 booking and seat holds", () => {
   test("exposes public seat inventory and creates an idempotent client hold", async ({
     request,
-  }) => {
-    const tripId = await publicTripId(request);
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "API mutation coverage runs once on desktop.");
+    const tripId = await publicTripId(request, {
+      destinationCode: "khiva",
+      offsetDays: 9,
+      sessionId: "phase6-hold-e2e",
+    });
     const seats = await request.get(`${api}/trips/public/${tripId}/seats`);
     await expect(seats).toBeOK();
     const seatBody = (await seats.json()) as {
@@ -93,8 +103,15 @@ test.describe("phase 6 booking and seat holds", () => {
     );
   });
 
-  test("confirms a held booking and surfaces it to driver and admin", async ({ request }) => {
-    const tripId = await publicTripId(request);
+  test("confirms a held booking and surfaces it to driver and admin", async ({
+    request,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "API mutation coverage runs once on desktop.");
+    const tripId = await publicTripId(request, {
+      destinationCode: "khiva",
+      offsetDays: 9,
+      sessionId: "phase6-confirm-e2e",
+    });
     const seats = await request.get(`${api}/trips/public/${tripId}/seats`);
     const seatBody = (await seats.json()) as { seats: Array<{ seatKey: string; status: string }> };
     const available = seatBody.seats.find((seat) => seat.status === "AVAILABLE");
@@ -165,17 +182,17 @@ test.describe("phase 6 booking and seat holds", () => {
     );
 
     await page.goto(`${client}/bookings`);
-    await expect(page.getByRole("region", { name: "Client bookings" })).toContainText("CONFIRMED");
+    await expect(page.getByRole("region", { name: "Client bookings" })).toContainText(
+      "Show boarding code",
+    );
 
     await page.goto("http://127.0.0.1:3101/passengers-demo");
     await expect(page.getByRole("region", { name: "Driver booking list" })).toContainText(
-      "PENDING_CONFIRMATION",
+      "CONFIRMED",
     );
 
     await page.goto("http://127.0.0.1:3102/bookings");
-    await expect(page.getByRole("table", { name: "Admin booking list" })).toContainText(
-      "CONFIRMED",
-    );
+    await expect(page.getByRole("table", { name: "Admin booking list" })).toContainText("BOARDING");
     await expect(page.getByRole("region", { name: "Booking detail panel" })).toContainText(
       "Timeline",
     );

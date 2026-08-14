@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
+import { runScopedId } from "./e2e-fixtures";
 
 const api = "http://127.0.0.1:3103/api/v1";
 
@@ -9,7 +10,12 @@ async function mockAuth(request: APIRequestContext, appContext: string) {
   return response.json() as Promise<{ accessToken: string; roles: string[]; user: { id: string } }>;
 }
 
-async function addDocument(request: APIRequestContext, token: string, vehicleId: string) {
+async function addDocument(
+  request: APIRequestContext,
+  token: string,
+  vehicleId: string,
+  suffix: string,
+) {
   const presign = await request.post(`${api}/vehicles/${vehicleId}/documents/presign`, {
     headers: { authorization: `Bearer ${token}` },
     data: {
@@ -17,7 +23,7 @@ async function addDocument(request: APIRequestContext, token: string, vehicleId:
       originalFileName: "registration.pdf",
       mimeType: "application/pdf",
       size: 128000,
-      checksum: "vehicle-registration-checksum-123456",
+      checksum: `vehicle-registration-${suffix}`,
     },
   });
   expect(presign.ok()).toBeTruthy();
@@ -29,14 +35,19 @@ async function addDocument(request: APIRequestContext, token: string, vehicleId:
       originalFileName: "registration.pdf",
       mimeType: "application/pdf",
       size: 128000,
-      checksum: "vehicle-registration-checksum-123456",
+      checksum: `vehicle-registration-${suffix}`,
       storageKey: signed.storageKey,
     },
   });
   expect(complete.ok()).toBeTruthy();
 }
 
-async function addPhotos(request: APIRequestContext, token: string, vehicleId: string) {
+async function addPhotos(
+  request: APIRequestContext,
+  token: string,
+  vehicleId: string,
+  suffix: string,
+) {
   for (const type of ["FRONT", "REAR", "LEFT_SIDE", "RIGHT_SIDE", "INTERIOR_FRONT", "PLATE"]) {
     const presign = await request.post(`${api}/vehicles/${vehicleId}/photos/presign`, {
       headers: { authorization: `Bearer ${token}` },
@@ -45,7 +56,7 @@ async function addPhotos(request: APIRequestContext, token: string, vehicleId: s
         originalFileName: `${type.toLowerCase()}.jpg`,
         mimeType: "image/jpeg",
         size: 128000,
-        checksum: `vehicle-photo-${type}-checksum-123456`,
+        checksum: `vehicle-photo-${type}-${suffix}`,
       },
     });
     expect(presign.ok()).toBeTruthy();
@@ -57,7 +68,7 @@ async function addPhotos(request: APIRequestContext, token: string, vehicleId: s
         originalFileName: `${type.toLowerCase()}.jpg`,
         mimeType: "image/jpeg",
         size: 128000,
-        checksum: `vehicle-photo-${type}-checksum-123456`,
+        checksum: `vehicle-photo-${type}-${suffix}`,
         storageKey: signed.storageKey,
       },
     });
@@ -68,7 +79,12 @@ async function addPhotos(request: APIRequestContext, token: string, vehicleId: s
 test.describe("phase 3 vehicle management", () => {
   test("supports vehicle draft, assets, submit, and admin moderation queue", async ({
     request,
-  }) => {
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "Vehicle mutation coverage runs once on desktop.",
+    );
+    const suffix = runScopedId("phase3-vehicle", testInfo);
     const driver = await mockAuth(request, "DRIVER_APP");
     const created = await request.post(`${api}/vehicles`, {
       headers: { authorization: `Bearer ${driver.accessToken}` },
@@ -86,8 +102,8 @@ test.describe("phase 3 vehicle management", () => {
     });
     expect(created.ok()).toBeTruthy();
     const vehicle = await created.json();
-    await addDocument(request, driver.accessToken, vehicle.id);
-    await addPhotos(request, driver.accessToken, vehicle.id);
+    await addDocument(request, driver.accessToken, vehicle.id, suffix);
+    await addPhotos(request, driver.accessToken, vehicle.id, suffix);
 
     const submitted = await request.post(`${api}/vehicles/${vehicle.id}/submit`, {
       headers: { authorization: `Bearer ${driver.accessToken}` },

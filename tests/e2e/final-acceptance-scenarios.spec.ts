@@ -14,7 +14,11 @@ import {
 test.describe.configure({ mode: "serial" });
 
 test.describe("final acceptance isolated user journeys", () => {
-  test.beforeEach(() => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "Stateful acceptance journeys run once on desktop.",
+    );
     resetAcceptanceState();
   });
 

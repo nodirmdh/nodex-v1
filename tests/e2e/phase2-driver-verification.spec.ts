@@ -1,26 +1,35 @@
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
+import { projectScopedTelegramId } from "./e2e-fixtures";
 
 const api = "http://127.0.0.1:3103/api/v1";
 
-async function mockAuth(request: APIRequestContext, appContext: string) {
-  const response = await request.post(`${api}/auth/mock`, { data: { appContext } });
+async function mockAuth(
+  request: APIRequestContext,
+  appContext: string,
+  options: { telegramUserId?: number } = {},
+) {
+  const response = await request.post(`${api}/auth/mock`, { data: { appContext, ...options } });
   expect(response.ok()).toBeTruthy();
   return response.json() as Promise<{ accessToken: string; roles: string[]; user: { id: string } }>;
 }
 
-async function fillApplication(request: APIRequestContext, token: string) {
+function vehiclePlateNumber(telegramUserId: number) {
+  return `01A${String(100 + (telegramUserId % 800)).padStart(3, "0")}AA`;
+}
+
+async function fillApplication(request: APIRequestContext, token: string, telegramUserId: number) {
   const draft = await request.patch(`${api}/driver/verification`, {
     headers: { authorization: `Bearer ${token}` },
     data: {
       legalFirstName: "Phase",
       legalLastName: "Driver",
       birthDate: "1990-01-01",
-      phone: "+998900001111",
-      personalIdentificationNumber: "PIN-E2E-001",
+      phone: `+998${telegramUserId}`,
+      personalIdentificationNumber: `PIN-E2E-${telegramUserId}`,
       registeredAddress: "Masked registered address",
       residentialAddress: "Masked residential address",
-      driverLicenseNumber: "DL-E2E-001",
+      driverLicenseNumber: `DL-E2E-${telegramUserId}`,
       driverLicenseIssuedAt: "2020-01-01",
       driverLicenseExpiresAt: "2030-01-01",
       driverLicenseCategory: "B",
@@ -29,8 +38,8 @@ async function fillApplication(request: APIRequestContext, token: string) {
       vehicleModel: "Cobalt",
       vehicleYear: 2022,
       vehicleColor: "White",
-      vehiclePlateNumber: "01A777AA",
-      vehicleRegistrationNumber: "VR-E2E-001",
+      vehiclePlateNumber: vehiclePlateNumber(telegramUserId),
+      vehicleRegistrationNumber: `VR-E2E-${telegramUserId}`,
       vehicleSeats: 4,
       consentAccepted: true,
     },
@@ -38,7 +47,11 @@ async function fillApplication(request: APIRequestContext, token: string) {
   expect(draft.ok()).toBeTruthy();
 }
 
-async function uploadRequiredDocuments(request: APIRequestContext, token: string) {
+async function uploadRequiredDocuments(
+  request: APIRequestContext,
+  token: string,
+  telegramUserId: number,
+) {
   for (const type of [
     "IDENTITY_FRONT",
     "DRIVER_LICENSE_FRONT",
@@ -53,7 +66,7 @@ async function uploadRequiredDocuments(request: APIRequestContext, token: string
         originalFileName: `${type.toLowerCase()}.jpg`,
         mimeType: "image/jpeg",
         size: 128000,
-        checksum: `checksum-${type}-1234567890`,
+        checksum: `checksum-${type}-${telegramUserId}`,
       },
     });
     expect(presign.ok()).toBeTruthy();
@@ -65,7 +78,7 @@ async function uploadRequiredDocuments(request: APIRequestContext, token: string
         originalFileName: `${type.toLowerCase()}.jpg`,
         mimeType: "image/jpeg",
         size: 128000,
-        checksum: `checksum-${type}-1234567890`,
+        checksum: `checksum-${type}-${telegramUserId}`,
         storageKey: signed.storageKey,
       },
     });
@@ -76,13 +89,16 @@ async function uploadRequiredDocuments(request: APIRequestContext, token: string
 test.describe("phase 2 driver verification", () => {
   test("supports draft, upload metadata, completion, submit, and admin approval", async ({
     request,
-  }) => {
-    const driver = await mockAuth(request, "DRIVER_APP");
+  }, testInfo) => {
+    const telegramUserId = projectScopedTelegramId(901200002, testInfo);
+    const driver = await mockAuth(request, "DRIVER_APP", {
+      telegramUserId,
+    });
     await request.post(`${api}/driver/verification`, {
       headers: { authorization: `Bearer ${driver.accessToken}` },
     });
-    await fillApplication(request, driver.accessToken);
-    await uploadRequiredDocuments(request, driver.accessToken);
+    await fillApplication(request, driver.accessToken, telegramUserId);
+    await uploadRequiredDocuments(request, driver.accessToken, telegramUserId);
 
     const completion = await request.get(`${api}/driver/verification/completion`, {
       headers: { authorization: `Bearer ${driver.accessToken}` },
@@ -117,8 +133,12 @@ test.describe("phase 2 driver verification", () => {
     expect((await approve.json()).status).toBe("APPROVED");
   });
 
-  test("protects driver verification from client and support contexts", async ({ request }) => {
-    const client = await mockAuth(request, "CLIENT_APP");
+  test("protects driver verification from client and support contexts", async ({
+    request,
+  }, testInfo) => {
+    const client = await mockAuth(request, "CLIENT_APP", {
+      telegramUserId: projectScopedTelegramId(902200003, testInfo),
+    });
     const forbidden = await request.get(`${api}/driver/verification`, {
       headers: { authorization: `Bearer ${client.accessToken}` },
     });
