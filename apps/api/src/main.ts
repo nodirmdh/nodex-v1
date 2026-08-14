@@ -11254,7 +11254,15 @@ async function bootstrap() {
       }
       const appContext = appContextFromBody(req.body?.appContext ?? "CLIENT_APP");
       const role = appContextRoles[appContext];
-      const mockId = role === "ADMIN" ? 900000001 : role === "DRIVER" ? 900000002 : 900000003;
+      const requestedMockId = Number(req.body?.telegramUserId);
+      const mockId =
+        Number.isSafeInteger(requestedMockId) && requestedMockId > 0
+          ? requestedMockId
+          : role === "ADMIN"
+            ? 900000001
+            : role === "DRIVER"
+              ? 900000002
+              : 900000003;
       const user = await upsertAuthenticatedUser(
         {
           id: mockId,
