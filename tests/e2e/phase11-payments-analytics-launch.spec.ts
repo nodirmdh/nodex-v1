@@ -8,7 +8,9 @@ const api = "http://127.0.0.1:3103";
 test.describe("phase 11 payments analytics launch", () => {
   test("renders client payment guidance surface", async ({ page }) => {
     await page.goto(`${client}/payments`);
-    await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Payments", exact: true, level: 1 }),
+    ).toBeVisible();
     await expect(page.getByRole("region", { name: "Client payment legacy notice" })).toContainText(
       "Ride payments happen outside Nodex",
     );
@@ -28,7 +30,7 @@ test.describe("phase 11 payments analytics launch", () => {
 
   test("renders admin finance workspace", async ({ page }) => {
     await page.goto(`${admin}/finance`);
-    await expect(page.getByRole("heading", { name: "Finance" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Finance", level: 1 })).toBeVisible();
     await expect(page.getByRole("region", { name: "Finance overview" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Finance policy" })).toContainText(
       "driver subscription revenue",

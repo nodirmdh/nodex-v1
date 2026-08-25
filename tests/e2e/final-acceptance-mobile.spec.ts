@@ -18,8 +18,9 @@ test.describe("final acceptance viewport matrix", () => {
     test(`client mobile ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
       await page.goto(`${client}/search`);
-      await expect(page.getByRole("form", { name: "Trip search form" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Search results" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Available rides", level: 1 })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Quick filters" })).toContainText("Parcel");
+      await expect(page.getByRole("link").filter({ hasText: "Azizbek Karimov" })).toBeVisible();
       await page.screenshot({
         path: `artifacts/final-acceptance/mobile/client-${viewport.width}x${viewport.height}.png`,
         fullPage: true,
@@ -30,8 +31,9 @@ test.describe("final acceptance viewport matrix", () => {
     test(`driver mobile ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
       await page.goto(`${driver}/trips`);
-      await expect(page.getByRole("heading", { name: "Trips" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Create trip" })).toBeVisible();
+      const tripsOverview = page.getByRole("region", { name: "Driver trips overview" });
+      await expect(tripsOverview.getByRole("heading", { name: "Trips", level: 1 })).toBeVisible();
+      await expect(tripsOverview.getByRole("link", { name: "Create trip" })).toBeVisible();
       await page.screenshot({
         path: `artifacts/final-acceptance/mobile/driver-${viewport.width}x${viewport.height}.png`,
         fullPage: true,
@@ -45,9 +47,17 @@ test.describe("final acceptance viewport matrix", () => {
       await page.setViewportSize(viewport);
       await page.goto(`${admin}/finance`);
       await expect(page.getByRole("heading", { name: "Finance" })).toBeVisible();
-      await expect(page.getByRole("table", { name: "Admin payment list" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Finance overview" })).toContainText(
+        "Subscription revenue",
+      );
+      await expect(page.getByRole("region", { name: "Finance policy" })).toContainText(
+        "driver subscription revenue",
+      );
       await page.goto(`${admin}/trust-safety`);
-      await expect(page.getByRole("heading", { name: "Trust & Safety queue" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Reviews", level: 1 })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Review moderation queue" })).toContainText(
+        "Flagged",
+      );
       await page.screenshot({
         path: `artifacts/final-acceptance/mobile/admin-${viewport.width}x${viewport.height}.png`,
         fullPage: true,

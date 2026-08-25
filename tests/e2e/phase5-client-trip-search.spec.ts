@@ -113,7 +113,9 @@ test.describe("phase 5 public trip search", () => {
     await expect(page.getByText("3 found")).toBeVisible();
     await page.getByRole("link").filter({ hasText: "Azizbek Karimov" }).click();
     await expect(page.getByRole("heading", { name: /Nukus to/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Request seat" })).toBeVisible();
-    await expect(page.getByText("Payment is arranged directly with the driver.")).toBeVisible();
+    const requestSummary = page.getByRole("region", { name: "Trip request summary" });
+    await expect(requestSummary.getByRole("link", { name: "Request seat" })).toBeVisible();
+    await expect(requestSummary).toContainText("Payment is arranged");
+    await expect(requestSummary).toContainText("directly with the driver.");
   });
 });

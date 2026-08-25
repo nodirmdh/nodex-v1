@@ -141,16 +141,20 @@ test.describe("phase 10 reviews, reliability, and safety", () => {
 
   test("renders client, driver, and admin trust and safety surfaces", async ({ page }) => {
     await page.goto(`${client}/reviews`);
-    await expect(page.getByRole("heading", { name: "Rate your completed delivery" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Reviews", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review Azizbek" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit review" })).toBeVisible();
 
     await page.goto(`${client}/safety`);
-    await expect(page.getByRole("heading", { name: "Trusted contacts" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Share current trip" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Safety", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Current trip protection" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Share trip" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "SOS" })).toBeVisible();
+    await expect(page.getByText("Trusted contact")).toBeVisible();
 
     await page.goto(`${client}/safety/sos`);
     await expect(page.getByRole("heading", { name: "Emergency help" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Call emergency number" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Hold to start SOS" })).toBeVisible();
 
     await page.goto(`${driver}/reviews`);
     await expect(page.getByRole("heading", { name: "Reliability profile" })).toBeVisible();

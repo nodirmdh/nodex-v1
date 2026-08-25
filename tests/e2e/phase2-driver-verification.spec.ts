@@ -147,14 +147,14 @@ test.describe("phase 2 driver verification", () => {
 
   test("renders driver and admin verification surfaces", async ({ page }) => {
     await page.goto("http://127.0.0.1:3101/");
-    await expect(page.getByRole("heading", { name: "Good morning, Azizbek" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Good morning", level: 1 })).toBeVisible();
     await expect(page.getByText("Verified")).toBeVisible();
     await expect(page.getByRole("region", { name: "Create trip access" })).toContainText(
       "Create trip",
     );
 
     await page.goto("http://127.0.0.1:3102/drivers");
-    await expect(page.getByText("Driver verification")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Drivers", level: 1 })).toBeVisible();
     await expect(page.getByLabel("Driver verification queue")).toBeVisible();
   });
 });

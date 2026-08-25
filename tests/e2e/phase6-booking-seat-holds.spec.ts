@@ -182,13 +182,14 @@ test.describe("phase 6 booking and seat holds", () => {
     );
 
     await page.goto(`${client}/bookings`);
-    await expect(page.getByRole("region", { name: "Client bookings" })).toContainText(
-      "Show boarding code",
-    );
+    const clientBookings = page.getByRole("region", { name: "Client bookings" });
+    await expect(clientBookings).toContainText("Request sent");
+    await expect(clientBookings).toContainText("waiting for driver confirmation");
 
     await page.goto("http://127.0.0.1:3101/passengers-demo");
+    await page.getByRole("button", { name: "Passengers" }).click();
     await expect(page.getByRole("region", { name: "Driver booking list" })).toContainText(
-      "CONFIRMED",
+      "Confirmed",
     );
 
     await page.goto("http://127.0.0.1:3102/bookings");

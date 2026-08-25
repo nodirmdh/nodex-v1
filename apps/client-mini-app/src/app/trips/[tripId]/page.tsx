@@ -291,7 +291,10 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
           </p>
         </section>
 
-        <div className="mt-4 rounded-[28px] bg-[rgb(var(--surface)/0.96)] p-3 shadow-[var(--shadow-floating)]">
+        <section
+          aria-label="Trip request summary"
+          className="mt-4 rounded-[28px] bg-[rgb(var(--surface)/0.96)] p-3 shadow-[var(--shadow-floating)]"
+        >
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
             <div>
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Price per seat</div>
@@ -309,7 +312,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
           >
             Request seat
           </Link>
-        </div>
+        </section>
       </div>
     </main>
   );

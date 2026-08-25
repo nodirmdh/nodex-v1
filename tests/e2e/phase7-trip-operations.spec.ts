@@ -1,8 +1,89 @@
+import { PrismaClient } from "@nodex/database";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { phase7BookingId } from "./e2e-fixtures";
 
 const client = "http://127.0.0.1:3100";
 const api = "http://127.0.0.1:3103/api/v1";
+
+process.env.DATABASE_URL ??= "postgresql://nodex:nodex@localhost:15432/nodex?schema=public";
+
+const prisma = new PrismaClient();
+
+test.afterAll(async () => {
+  await prisma.$disconnect();
+});
+
+async function resetPhase7OperationFixture(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { seats: true, trip: { include: { driverProfile: true } } },
+  });
+  if (!booking) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.boardingCode.deleteMany({ where: { bookingId } });
+    await tx.bookingOperationEvent.deleteMany({ where: { bookingId } });
+    await tx.bookingTimelineEvent.deleteMany({ where: { bookingId } });
+    await tx.bookingSeat.updateMany({
+      where: { bookingId },
+      data: { status: "BOOKED" },
+    });
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "BOARDING",
+        cancelledAt: null,
+        cancellationReason: null,
+      },
+    });
+    await tx.tripExecution.deleteMany({ where: { tripId: booking.tripId } });
+    await tx.tripOperationEvent.deleteMany({ where: { tripId: booking.tripId } });
+    await tx.tripStatusTransition.deleteMany({ where: { tripId: booking.tripId } });
+    await tx.tripCompletionSummary.deleteMany({ where: { tripId: booking.tripId } });
+    await tx.noShowRecord.deleteMany({ where: { tripId: booking.tripId } });
+    await tx.trip.update({
+      where: { id: booking.tripId },
+      data: {
+        status: "BOARDING",
+        availableSeatCount: 3,
+        blockedAt: null,
+        blockReason: null,
+        cancelledAt: null,
+        cancellationReason: null,
+      },
+    });
+    await tx.tripSeat.updateMany({
+      where: { tripId: booking.tripId },
+      data: { status: "AVAILABLE" },
+    });
+    await tx.tripSeat.updateMany({
+      where: {
+        tripId: booking.tripId,
+        seatKey: { in: booking.seats.map((seat) => seat.seatKey) },
+      },
+      data: { status: "BOOKED" },
+    });
+    await tx.tripOperationEvent.create({
+      data: {
+        tripId: booking.tripId,
+        actorUserId: booking.trip.driverProfile.userId,
+        type: "TRIP_BOARDING",
+        payload: { fixture: true, reset: true },
+      },
+    });
+    await tx.bookingTimelineEvent.create({
+      data: { bookingId, actorUserId: booking.clientId, type: "BOOKING_BOARDING_READY" },
+    });
+    await tx.bookingOperationEvent.create({
+      data: {
+        bookingId,
+        actorUserId: booking.clientId,
+        type: "BOOKING_BOARDING_READY",
+        payload: { fixture: true, reset: true },
+      },
+    });
+  });
+}
 
 async function mockAuth(request: APIRequestContext, appContext: string) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -29,6 +110,7 @@ test.describe("phase 7 trip operations", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "API mutation coverage runs once on desktop.");
     const bookingId = phase7BookingId(testInfo);
+    await resetPhase7OperationFixture(bookingId);
     const clientAuth = await mockAuth(request, "CLIENT_APP");
     const codeResponse = await request.post(
       `${api}/bookings/${bookingId}/boarding-code/regenerate`,
@@ -118,13 +200,14 @@ test.describe("phase 7 trip operations", () => {
     await expect(page.getByRole("region", { name: "Driver operation dashboard" })).toContainText(
       "Boarding",
     );
+    await page.getByRole("button", { name: "Boarding" }).click();
     await expect(page.getByRole("region", { name: "Boarding code verification" })).toContainText(
       "Confirm boarding",
     );
 
     await page.goto("http://127.0.0.1:3102/trips");
-    await expect(page.getByRole("region", { name: "Trip operation detail" })).toContainText(
-      "Driver no-show",
-    );
+    const tripOperationDetail = page.getByRole("region", { name: "Trip operation detail" });
+    await expect(tripOperationDetail).toContainText("Cancel trip");
+    await expect(tripOperationDetail).toContainText("Boarding window opened");
   });
 });

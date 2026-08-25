@@ -89,17 +89,22 @@ test.describe("phase 9 chat, notifications, and support", () => {
 
   test("renders client, driver, and admin communication surfaces", async ({ page }) => {
     await page.goto(`${client}/messages`);
-    await expect(page.getByRole("heading", { name: "Booking chat" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Parcel chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Messages", level: 1 })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Message inbox" })).toContainText(
+      "Azizbek Karimov",
+    );
+    await expect(page.getByRole("region", { name: "Message inbox" })).toContainText(
+      "Parcel driver",
+    );
 
     await page.goto(`${client}/notifications`);
     await expect(page.getByText("Support ticket updated")).toBeVisible();
 
     await page.goto(`${client}/support`);
-    await expect(
-      page.getByRole("heading", { name: "Phase 9 seeded support ticket" }),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add message" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Support", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Open ticket" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Contact support" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent support activity" })).toBeVisible();
 
     await page.goto(`${driver}/messages`);
     await expect(page.getByRole("heading", { name: "Passenger chat" })).toBeVisible();
