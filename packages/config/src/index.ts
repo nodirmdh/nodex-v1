@@ -13,7 +13,7 @@ export const appEnvSchema = z.object({
     .string()
     .url()
     .default("postgresql://nodex:nodex@localhost:15432/nodex?schema=public"),
-  REDIS_URL: z.string().url().default("redis://localhost:6379"),
+  REDIS_URL: z.string().url().default("redis://localhost:6387"),
   JWT_ISSUER: z.string().default("nodex-local"),
   JWT_AUDIENCE: z.string().default("nodex"),
   JWT_SECRET: z.string().min(16).default("replace-with-local-secret"),
@@ -38,6 +38,28 @@ export const appEnvSchema = z.object({
   TERMS_VERSION: z.string().default("0.1-local"),
   PRIVACY_VERSION: z.string().default("0.1-local"),
   ADMIN_TELEGRAM_USER_IDS: z.string().optional().default(""),
+  DRIVER_DOCUMENT_BUCKET: z.string().default("nodex-driver-documents-local"),
+  DRIVER_DOCUMENT_MAX_IMAGE_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1024 * 1024),
+  DRIVER_DOCUMENT_MAX_PDF_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
+  DRIVER_DOCUMENT_SIGNED_URL_TTL: durationSchema.default("10m"),
+  DRIVER_DOCUMENT_ALLOWED_MIME_TYPES: z
+    .string()
+    .default("image/jpeg,image/png,image/webp,application/pdf"),
+  DRIVER_VERIFICATION_CONSENT_VERSION: z.string().default("0.1-local"),
+  DRIVER_VERIFICATION_POLICY_VERSION: z.string().default("0.1-local"),
+  DRIVER_VERIFICATION_DUPLICATE_CHECK_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("true")
+    .transform((value) => value === "true"),
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;

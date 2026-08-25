@@ -1,32 +1,91 @@
-import { AppHeader, Badge, BottomNav, Panel } from "@nodex/ui";
-import { ClientAuthPanel } from "../auth-panel";
+import { Avatar, Card, ClientHeader, ClientShell, SettingsRow, StatusPill } from "../client-ui";
 
 export default function ProfilePage() {
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Profile" subtitle="Language, saved routes, privacy" />
-      <div className="space-y-4 px-4">
-        <ClientAuthPanel />
-        <Panel>
-          <div className="text-lg font-bold">Local preview user</div>
-          <div className="text-sm text-slate-500">Telegram auth disabled in browser preview</div>
-        </Panel>
-        <Panel className="flex flex-wrap gap-2">
-          <Badge>RU</Badge>
-          <Badge>UZ</Badge>
-          <Badge>KAA</Badge>
-          <Badge tone="info">Dark ready</Badge>
-          <Badge tone="warning">Offline state ready</Badge>
-        </Panel>
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Search" },
-          { label: "Trip" },
-          { label: "Profile", active: true },
-        ]}
-      />
-    </main>
+    <ClientShell active="profile">
+      <ClientHeader title="Profile" subtitle="Account, help, and safety" />
+
+      <Card className="mt-4">
+        <div className="flex items-center gap-4">
+          <Avatar name="Nodex User" />
+          <div className="min-w-0 flex-1">
+            <h2 className="m-0 truncate text-xl font-black">Nodex User</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Client account
+            </p>
+            <div className="mt-2 flex gap-2">
+              <StatusPill tone="success">Verified phone</StatusPill>
+              <StatusPill tone="accent">4.9 rider</StatusPill>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mt-3.5" compact>
+        <h2 className="m-0 mb-2 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          Account
+        </h2>
+        <SettingsRow
+          href="/profile"
+          icon="profile"
+          subtitle="Name, phone, contact details"
+          title="Personal information"
+        />
+        <SettingsRow
+          href="/profile"
+          icon="check"
+          subtitle="RU, UZ, KAA interface readiness"
+          title="Language"
+        />
+      </Card>
+
+      <Card className="mt-3.5" compact>
+        <h2 className="m-0 mb-2 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          Trips
+        </h2>
+        <SettingsRow
+          href="/reviews"
+          icon="review"
+          subtitle="Rate completed rides and drivers"
+          title="Reviews"
+        />
+        <SettingsRow
+          href="/notifications"
+          icon="bell"
+          subtitle="Trip requests, messages, support"
+          title="Notifications"
+        />
+      </Card>
+
+      <Card className="mt-3.5" compact>
+        <h2 className="m-0 mb-2 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          Help and safety
+        </h2>
+        <SettingsRow
+          href="/safety"
+          icon="shield"
+          subtitle="Trip sharing, reports, emergency help"
+          title="Safety"
+        />
+        <SettingsRow
+          href="/support"
+          icon="help"
+          subtitle="Open tickets and contact support"
+          title="Support"
+        />
+      </Card>
+
+      <Card className="mt-3.5" compact>
+        <h2 className="m-0 mb-2 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          App
+        </h2>
+        <SettingsRow
+          href="/profile"
+          icon="star"
+          subtitle="Privacy, app version, legal"
+          title="Settings and about"
+        />
+      </Card>
+    </ClientShell>
   );
 }

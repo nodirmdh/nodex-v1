@@ -1,24 +1,245 @@
-import { AppHeader, BottomNav, DriverSummary, EmptyState } from "@nodex/ui";
+"use client";
 
-export default function TripsPage() {
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { DriverCard, DriverHeader, DriverIconView, DriverPill, DriverShell } from "../driver-ui";
+
+type TripTab = "upcoming" | "active" | "completed";
+type TripTone = "success" | "warning" | "info" | "neutral" | "danger";
+
+type TripCard = {
+  id: string;
+  tab: TripTab;
+  route: string;
+  departure: string;
+  vehicle: string;
+  reserved: number;
+  seats: number;
+  pending: number;
+  boarded: number;
+  status: string;
+  tone: TripTone;
+  cta: string;
+  href: string;
+  summary: string;
+};
+
+const trips: TripCard[] = [
+  {
+    id: "upcoming-urgench",
+    tab: "upcoming",
+    route: "Nukus → Urgench",
+    departure: "Tomorrow, 08:30",
+    vehicle: "Chevrolet Cobalt · 95 A 214 QA",
+    reserved: 3,
+    seats: 4,
+    pending: 1,
+    boarded: 0,
+    status: "Upcoming",
+    tone: "info",
+    cta: "View trip",
+    href: "/trip-demo",
+    summary: "Review one pending request before departure.",
+  },
+  {
+    id: "upcoming-khiva",
+    tab: "upcoming",
+    route: "Nukus → Khiva",
+    departure: "Fri, 16:40",
+    vehicle: "Chevrolet Tracker · 95 B 412 QA",
+    reserved: 2,
+    seats: 4,
+    pending: 0,
+    boarded: 0,
+    status: "Published",
+    tone: "success",
+    cta: "View trip",
+    href: "/trip-demo",
+    summary: "Ready for passengers and parcel handoff.",
+  },
+  {
+    id: "active-urgench",
+    tab: "active",
+    route: "Nukus → Urgench",
+    departure: "Today, 08:30",
+    vehicle: "Chevrolet Cobalt · 95 A 214 QA",
+    reserved: 3,
+    seats: 4,
+    pending: 0,
+    boarded: 2,
+    status: "In progress",
+    tone: "warning",
+    cta: "Operate",
+    href: "/trip-demo?state=active",
+    summary: "2 of 3 passengers aboard. Finish trip when arrival is confirmed.",
+  },
+  {
+    id: "completed-bukhara",
+    tab: "completed",
+    route: "Nukus → Bukhara",
+    departure: "Yesterday, 09:00",
+    vehicle: "Chevrolet Cobalt · 95 A 214 QA",
+    reserved: 4,
+    seats: 4,
+    pending: 0,
+    boarded: 4,
+    status: "Completed",
+    tone: "success",
+    cta: "Open history",
+    href: "/trip-demo?state=completed",
+    summary: "4 passengers carried. Route can be repeated from trip history.",
+  },
+];
+
+const tabs: Array<{ key: TripTab; label: string }> = [
+  { key: "upcoming", label: "Upcoming" },
+  { key: "active", label: "Active" },
+  { key: "completed", label: "Completed" },
+];
+
+export default function DriverTripsPage() {
+  const [tab, setTab] = useState<TripTab>("upcoming");
+
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("tab");
+    if (next === "active" || next === "completed" || next === "upcoming") setTab(next);
+  }, []);
+
+  const visibleTrips = useMemo(() => trips.filter((trip) => trip.tab === tab), [tab]);
+
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Trips" subtitle="Upcoming and drafts" />
-      <div className="space-y-4 px-4">
-        <DriverSummary />
-        <EmptyState
-          title="Draft templates"
-          body="Saved route templates and recurring trips will appear here."
-        />
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Trips", active: true },
-          { label: "Create" },
-          { label: "Profile" },
-        ]}
+    <DriverShell active="trips">
+      <DriverHeader
+        title="Trips"
+        subtitle="Supply, boarding, and trip history"
+        status={<DriverPill tone="success">Verified</DriverPill>}
       />
-    </main>
+
+      <DriverCard className="mt-4 space-y-3" label="Driver trips overview">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="m-0 text-xl font-black">Trips</h1>
+            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              See what needs attention before every departure.
+            </p>
+          </div>
+          <Link
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href="/create-trip-demo"
+          >
+            Create trip
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-1 rounded-full bg-[rgb(var(--canvas))] p-1">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              className={[
+                "min-h-10 rounded-full border-0 px-2 text-xs font-black",
+                tab === item.key
+                  ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
+                  : "bg-transparent text-[rgb(var(--text-muted))]",
+              ].join(" ")}
+              onClick={() => setTab(item.key)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </DriverCard>
+
+      <section aria-label="Driver trip list" className="mt-3 space-y-3">
+        {visibleTrips.map((trip) => (
+          <DriverTripCard key={trip.id} trip={trip} />
+        ))}
+      </section>
+
+      <DriverCard className="mt-3 space-y-3" label="Create trip wizard">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
+            <DriverIconView name="route" />
+          </span>
+          <div>
+            <h2 className="m-0 text-lg font-black">Create trip wizard</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Route, approved vehicle, stops, seats, parcels, validation.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {["Route", "Vehicle", "Publish"].map((step, index) => (
+            <div key={step} className="rounded-[16px] bg-[rgb(var(--canvas))] p-2">
+              <div className="text-xs font-black text-[rgb(var(--primary))]">{index + 1}</div>
+              <div className="text-[11px] font-bold text-[rgb(var(--text-muted))]">{step}</div>
+            </div>
+          ))}
+        </div>
+        <Link
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+          href="/create-trip-demo"
+        >
+          Continue create trip
+        </Link>
+      </DriverCard>
+    </DriverShell>
+  );
+}
+
+function DriverTripCard({ trip }: { trip: TripCard }) {
+  const available = Math.max(trip.seats - trip.reserved, 0);
+  return (
+    <DriverCard
+      className={[
+        "space-y-3",
+        trip.tab === "active" ? "ring-1 ring-[rgb(var(--warning)/0.28)]" : "",
+      ].join(" ")}
+      label={`${trip.status} trip ${trip.route}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="m-0 text-lg font-black">{trip.route}</h2>
+          <p className="m-0 mt-1 flex items-center gap-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+            <DriverIconView name="clock" className="h-4 w-4" />
+            {trip.departure}
+          </p>
+        </div>
+        <DriverPill tone={trip.tone}>{trip.status}</DriverPill>
+      </div>
+
+      <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
+        <div className="truncate text-sm font-black">{trip.vehicle}</div>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+          <Metric label="Reserved" value={`${trip.reserved}/${trip.seats}`} />
+          <Metric label="Pending" value={String(trip.pending)} />
+          <Metric label="Available" value={String(available)} />
+        </div>
+      </div>
+
+      <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">{trip.summary}</p>
+      <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+        <div className="h-2 overflow-hidden rounded-full bg-[rgb(var(--canvas))]">
+          <div
+            className="h-full rounded-full bg-[rgb(var(--primary))]"
+            style={{ width: `${Math.min((trip.reserved / trip.seats) * 100, 100)}%` }}
+          />
+        </div>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+          href={trip.href}
+        >
+          {trip.cta}
+        </Link>
+      </div>
+    </DriverCard>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-sm font-black">{value}</div>
+      <div className="text-[10px] font-bold text-[rgb(var(--text-muted))]">{label}</div>
+    </div>
   );
 }

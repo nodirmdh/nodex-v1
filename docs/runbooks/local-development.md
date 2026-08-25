@@ -24,7 +24,7 @@ docker compose --profile apps up
 - Admin Web: `http://localhost:3002`
 - API: `http://localhost:4000/api/v1`
 - Swagger: `http://localhost:4000/docs`
-- MinIO console: `http://localhost:9001`
+- MinIO console: `http://localhost:9101`
 - Mailpit: `http://localhost:18025`
 - Storybook: `http://localhost:6006`
 

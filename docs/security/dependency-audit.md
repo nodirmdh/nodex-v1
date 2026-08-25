@@ -23,63 +23,61 @@ pnpm why brace-expansion
 
 ## Current Dev-Only Exception
 
-Advisory: GHSA-mh99-v99m-4gvg
+Advisory: GHSA-52cp-r559-cp3m
 
-Package: `brace-expansion`
+Package: `js-yaml`
 
-Affected version: `<=5.0.7`
+Affected version: `>=4.0.0 <4.3.0`
 
-Patched version: `>=5.0.8`
+Patched version: `>=4.3.0`
 
 Dependency chain:
 
 ```text
-@nodex/eslint-config
-@typescript-eslint/eslint-plugin
-@typescript-eslint/parser
-eslint
-@eslint/config-array / @eslint/eslintrc
-minimatch
-brace-expansion
+orval
+js-yaml
 ```
 
 Latest audit result:
 
 ```text
 pnpm audit:production
-Exit code: 1
-Severity: 1 low | 1 high
+Exit code: 0
+Severity: 1 low
 
 pnpm audit:all
 Exit code: 1
 Severity: 1 low | 1 high
 ```
 
-`pnpm audit:production` reports the advisory because `@nodex/eslint-config` is a
-private workspace package with ESLint tooling dependencies. The reported high
-path is still limited to the ESLint/minimatch tooling graph and is not imported
-by application runtime code.
+`pnpm audit:production --audit-level high` is release-clean. The remaining high
+advisory appears only in the all-dependencies audit because Orval is API client
+generation tooling. The reported high path is limited to OpenAPI generation and
+is not imported by application runtime code.
 
-Why a direct override is incompatible:
+Why a direct override is not applied in this phase:
 
-`minimatch@3` expects the older `brace-expansion` API. A forced override to `brace-expansion@5.0.8` was tested and caused ESLint to fail with `TypeError: expand is not a function`.
+Orval pins its own transitive `js-yaml` dependency. Updating the generator chain
+should be tested separately with OpenAPI and generated client diffs.
 
 Exploitability:
 
-The vulnerable package is used by ESLint file-pattern matching during development and CI. It is not used by the application runtime to process user-controlled application input.
+The vulnerable package is used while generating the API client from the local
+OpenAPI document during development and CI. It is not used by the application
+runtime to parse user-controlled YAML.
 
 Runtime exposure:
 
 - API runtime: not imported by API source.
 - Frontend production bundles: not imported by Next application source.
 - Docker runtime images: must be checked to install production dependencies only.
-- User input: not parsed by ESLint/minimatch during app runtime.
+- User input: not parsed by Orval/js-yaml during app runtime.
 
 Mitigation:
 
 - Keep runtime dependency audits free of critical and high vulnerabilities.
-- Do not force an incompatible major override.
-- Upgrade ESLint/minimatch chain when a compatible patched dependency path is available.
+- Do not force an untested transitive override in launch acceptance.
+- Upgrade Orval/js-yaml chain when a compatible patched dependency path is available.
 
 Owner: engineering
 
@@ -87,4 +85,6 @@ Review by: 2026-08-12
 
 Removal condition:
 
-Remove this exception when ESLint or its dependency chain uses a compatible patched `brace-expansion`, or when the project adopts a tooling path that no longer depends on the vulnerable version.
+Remove this exception when Orval or its dependency chain uses `js-yaml >=4.3.0`,
+or when the project adopts a tooling path that no longer depends on the
+vulnerable version.

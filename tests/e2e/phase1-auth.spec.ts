@@ -3,8 +3,12 @@ import type { APIRequestContext } from "@playwright/test";
 
 const api = "http://127.0.0.1:3103/api/v1";
 
-async function mockAuth(request: APIRequestContext, appContext: string) {
-  const response = await request.post(`${api}/auth/mock`, { data: { appContext } });
+async function mockAuth(
+  request: APIRequestContext,
+  appContext: string,
+  options: { telegramUserId?: number } = {},
+) {
+  const response = await request.post(`${api}/auth/mock`, { data: { appContext, ...options } });
   expect(response.ok()).toBeTruthy();
   return response.json() as Promise<{ accessToken: string; roles: string[]; user: { id: string } }>;
 }
@@ -44,8 +48,9 @@ test.describe("phase 1 identity and authentication", () => {
   });
 
   test("authenticates driver with driver profile but not admin access", async ({ request }) => {
-    const auth = await mockAuth(request, "DRIVER_APP");
+    const auth = await mockAuth(request, "DRIVER_APP", { telegramUserId: 901000002 });
     expect(auth.roles).toContain("DRIVER");
+
     const me = await request.get(`${api}/me`, {
       headers: { authorization: `Bearer ${auth.accessToken}` },
     });

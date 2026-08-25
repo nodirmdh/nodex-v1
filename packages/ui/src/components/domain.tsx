@@ -30,7 +30,7 @@ export function TripCard(props: TripCardProps) {
             <ArrowRight size={18} />
             <span>{props.arrival}</span>
           </div>
-          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-1 flex items-center gap-2 text-sm text-[rgb(var(--text-muted))]">
             <MapPin size={14} />
             {props.origin} to {props.destination}
           </div>
@@ -54,14 +54,14 @@ export function TripCard(props: TripCardProps) {
         </div>
         <div className="flex flex-wrap gap-2">
           {props.amenities.map((amenity) => (
-            <span key={amenity} className="text-xs text-slate-500 dark:text-slate-400">
+            <span key={amenity} className="text-xs text-[rgb(var(--text-muted))]">
               {amenity}
             </span>
           ))}
         </div>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">from</div>
+            <div className="text-xs text-[rgb(var(--text-muted))]">from</div>
             <div className="text-lg font-bold">{formatUzs(props.priceMinor)}</div>
           </div>
           <Button>Choose</Button>
@@ -76,7 +76,7 @@ export function RouteSearch() {
     <Panel className="space-y-3">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <label className="grid gap-1">
-          <span className="text-xs font-semibold text-slate-500">From</span>
+          <span className="text-xs font-semibold text-[rgb(var(--text-muted))]">From</span>
           <input
             className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
             defaultValue="Nukus"
@@ -86,7 +86,7 @@ export function RouteSearch() {
           <ArrowRight size={16} />
         </Button>
         <label className="grid gap-1">
-          <span className="text-xs font-semibold text-slate-500">To</span>
+          <span className="text-xs font-semibold text-[rgb(var(--text-muted))]">To</span>
           <input
             className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
             defaultValue="Urgench"
@@ -95,14 +95,14 @@ export function RouteSearch() {
       </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="grid gap-1">
-          <span className="text-xs font-semibold text-slate-500">Date</span>
+          <span className="text-xs font-semibold text-[rgb(var(--text-muted))]">Date</span>
           <input
             className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
             defaultValue="Tomorrow"
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-xs font-semibold text-slate-500">Passengers</span>
+          <span className="text-xs font-semibold text-[rgb(var(--text-muted))]">Passengers</span>
           <input
             className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
             defaultValue="2"
@@ -152,7 +152,7 @@ export function Timeline({
           />
           <span>
             <span className="block text-sm font-semibold">{item.label}</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">{item.time}</span>
+            <span className="text-xs text-[rgb(var(--text-muted))]">{item.time}</span>
           </span>
         </li>
       ))}
@@ -185,7 +185,7 @@ export function AppHeader({ title, subtitle }: { title: string; subtitle: string
     <header className="flex items-center justify-between gap-3 px-4 py-4">
       <div>
         <div className="text-lg font-black tracking-normal">{title}</div>
-        <div className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</div>
+        <div className="text-xs text-[rgb(var(--text-muted))]">{subtitle}</div>
       </div>
       <div className="flex items-center gap-2">
         <select
@@ -228,13 +228,13 @@ export function DriverSummary() {
   return (
     <Panel className="flex items-center justify-between">
       <div>
-        <div className="text-sm text-slate-500">Nearest trip</div>
+        <div className="text-sm text-[rgb(var(--text-muted))]">Nearest trip</div>
         <div className="text-lg font-bold">Nukus to Khiva</div>
-        <div className="text-xs text-slate-500">Today, 16:40</div>
+        <div className="text-xs text-[rgb(var(--text-muted))]">Today, 16:40</div>
       </div>
       <div className="text-right">
         <div className="text-2xl font-black">6/8</div>
-        <div className="text-xs text-slate-500">occupied</div>
+        <div className="text-xs text-[rgb(var(--text-muted))]">occupied</div>
       </div>
     </Panel>
   );
@@ -248,9 +248,9 @@ export function VehicleSummary() {
       </div>
       <div>
         <div className="font-bold">Chevrolet Cobalt</div>
-        <div className="text-sm text-slate-500">White, 2022, 4 seats</div>
+        <div className="text-sm text-[rgb(var(--text-muted))]">White, 2022, 4 seats</div>
       </div>
-      <Luggage className="ml-auto text-slate-400" size={18} />
+      <Luggage className="ml-auto text-[rgb(var(--text-subtle))]" size={18} />
     </Panel>
   );
 }

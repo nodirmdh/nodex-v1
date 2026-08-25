@@ -3,18 +3,31 @@
 
 .admin-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 248px minmax(0, 1fr);
   min-height: 100dvh;
 }
 
-@media (max-width: 840px) {
+@media (max-width: 1024px) {
+  .admin-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-sidebar {
+    display: none;
+  }
+
   .admin-shell {
     grid-template-columns: 1fr;
   }
 
-  .admin-sidebar {
-    position: sticky;
-    top: 0;
-    z-index: var(--z-nav);
+  body:has(.design-system-v2) .admin-sidebar,
+  body:has(.design-system-v2) .admin-shell > div > header {
+    display: none;
+  }
+
+  body:has(.design-system-v2) .admin-shell {
+    display: block;
   }
 }

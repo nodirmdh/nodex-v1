@@ -119,8 +119,72 @@ export function defineAbilityFor(roles: string[]) {
     can("read", "User");
     can("read", "AuditEvent");
     can("review", "DriverApplication");
+    can("list", "DriverVerification");
+    can("read", "DriverVerification");
+    can("review", "DriverVerification");
+    can("approve", "DriverVerification");
+    can("reject", "DriverVerification");
+    can("requestChanges", "DriverVerification");
+    can("suspend", "DriverVerification");
+    can("read", "DriverDocument");
+    can("review", "Vehicle");
+    can("approve", "Vehicle");
+    can("reject", "Vehicle");
+    can("requestChanges", "Vehicle");
+    can("suspend", "Vehicle");
+    can("restore", "Vehicle");
+    can("readAdmin", "Vehicle");
+    can("auditRead", "Vehicle");
+    can("read", "Region");
+    can("manage", "Region");
+    can("read", "City");
+    can("manage", "City");
+    can("read", "PickupPoint");
+    can("manage", "PickupPoint");
+    can("read", "Route");
+    can("manage", "Route");
+    can("readAdmin", "Trip");
+    can("block", "Trip");
+    can("unblock", "Trip");
+    can("cancelAdmin", "Trip");
+    can("readOperationsAdmin", "Trip");
+    can("cancelOperationalAdmin", "Trip");
+    can("markDriverNoShow", "Trip");
+    can("forceTransition", "Trip");
+    can("auditRead", "Trip");
   }
-  if (roles.includes("DRIVER")) can("create", "Trip");
-  if (roles.includes("CLIENT")) can("create", "Booking");
+  if (roles.includes("DRIVER")) {
+    can("create", "Trip");
+    can("createOwn", "Trip");
+    can("readOwn", "Trip");
+    can("updateOwnDraft", "Trip");
+    can("publishOwn", "Trip");
+    can("unpublishOwn", "Trip");
+    can("cancelOwn", "Trip");
+    can("startBoardingOwn", "Trip");
+    can("startOwn", "Trip");
+    can("completeOwn", "Trip");
+    can("cancelOperationalOwn", "Trip");
+    can("readOperationsOwn", "Trip");
+    can("board", "Booking");
+    can("markNoShow", "Booking");
+    can("readOwn", "DriverVerification");
+    can("updateOwn", "DriverVerification");
+    can("submitOwn", "DriverVerification");
+    can("withdrawOwn", "DriverVerification");
+    can("uploadOwn", "DriverDocument");
+    can("readOwn", "DriverDocument");
+    can("createOwn", "Vehicle");
+    can("readOwn", "Vehicle");
+    can("updateOwn", "Vehicle");
+    can("submitOwn", "Vehicle");
+    can("setPrimaryOwn", "Vehicle");
+    can("archiveOwn", "Vehicle");
+  }
+  if (roles.includes("CLIENT")) {
+    can("create", "Booking");
+    can("readBoardingCodeOwn", "Booking");
+    can("regenerateBoardingCodeOwn", "Booking");
+  }
   return build();
 }
