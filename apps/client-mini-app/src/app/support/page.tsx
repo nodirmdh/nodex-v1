@@ -1,40 +1,84 @@
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline } from "@nodex/ui";
+import { Card, ClientHeader, ClientShell, StatusPill } from "../client-ui";
+
+const categories = [
+  "Trip problem",
+  "Driver issue",
+  "Lost item",
+  "Parcel problem",
+  "Safety concern",
+  "Other",
+];
 
 export default function ClientSupportPage() {
   return (
-    <main className="nodex-app mobile-shell pb-20">
-      <AppHeader title="Support" subtitle="Tickets for bookings, trips, and parcels" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-lg font-black">Phase 9 seeded support ticket</h1>
-              <div className="text-sm text-slate-500">Booking support</div>
-            </div>
-            <Badge tone="info">In progress</Badge>
-          </div>
-          <p className="m-0 text-sm">Need help coordinating the pickup time.</p>
-          <Button className="min-h-11">Add message</Button>
-        </Panel>
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Ticket history</h2>
-          <Timeline
-            items={[
-              { label: "Ticket opened", time: "Seed", active: true },
-              { label: "Support started review", time: "Seed" },
-              { label: "SLA timer active", time: "Today" },
-            ]}
-          />
-        </Panel>
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Messages" },
-          { label: "Support", active: true },
-          { label: "Profile" },
-        ]}
+    <ClientShell active="profile">
+      <ClientHeader
+        backHref="/profile"
+        level="secondary"
+        title="Support"
+        subtitle="Tickets and help topics"
       />
-    </main>
+
+      <Card className="mt-4 space-y-2.5" compact>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-lg font-black">Open ticket</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Pickup coordination for Nukus to Urgench.
+            </p>
+          </div>
+          <StatusPill tone="info">In progress</StatusPill>
+        </div>
+        <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5 text-sm font-semibold text-[rgb(var(--text-muted))]">
+          Support added your pickup note to the trip request. Driver chat remains available.
+        </div>
+        <button
+          className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
+          type="button"
+        >
+          Contact support
+        </button>
+      </Card>
+
+      <Card className="mt-3" compact>
+        <h2 className="m-0 mb-3 text-lg font-black">What do you need help with?</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              className="min-h-11 rounded-[18px] bg-[rgb(var(--surface-tint))] px-3 text-sm font-black text-[rgb(var(--primary))]"
+              type="button"
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="mt-3" compact>
+        <h2 className="m-0 mb-3 text-lg font-black">Recent support activity</h2>
+        <div className="grid gap-2.5">
+          {[
+            ["Ticket opened", "Today 08:10"],
+            ["Support started review", "Today 08:14"],
+            ["Driver note attached", "Today 08:18"],
+          ].map(([title, time], index) => (
+            <div key={title} className="grid grid-cols-[18px_1fr] gap-3">
+              <span
+                className={
+                  index === 0
+                    ? "mt-1 h-3 w-3 rounded-full bg-[rgb(var(--primary))]"
+                    : "mt-1 h-3 w-3 rounded-full bg-[rgb(var(--border-strong))]"
+                }
+              />
+              <div>
+                <div className="text-sm font-black">{title}</div>
+                <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </ClientShell>
   );
 }

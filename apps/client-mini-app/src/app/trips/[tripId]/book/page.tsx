@@ -1,198 +1,353 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AppHeader, Badge, BottomNav, Button, Panel, formatUzs } from "@nodex/ui";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Badge, Button, VehicleImage, formatUzs } from "@nodex/ui";
+import { CabinSelector } from "./cabin-selector";
+import {
+  type BookingType,
+  cabinSeats,
+  selectableSeatKeys,
+  seatLabelForKey,
+  sevenSeatPreview,
+  tripCabin,
+} from "./cabin-model";
 
-const seatLayout = [
-  { key: "FRONT_RIGHT", label: "Front", status: "available" },
-  { key: "ROW_1_LEFT", label: "1L", status: "available" },
-  { key: "ROW_1_RIGHT", label: "1R", status: "available" },
-  { key: "ROW_2_LEFT", label: "2L", status: "held" },
-  { key: "ROW_2_RIGHT", label: "2R", status: "available" },
-];
+type IconName = "back" | "car" | "clock" | "shield" | "users";
 
-const trip = {
-  route: "Nukus to Urgench",
-  departure: "08:30",
-  priceMinor: 8500000,
-  wholeCarPriceMinor: 39000000,
+const iconPaths: Record<IconName, ReactNode> = {
+  back: <path d="m15 6-6 6 6 6" />,
+  car: (
+    <path d="M5 14h14l-1.8-4.2A2 2 0 0 0 15.4 8H8.6a2 2 0 0 0-1.8 1.2L5 14Zm1 0v4m12-4v4M7.5 18h.1m8.8 0h.1" />
+  ),
+  clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
+  shield: <path d="M12 3 5 6v5c0 4.2 2.8 7.6 7 10 4.2-2.4 7-5.8 7-10V6l-7-3Z" />,
+  users: (
+    <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm6.5-.5a2.5 2.5 0 1 0 0-5M3.5 19a5.5 5.5 0 0 1 11 0M14 15.5c2.5.3 4.2 1.5 5 3.5" />
+  ),
 };
 
+function Icon({ name, className = "" }: { name: IconName; className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      height="18"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      {iconPaths[name]}
+    </svg>
+  );
+}
+
 export default function BookingFlowPage() {
-  const [bookingType, setBookingType] = useState<"SEAT" | "MULTI_SEAT" | "WHOLE_CAR">("SEAT");
+  const [bookingType, setBookingType] = useState<BookingType>("SEAT");
   const [selectedSeats, setSelectedSeats] = useState<string[]>(["FRONT_RIGHT"]);
   const [step, setStep] = useState<"hold" | "passengers" | "confirmed">("hold");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "MANUAL_TRANSFER">("CASH");
+  const [passengerCount, setPassengerCount] = useState(1);
+  const [previewSevenSeat, setPreviewSevenSeat] = useState(false);
+  const [unavailableNotice, setUnavailableNotice] = useState("");
 
-  const selectableSeats = seatLayout.filter((seat) => seat.status === "available");
-  const effectiveSeats =
-    bookingType === "WHOLE_CAR" ? selectableSeats.map((seat) => seat.key) : selectedSeats;
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setPreviewSevenSeat(params.get("layout") === "suv7");
+    if (params.get("state") === "empty") setSelectedSeats([]);
+  }, []);
+
+  const visibleSeats = previewSevenSeat ? sevenSeatPreview : cabinSeats;
+  const availableSeatKeys = useMemo(() => selectableSeatKeys(visibleSeats), [visibleSeats]);
+  const effectiveSeats = bookingType === "WHOLE_CAR" ? availableSeatKeys : selectedSeats;
+  const requiredSeats = bookingType === "MULTI_SEAT" ? passengerCount : 1;
+  const requestReady =
+    bookingType === "WHOLE_CAR"
+      ? availableSeatKeys.length > 0
+      : selectedSeats.length === requiredSeats && selectedSeats.length > 0;
   const totalMinor =
     bookingType === "WHOLE_CAR"
-      ? trip.wholeCarPriceMinor
-      : trip.priceMinor * Math.max(1, effectiveSeats.length);
+      ? tripCabin.wholeCarPriceMinor
+      : tripCabin.priceMinor * Math.max(1, effectiveSeats.length);
+  const selectedSummary =
+    bookingType === "WHOLE_CAR"
+      ? "Whole car"
+      : effectiveSeats.map((seatKey) => seatLabelForKey(visibleSeats, seatKey)).join(", ") ||
+        "No seat selected";
+  const primaryAction =
+    bookingType === "WHOLE_CAR"
+      ? "Request whole car"
+      : requiredSeats > 1
+        ? `Request ${requiredSeats} seats`
+        : "Request this seat";
 
   const passengerFields = useMemo(
     () =>
       effectiveSeats.map((seatKey, index) => ({
         seatKey,
-        label: seatLayout.find((seat) => seat.key === seatKey)?.label ?? seatKey,
+        label: seatLabelForKey(visibleSeats, seatKey),
         name: index === 0 ? "Primary passenger" : `Passenger ${index + 1}`,
       })),
-    [effectiveSeats],
+    [effectiveSeats, visibleSeats],
   );
 
   function toggleSeat(seatKey: string) {
+    setUnavailableNotice("");
+    if (!availableSeatKeys.includes(seatKey)) {
+      setUnavailableNotice("That seat is no longer available. The cabin state was kept intact.");
+      return;
+    }
+
     if (bookingType === "SEAT") {
       setSelectedSeats([seatKey]);
       return;
     }
-    setSelectedSeats((current) =>
-      current.includes(seatKey) ? current.filter((key) => key !== seatKey) : [...current, seatKey],
-    );
+
+    setSelectedSeats((current) => {
+      if (current.includes(seatKey)) return current.filter((key) => key !== seatKey);
+      if (current.length >= passengerCount) return [...current.slice(1), seatKey];
+      return [...current, seatKey];
+    });
   }
 
-  function changeType(next: "SEAT" | "MULTI_SEAT" | "WHOLE_CAR") {
+  function changeType(next: BookingType) {
+    setUnavailableNotice("");
     setBookingType(next);
-    if (next === "WHOLE_CAR") setSelectedSeats(selectableSeats.map((seat) => seat.key));
-    if (next === "SEAT") setSelectedSeats([selectableSeats[0]?.key ?? "FRONT_RIGHT"]);
+    if (next === "WHOLE_CAR") {
+      setSelectedSeats(availableSeatKeys);
+      return;
+    }
+    if (next === "MULTI_SEAT") {
+      setPassengerCount(2);
+      setSelectedSeats(availableSeatKeys.slice(0, 2));
+      return;
+    }
+    setPassengerCount(1);
+    setSelectedSeats([availableSeatKeys[0] ?? "FRONT_RIGHT"]);
+  }
+
+  function requestSeatHold() {
+    if (!requestReady) {
+      setUnavailableNotice(
+        bookingType === "MULTI_SEAT"
+          ? `Select ${requiredSeats} available seats before sending the request.`
+          : "Select an available seat before sending the request.",
+      );
+      return;
+    }
+    setStep("passengers");
   }
 
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Book seats" subtitle={`${trip.route} at ${trip.departure}`} />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3" aria-label="Seat hold">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-xl font-black">Seat selection</h1>
-              <p className="m-0 text-sm text-slate-500">Hold expires in 09:48</p>
-            </div>
-            <Badge tone="warning">Temporary hold</Badge>
+    <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+      <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_28%,rgb(var(--canvas))_100%)] px-4 pb-6 pt-4">
+        <header className="flex items-center gap-3">
+          <Link
+            aria-label="Back to trip details"
+            className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
+            href="/trips/phase5-nukus-urgench-morning"
+          >
+            <Icon name="back" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="m-0 text-xl font-black">Choose your seat</h1>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              {tripCabin.model} · {tripCabin.departure}
+            </p>
           </div>
-          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Booking type">
+          <VehicleImage alt={tripCabin.model} className="h-12 w-16 rounded-[18px]" />
+        </header>
+
+        <section className="mt-5 rounded-[30px] bg-[rgb(var(--surface)/0.96)] p-4 shadow-[0_18px_46px_rgb(var(--foreground)/0.1)] backdrop-blur">
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.1em] text-[rgb(var(--primary))]">
+                <Icon name="car" className="h-4 w-4" />
+                {tripCabin.color} · {tripCabin.capacity}
+              </div>
+              <div className="mt-1 text-xl font-black">{tripCabin.model}</div>
+              <div className="text-sm font-semibold text-[rgb(var(--text-muted))]">
+                {tripCabin.route}
+              </div>
+            </div>
+            <div className="text-right">
+              <Badge tone="info">{tripCabin.plate}</Badge>
+              <div className="mt-2 flex items-center justify-end gap-1 text-xs font-black text-[rgb(var(--text-muted))]">
+                <Icon name="shield" className="h-4 w-4 text-[rgb(var(--primary))]" />
+                Verified
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="Request type">
             {(["SEAT", "MULTI_SEAT", "WHOLE_CAR"] as const).map((type) => (
-              <Button
+              <button
                 key={type}
+                aria-pressed={bookingType === type}
+                className={[
+                  "min-h-11 rounded-full px-2 text-sm font-black transition",
+                  bookingType === type
+                    ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]"
+                    : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]",
+                ].join(" ")}
                 type="button"
-                variant={bookingType === type ? "primary" : "secondary"}
                 onClick={() => changeType(type)}
               >
-                {type === "SEAT" ? "Seat" : type === "MULTI_SEAT" ? "Multi" : "Car"}
-              </Button>
+                {type === "SEAT"
+                  ? "Single seat"
+                  : type === "MULTI_SEAT"
+                    ? "2 passengers"
+                    : "Whole car"}
+              </button>
             ))}
           </div>
-        </Panel>
+        </section>
 
-        <Panel className="space-y-3" aria-label="Seat picker">
-          <h2 className="m-0 text-base font-bold">Available seats</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {seatLayout.map((seat) => {
-              const selected = effectiveSeats.includes(seat.key);
-              const disabled = seat.status !== "available" || bookingType === "WHOLE_CAR";
-              return (
-                <button
-                  key={seat.key}
-                  aria-pressed={selected}
-                  className={`min-h-14 rounded-[var(--radius-md)] border px-3 text-sm font-semibold ${
-                    selected
-                      ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
-                      : "border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
-                  } ${seat.status !== "available" ? "opacity-45" : ""}`}
-                  disabled={disabled}
-                  type="button"
-                  onClick={() => toggleSeat(seat.key)}
-                >
-                  {seat.label}
-                  <span className="block text-xs font-medium">
-                    {seat.status === "available" ? formatUzs(trip.priceMinor) : "Held"}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="mt-4">
+          <CabinSelector
+            bookingType={bookingType}
+            onSeatToggle={toggleSeat}
+            passengerCount={requiredSeats}
+            priceMinor={tripCabin.priceMinor}
+            seats={visibleSeats}
+            selectedSeats={selectedSeats}
+            template={previewSevenSeat ? "SUV_7" : tripCabin.template}
+            unavailableNotice={unavailableNotice}
+          />
+        </div>
+
+        <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-lg font-black">Selected</h2>
+              <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                {bookingType === "WHOLE_CAR"
+                  ? `${availableSeatKeys.length} available passenger seats`
+                  : `${effectiveSeats.length} of ${requiredSeats} selected`}
+              </p>
+            </div>
+            <Badge tone={requestReady ? "success" : "warning"}>
+              {requestReady ? "Ready" : "Select seat"}
+            </Badge>
           </div>
-        </Panel>
 
-        {step !== "confirmed" ? (
-          <Panel className="space-y-3" aria-label="Passenger details">
-            <h2 className="m-0 text-base font-bold">Passengers</h2>
-            {passengerFields.map((passenger) => (
-              <label key={passenger.seatKey} className="grid gap-1">
-                <span className="text-xs font-semibold text-slate-500">
-                  {passenger.name} В· {passenger.label}
-                </span>
-                <input
-                  className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                  defaultValue={passenger.name}
-                />
-              </label>
+          <div className="grid grid-cols-[1fr_auto] gap-3 rounded-[26px] bg-[linear-gradient(135deg,rgb(var(--canvas)),rgb(var(--surface-tint)))] p-3 shadow-[inset_0_0_0_1px_rgb(var(--surface)/0.8)]">
+            <div>
+              <div className="text-base font-black">{selectedSummary}</div>
+              <div className="mt-1 flex items-center gap-1 text-xs font-bold text-[rgb(var(--text-muted))]">
+                <Icon name="clock" className="h-4 w-4" />
+                Hold starts after request
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
+                {bookingType === "WHOLE_CAR" ? "Whole car" : "Price per seat"}
+              </div>
+              <div className="text-xl font-black text-[rgb(var(--foreground))]">
+                {formatUzs(totalMinor)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-4 gap-2 text-[11px] font-bold text-[rgb(var(--text-muted))]">
+            {[
+              ["bg-[rgb(var(--surface))] border-[rgb(var(--border))]", "Available"],
+              ["bg-[rgb(var(--primary))] border-[rgb(var(--primary))]", "Selected"],
+              ["bg-[rgb(var(--surface-muted))] border-[rgb(var(--border))]", "Occupied"],
+              [
+                "bg-[rgb(var(--canvas))] border-dashed border-[rgb(var(--border-strong))]",
+                "Unavailable",
+              ],
+            ].map(([sample, label]) => (
+              <div key={label} className="grid gap-1">
+                <span className={`h-5 rounded-full border ${sample}`} />
+                {label}
+              </div>
             ))}
-            <label className="grid gap-1">
-              <span className="text-xs font-semibold text-slate-500">Payment method</span>
-              <select
-                className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                value={paymentMethod}
-                onChange={(event) =>
-                  setPaymentMethod(event.target.value as "CASH" | "MANUAL_TRANSFER")
-                }
-              >
-                <option value="CASH">Cash to driver</option>
-                <option value="MANUAL_TRANSFER">Manual transfer</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" defaultChecked />
-              Small suitcase
-            </label>
-          </Panel>
-        ) : (
-          <Panel className="space-y-3" aria-label="Booking confirmation">
-            <Badge tone="success">Confirmed</Badge>
-            <h2 className="m-0 text-base font-bold">Booking confirmed</h2>
-            <p className="m-0 text-sm text-slate-500">
-              Your seats are booked. Pay by{" "}
-              {paymentMethod === "CASH" ? "cash to driver" : "manual transfer"}.
-            </p>
-          </Panel>
-        )}
-
-        <Panel className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">{effectiveSeats.length} seat(s)</span>
-            <strong>{formatUzs(totalMinor)}</strong>
           </div>
+
           {step === "hold" ? (
             <Button
-              className="w-full"
-              disabled={effectiveSeats.length === 0}
+              className="mt-4 w-full"
+              disabled={!requestReady}
               type="button"
-              onClick={() => setStep("passengers")}
+              onClick={requestSeatHold}
             >
-              Continue
+              {primaryAction}
             </Button>
-          ) : step === "passengers" ? (
-            <Button className="w-full" type="button" onClick={() => setStep("confirmed")}>
-              Confirm booking
-            </Button>
-          ) : (
-            <Link
-              className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]"
-              href="/bookings"
-            >
-              View my bookings
-            </Link>
-          )}
-        </Panel>
+          ) : null}
+        </section>
+
+        {step !== "hold" ? (
+          <section
+            aria-label={step === "confirmed" ? "Booking confirmation" : "Passenger details"}
+            className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]"
+          >
+            {step === "passengers" ? (
+              <>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="m-0 text-lg font-black">Passenger details</h2>
+                    <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                      Existing request flow keeps seat IDs intact.
+                    </p>
+                  </div>
+                  <Badge tone="accent">
+                    <span className="inline-flex items-center gap-1">
+                      <Icon name="users" className="h-4 w-4" />
+                      {effectiveSeats.length}
+                    </span>
+                  </Badge>
+                </div>
+
+                <div className="grid gap-3">
+                  {passengerFields.map((passenger) => (
+                    <label key={passenger.seatKey} className="grid gap-1">
+                      <span className="text-xs font-bold text-[rgb(var(--text-muted))]">
+                        {passenger.name} · {passenger.label}
+                      </span>
+                      <input
+                        className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold"
+                        defaultValue={passenger.name}
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <label className="mt-3 flex items-center gap-2 rounded-[20px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold">
+                  <input type="checkbox" defaultChecked />
+                  Small suitcase
+                </label>
+                <p className="m-0 mt-3 text-xs font-semibold text-[rgb(var(--text-muted))]">
+                  Payment is arranged directly with the driver.
+                </p>
+                <Button className="mt-4 w-full" type="button" onClick={() => setStep("confirmed")}>
+                  Send request
+                </Button>
+              </>
+            ) : (
+              <>
+                <Badge tone="success">Request sent</Badge>
+                <h2 className="m-0 mt-3 text-lg font-black">Seat request created</h2>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  {selectedSummary} is attached to your request. The driver will confirm the final
+                  arrangement.
+                </p>
+                <Link
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline"
+                  href="/bookings"
+                >
+                  View my bookings
+                </Link>
+              </>
+            )}
+          </section>
+        ) : null}
       </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Search", active: true },
-          { label: "Bookings" },
-          { label: "Profile" },
-        ]}
-      />
     </main>
   );
 }

@@ -1,36 +1,80 @@
-import { AppHeader, Badge, BottomNav, Panel } from "@nodex/ui";
+import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui";
 
 const notifications = [
-  { title: "Support ticket updated", body: "Support added a response.", status: "Unread" },
-  { title: "New chat message", body: "Your driver sent a route update.", status: "Read" },
-  { title: "Parcel accepted", body: "Your parcel is ready for handover.", status: "Read" },
+  {
+    icon: "car" as const,
+    title: "Driver confirmed your request",
+    body: "Azizbek accepted Nukus to Urgench. Your selected seat is Front passenger.",
+    time: "Now",
+    unread: true,
+    tone: "success" as const,
+  },
+  {
+    icon: "chat" as const,
+    title: "New driver message",
+    body: "White Chevrolet Cobalt, plate 95 A 214 QA.",
+    time: "2 min",
+    unread: true,
+    tone: "accent" as const,
+  },
+  {
+    icon: "help" as const,
+    title: "Support ticket updated",
+    body: "Support added your pickup note to the request.",
+    time: "1h",
+    unread: false,
+    tone: "info" as const,
+  },
+  {
+    icon: "shield" as const,
+    title: "Safety reminder",
+    body: "Share trip details with a trusted contact before departure.",
+    time: "Yesterday",
+    unread: false,
+    tone: "warning" as const,
+  },
 ];
 
 export default function ClientNotificationsPage() {
   return (
-    <main className="nodex-app mobile-shell pb-20">
-      <AppHeader title="Notifications" subtitle="In-app and Telegram delivery status" />
-      <div className="space-y-3 px-4">
-        {notifications.map((notification) => (
-          <Panel key={notification.title} className="space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="m-0 text-base font-black">{notification.title}</h1>
-              <Badge tone={notification.status === "Unread" ? "warning" : "success"}>
-                {notification.status}
-              </Badge>
-            </div>
-            <p className="m-0 text-sm text-slate-600">{notification.body}</p>
-          </Panel>
-        ))}
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Messages" },
-          { label: "Alerts", active: true },
-          { label: "Profile" },
-        ]}
+    <ClientShell active="profile">
+      <ClientHeader
+        backHref="/profile"
+        level="secondary"
+        title="Notifications"
+        subtitle="Trips, messages, and safety"
       />
-    </main>
+
+      <section aria-label="Notifications" className="mt-4 grid gap-2.5">
+        {notifications.map((notification) => (
+          <Card key={notification.title} compact>
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
+                <Icon name={notification.icon} className="h-4 w-4" />
+                {notification.unread ? (
+                  <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-[rgb(var(--warning))]" />
+                ) : null}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="m-0 text-base font-black">{notification.title}</h2>
+                  <span className="shrink-0 text-xs font-black text-[rgb(var(--text-muted))]">
+                    {notification.time}
+                  </span>
+                </div>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  {notification.body}
+                </p>
+                <div className="mt-2">
+                  <StatusPill tone={notification.tone} subtle={!notification.unread}>
+                    {notification.unread ? "Unread" : "Read"}
+                  </StatusPill>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </section>
+    </ClientShell>
   );
 }

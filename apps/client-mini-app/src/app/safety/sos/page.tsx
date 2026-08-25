@@ -1,32 +1,51 @@
-import { AppHeader, Badge, BottomNav, Button, Panel } from "@nodex/ui";
+import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
 
 export default function ClientSosPage() {
   return (
-    <main className="nodex-app mobile-shell pb-20">
-      <AppHeader title="SOS" subtitle="Safety actions for an active trip" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3">
-          <Badge tone="warning">Manual safety flow</Badge>
-          <h1 className="m-0 text-lg font-black">Emergency help</h1>
-          <p className="m-0 text-sm text-slate-600">
-            Nodex records the action, shares trip details, and guides you to contact local emergency
-            services.
-          </p>
-          <div className="grid gap-2">
-            <Button className="min-h-11">Call emergency number</Button>
-            <Button className="min-h-11">Share trip with trusted contact</Button>
-            <Button className="min-h-11">Create safety report</Button>
-          </div>
-        </Panel>
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Safety", active: true },
-          { label: "Support" },
-          { label: "Profile" },
-        ]}
+    <ClientShell active="profile">
+      <ClientHeader
+        backHref="/safety"
+        level="secondary"
+        title="SOS"
+        subtitle="Emergency help for active trips"
       />
-    </main>
+
+      <Card className="mt-4 space-y-3.5" compact>
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[rgb(var(--destructive-soft))] text-[rgb(var(--destructive))]">
+          <Icon name="warning" className="h-9 w-9" />
+        </div>
+        <div className="text-center">
+          <StatusPill tone="danger">Confirmation required</StatusPill>
+          <h1 className="m-0 mt-3 text-2xl font-black">Emergency help</h1>
+          <p className="m-0 mt-2 text-sm font-semibold text-[rgb(var(--text-muted))]">
+            Nodex can record this action, attach trip details, and guide you to local emergency
+            help. This does not place a phone call automatically.
+          </p>
+        </div>
+        <button
+          className="min-h-14 rounded-full bg-[rgb(var(--destructive))] px-4 text-base font-black text-white"
+          type="button"
+        >
+          Hold to start SOS
+        </button>
+      </Card>
+
+      <Card className="mt-3" compact>
+        <h2 className="m-0 mb-3 text-lg font-black">Other safety options</h2>
+        <div className="grid gap-2">
+          {["Share trip with trusted contact", "Contact Nodex support", "Create safety report"].map(
+            (item) => (
+              <button
+                key={item}
+                className="min-h-11 rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--foreground))]"
+                type="button"
+              >
+                {item}
+              </button>
+            ),
+          )}
+        </div>
+      </Card>
+    </ClientShell>
   );
 }

@@ -1,15 +1,61 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AppHeader, Badge, BottomNav, Button, EmptyState, Panel, formatUzs } from "@nodex/ui";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Badge, Button, VehicleImage, formatUzs } from "@nodex/ui";
 
-const cities = [
-  { id: "nukus", name: "Nukus" },
-  { id: "urgench", name: "Urgench" },
-  { id: "khiva", name: "Khiva" },
-  { id: "bukhara", name: "Bukhara" },
-];
+type IconName =
+  | "back"
+  | "calendar"
+  | "car"
+  | "clock"
+  | "filter"
+  | "home"
+  | "message"
+  | "navigation"
+  | "star"
+  | "user"
+  | "users";
+
+const iconPaths: Record<IconName, ReactNode> = {
+  back: <path d="m15 6-6 6 6 6" />,
+  calendar: (
+    <path d="M7 5v3M17 5v3M5 9h14M6 6h12a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" />
+  ),
+  car: (
+    <path d="M5 14h14l-1.8-4.2A2 2 0 0 0 15.4 8H8.6a2 2 0 0 0-1.8 1.2L5 14Zm1 0v4m12-4v4M7.5 18h.1m8.8 0h.1" />
+  ),
+  clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
+  filter: <path d="M4 7h16M7 12h10M10 17h4" />,
+  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
+  message: <path d="M5 18v-4.5A7.5 7.5 0 1 1 9.5 20H6.8A1.8 1.8 0 0 1 5 18Z" />,
+  navigation: <path d="m6 12 12-6-5 12-2-5-5-1Z" />,
+  star: <path d="m12 4 2.2 4.7 5.1.6-3.8 3.5 1 5-4.5-2.5-4.5 2.5 1-5-3.8-3.5 5.1-.6L12 4Z" />,
+  user: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" />,
+  users: (
+    <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm6.5-.5a2.5 2.5 0 1 0 0-5M3.5 19a5.5 5.5 0 0 1 11 0M14 15.5c2.5.3 4.2 1.5 5 3.5" />
+  ),
+};
+
+function Icon({ name, className = "" }: { name: IconName; className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      height="18"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      {iconPaths[name]}
+    </svg>
+  );
+}
 
 const trips = [
   {
@@ -21,11 +67,15 @@ const trips = [
     arrival: "11:30",
     seats: 4,
     priceMinor: 8500000,
-    bodyType: "SEDAN",
+    driver: "Azizbek Karimov",
+    rating: "4.9",
+    trips: "268 rides",
+    response: "Fast response",
+    vehicle: "Chevrolet Cobalt",
+    vehicleMeta: "White, 4 seats",
     parcel: true,
     luggage: true,
-    driver: "Phase Driver",
-    vehicle: "Chevrolet Tracker",
+    recommended: true,
   },
   {
     id: "phase5-nukus-urgench-evening",
@@ -36,11 +86,15 @@ const trips = [
     arrival: "21:05",
     seats: 2,
     priceMinor: 9200000,
-    bodyType: "SEDAN",
+    driver: "Madina Yusupova",
+    rating: "4.8",
+    trips: "142 rides",
+    response: "Reliable",
+    vehicle: "Chevrolet Tracker",
+    vehicleMeta: "Silver, 4 seats",
     parcel: false,
     luggage: true,
-    driver: "Verified driver",
-    vehicle: "Chevrolet Cobalt",
+    recommended: false,
   },
   {
     id: "phase5-nukus-khiva",
@@ -49,259 +103,274 @@ const trips = [
     date: "2026-08-10",
     departure: "09:00",
     arrival: "12:30",
-    seats: 3,
+    seats: 1,
     priceMinor: 9500000,
-    bodyType: "CROSSOVER",
+    driver: "Sherzod Rakhimov",
+    rating: "4.7",
+    trips: "94 rides",
+    response: "Verified",
+    vehicle: "BYD Chazor",
+    vehicleMeta: "Blue, 4 seats",
     parcel: true,
     luggage: true,
-    driver: "Route partner",
-    vehicle: "BYD Chazor",
+    recommended: false,
   },
 ];
 
-type SearchState = {
-  from: string;
-  to: string;
-  date: string;
-  passengers: number;
-  sort: "departure_asc" | "price_asc" | "price_desc";
-  parcel: boolean;
-  luggage: boolean;
-};
-
-const defaultState: SearchState = {
-  from: "Nukus",
-  to: "Urgench",
-  date: "2026-08-08",
-  passengers: 2,
-  sort: "departure_asc",
-  parcel: false,
-  luggage: false,
-};
+const filterChips = [
+  "Recommended",
+  "Cheapest",
+  "Earliest",
+  "Top rated",
+  "Front seat",
+  "Parcel",
+  "Luggage",
+];
 
 export default function SearchPage() {
-  const [state, setState] = useState<SearchState>(defaultState);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sort, setSort] = useState("Recommended");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setState({
-      from: params.get("from") ?? defaultState.from,
-      to: params.get("to") ?? defaultState.to,
-      date: params.get("date") ?? defaultState.date,
-      passengers: Number(params.get("passengers") ?? defaultState.passengers),
-      sort: (params.get("sort") as SearchState["sort"]) ?? defaultState.sort,
-      parcel: params.get("parcel") === "true",
-      luggage: params.get("luggage") === "true",
-    });
-    setRecent(JSON.parse(localStorage.getItem("nodex.recentSearches") ?? "[]") as string[]);
+    if (params.get("filters") === "open") setSheetOpen(true);
   }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams({
-      from: state.from,
-      to: state.to,
-      date: state.date,
-      passengers: String(state.passengers),
-      sort: state.sort,
-    });
-    if (state.parcel) params.set("parcel", "true");
-    if (state.luggage) params.set("luggage", "true");
-    window.history.replaceState(null, "", `/search?${params.toString()}`);
-  }, [state]);
-
-  const results = useMemo(() => {
-    const filtered = trips.filter(
-      (trip) =>
-        trip.origin === state.from &&
-        trip.destination === state.to &&
-        trip.date === state.date &&
-        trip.seats >= state.passengers &&
-        (!state.parcel || trip.parcel) &&
-        (!state.luggage || trip.luggage),
-    );
-    const sorted = [...filtered].sort((left, right) => {
-      const stable =
-        left.departure.localeCompare(right.departure) || left.id.localeCompare(right.id);
-      if (state.sort === "price_asc") return left.priceMinor - right.priceMinor || stable;
-      if (state.sort === "price_desc") return right.priceMinor - left.priceMinor || stable;
-      return stable;
-    });
-    return sorted;
-  }, [state]);
-
-  function submitSearch() {
-    const label = `${state.from} to ${state.to}, ${state.date}`;
-    const next = [label, ...recent.filter((item) => item !== label)].slice(0, 4);
-    setRecent(next);
-    localStorage.setItem("nodex.recentSearches", JSON.stringify(next));
-  }
+  const sortedTrips = useMemo(() => {
+    const list = [...trips];
+    if (sort === "Cheapest") return list.sort((a, b) => a.priceMinor - b.priceMinor);
+    if (sort === "Earliest") return list.sort((a, b) => a.departure.localeCompare(b.departure));
+    if (sort === "Top rated") return list.sort((a, b) => Number(b.rating) - Number(a.rating));
+    return list.sort((a, b) => Number(b.recommended) - Number(a.recommended));
+  }, [sort]);
 
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Search" subtitle="Find a reliable route" />
-      <div className="space-y-4 px-4">
-        <Panel>
-          <form
-            aria-label="Trip search form"
-            className="space-y-3"
-            onSubmit={(event) => event.preventDefault()}
+    <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
+      <div className="mx-auto min-h-screen max-w-[430px] overflow-hidden bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_28%,rgb(var(--canvas))_100%)] px-4 pb-28 pt-4">
+        <header className="flex items-center gap-3">
+          <Link
+            aria-label="Back home"
+            className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
+            href="/"
           >
-            <div className="grid grid-cols-2 gap-2">
-              <label className="grid gap-1">
-                <span className="text-xs font-semibold text-slate-500">From</span>
-                <select
-                  className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                  value={state.from}
-                  onChange={(event) => setState({ ...state, from: event.target.value })}
-                >
-                  {cities.map((city) => (
-                    <option key={city.id}>{city.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1">
-                <span className="text-xs font-semibold text-slate-500">To</span>
-                <select
-                  className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                  value={state.to}
-                  onChange={(event) => setState({ ...state, to: event.target.value })}
-                >
-                  {cities.map((city) => (
-                    <option key={city.id}>{city.name}</option>
-                  ))}
-                </select>
-              </label>
+            <Icon name="back" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-xl font-extrabold leading-tight">
+              <span>Nukus</span>
+              <Icon name="navigation" className="h-4 w-4 text-[rgb(var(--primary))]" />
+              <span>Urgench</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="grid gap-1">
-                <span className="text-xs font-semibold text-slate-500">Date</span>
-                <input
-                  className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                  type="date"
-                  value={state.date}
-                  onChange={(event) => setState({ ...state, date: event.target.value })}
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-xs font-semibold text-slate-500">Passengers</span>
-                <input
-                  className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 py-2"
-                  min={1}
-                  max={8}
-                  type="number"
-                  value={state.passengers}
-                  onChange={(event) =>
-                    setState({ ...state, passengers: Number(event.target.value) })
-                  }
-                />
-              </label>
+            <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              <Icon name="calendar" className="h-4 w-4" />
+              Tomorrow
+              <span>·</span>
+              <Icon name="users" className="h-4 w-4" />2 passengers
             </div>
-            <Button className="w-full" onClick={submitSearch}>
-              Search trips
-            </Button>
-          </form>
-        </Panel>
+          </div>
+          <button
+            aria-label="Open filters"
+            className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]"
+            onClick={() => setSheetOpen(true)}
+          >
+            <Icon name="filter" />
+          </button>
+        </header>
 
-        <section aria-label="Trip filters" className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="m-0 text-sm font-bold">Filters</h2>
-            <select
-              aria-label="Sort trips"
-              className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-2 py-1 text-xs"
-              value={state.sort}
-              onChange={(event) =>
-                setState({ ...state, sort: event.target.value as SearchState["sort"] })
-              }
+        <section
+          className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-2"
+          aria-label="Quick filters"
+        >
+          {filterChips.map((chip) => (
+            <button
+              key={chip}
+              className={[
+                "min-h-10 shrink-0 rounded-full px-4 text-sm font-extrabold shadow-[var(--shadow-xs)]",
+                sort === chip
+                  ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
+                  : "bg-[rgb(var(--surface))] text-[rgb(var(--text-muted))]",
+              ].join(" ")}
+              onClick={() => setSort(chip)}
             >
-              <option value="departure_asc">Earliest</option>
-              <option value="price_asc">Lowest price</option>
-              <option value="price_desc">Highest price</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <label>
-              <input
-                checked={state.parcel}
-                className="mr-1"
-                type="checkbox"
-                onChange={(event) => setState({ ...state, parcel: event.target.checked })}
-              />
-              Parcel
-            </label>
-            <label>
-              <input
-                checked={state.luggage}
-                className="mr-1"
-                type="checkbox"
-                onChange={(event) => setState({ ...state, luggage: event.target.checked })}
-              />
-              Luggage
-            </label>
-          </div>
-        </section>
-
-        <section aria-label="Search results" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="m-0 text-sm font-bold">Available trips</h2>
-            <Badge tone="info">{results.length} found</Badge>
-          </div>
-          {results.map((trip) => (
-            <Panel key={trip.id} className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="m-0 text-base font-bold">
-                    {trip.origin} to {trip.destination}
-                  </h3>
-                  <p className="m-0 text-sm text-slate-500">
-                    {trip.departure} - {trip.arrival} · {trip.vehicle}
-                  </p>
-                </div>
-                <Badge tone="success">{trip.seats} seats</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge>{trip.bodyType}</Badge>
-                {trip.parcel ? <Badge tone="info">Parcel</Badge> : null}
-                {trip.luggage ? <Badge tone="success">Luggage</Badge> : null}
-              </div>
-              <div className="flex items-center justify-between">
-                <strong>{formatUzs(trip.priceMinor)}</strong>
-                <Link
-                  className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]"
-                  href={`/trips/${trip.id}`}
-                >
-                  View {trip.departure}
-                </Link>
-              </div>
-            </Panel>
+              {chip}
+            </button>
           ))}
-          {results.length === 0 ? (
-            <EmptyState
-              title="No trips found"
-              body="Try another date, passenger count, or route."
-            />
-          ) : null}
         </section>
 
-        {recent.length > 0 ? (
-          <section aria-label="Recent searches" className="space-y-2">
-            <h2 className="m-0 text-sm font-bold">Recent searches</h2>
-            <div className="flex flex-wrap gap-2">
-              {recent.map((item) => (
-                <Badge key={item}>{item}</Badge>
-              ))}
+        <section className="mt-2">
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <h1 className="m-0 text-2xl font-extrabold">Available rides</h1>
+              <p className="m-0 text-sm font-medium text-[rgb(var(--text-muted))]">
+                Verified drivers. Price is per seat.
+              </p>
+            </div>
+            <Badge tone="accent">{sortedTrips.length} found</Badge>
+          </div>
+
+          <div className="grid gap-3">
+            {sortedTrips.map((trip) => (
+              <Link
+                key={trip.id}
+                className={[
+                  "block rounded-[28px] bg-[rgb(var(--surface))] p-4 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-md)]",
+                  trip.recommended ? "ring-2 ring-[rgb(var(--accent)/0.22)]" : "",
+                  trip.seats === 1
+                    ? "bg-[linear-gradient(180deg,rgb(var(--surface)),rgb(var(--warning-soft)/0.35))]"
+                    : "",
+                ].join(" ")}
+                href={`/trips/${trip.id}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-[rgb(var(--text-muted))]">
+                      <Icon name="clock" className="h-4 w-4" />
+                      {trip.departure} - {trip.arrival}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xl font-extrabold leading-none">
+                      {trip.origin}
+                      <Icon name="navigation" className="h-4 w-4 text-[rgb(var(--primary))]" />
+                      {trip.destination}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {trip.recommended ? <Badge tone="accent">Best match</Badge> : null}
+                    <div className="mt-2 rounded-full bg-[rgb(var(--primary))] px-3 py-2 text-sm font-extrabold text-[rgb(var(--primary-foreground))]">
+                      {formatUzs(trip.priceMinor)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-[86px_1fr] gap-3">
+                  <VehicleImage alt={trip.vehicle} className="rounded-[22px]" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-xs font-extrabold text-[rgb(var(--primary))]">
+                        {trip.driver[0]}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-extrabold">{trip.driver}</div>
+                        <div className="flex items-center gap-2 text-xs font-bold text-[rgb(var(--text-muted))]">
+                          <Icon name="star" className="h-3.5 w-3.5 text-[rgb(var(--gold))]" />
+                          {trip.rating}
+                          <span>·</span>
+                          {trip.trips}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm font-bold">{trip.vehicle}</div>
+                    <div className="text-xs font-medium text-[rgb(var(--text-muted))]">
+                      {trip.vehicleMeta}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Badge tone={trip.seats === 1 ? "warning" : "info"}>
+                    {trip.seats} seat{trip.seats === 1 ? "" : "s"} left
+                  </Badge>
+                  {trip.luggage ? <Badge tone="accent">Luggage</Badge> : null}
+                  {trip.parcel ? <Badge tone="info">Parcel</Badge> : null}
+                  <Badge>{trip.response}</Badge>
+                  <span className="ml-auto flex items-center gap-1 text-sm font-extrabold text-[rgb(var(--primary))]">
+                    View
+                    <Icon name="navigation" className="h-4 w-4" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <nav className="fixed inset-x-4 bottom-4 z-[var(--z-nav)] mx-auto max-w-[398px] rounded-full bg-[rgb(var(--surface)/0.94)] p-1.5 shadow-[var(--shadow-floating)] backdrop-blur-xl">
+        <div className="grid grid-cols-4 gap-1">
+          {[
+            { label: "Home", icon: "home" as const, active: false, href: "/" },
+            { label: "Trips", icon: "car" as const, active: true, href: "/bookings" },
+            { label: "Messages", icon: "message" as const, active: false, href: "/messages" },
+            { label: "Profile", icon: "user" as const, active: false, href: "/profile" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              className={[
+                "grid min-h-[54px] place-items-center rounded-full px-2 text-[11px] font-bold no-underline",
+                item.active
+                  ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-sm)]"
+                  : "text-[rgb(var(--text-muted))]",
+              ].join(" ")}
+              href={item.href}
+            >
+              <Icon name={item.icon} className="h-[18px] w-[18px]" />
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {sheetOpen ? (
+        <div className="fixed inset-0 z-[var(--z-modal)] bg-[rgb(var(--overlay)/0.34)]">
+          <button
+            aria-label="Close filters"
+            className="absolute inset-0 h-full w-full"
+            onClick={() => setSheetOpen(false)}
+          />
+          <section className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px] rounded-t-[32px] bg-[rgb(var(--surface))] p-5 pb-[calc(1.25rem+var(--safe-bottom))] shadow-[var(--shadow-floating)]">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[rgb(var(--border-strong))]" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="m-0 text-xl font-extrabold">Filters</h2>
+                <p className="m-0 text-sm font-medium text-[rgb(var(--text-muted))]">
+                  Refine supported options only.
+                </p>
+              </div>
+              <button className="text-sm font-extrabold text-[rgb(var(--primary))]">Reset</button>
+            </div>
+
+            <div className="mt-5 space-y-5">
+              <div>
+                <h3 className="m-0 mb-2 text-sm font-extrabold">Departure</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {["Morning", "Afternoon", "Evening"].map((item) => (
+                    <button
+                      key={item}
+                      className="min-h-11 rounded-full bg-[rgb(var(--canvas))] text-sm font-bold"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="m-0 mb-2 text-sm font-extrabold">Driver and comfort</h3>
+                <div className="flex flex-wrap gap-2">
+                  {["Verified driver", "4.8+ rating", "Luggage", "Parcel", "2+ seats"].map(
+                    (item) => (
+                      <button
+                        key={item}
+                        className="min-h-11 rounded-full bg-[rgb(var(--surface-tint))] px-4 text-sm font-bold text-[rgb(var(--primary))]"
+                      >
+                        {item}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-sm font-medium text-[rgb(var(--text-muted))]">
+                Price range, vehicle type and front-seat filters are prepared for UI, but not
+                applied here unless supported by the current search data.
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-[0.8fr_1.2fr] gap-2">
+              <Button variant="secondary" onClick={() => setSheetOpen(false)}>
+                Reset
+              </Button>
+              <Button onClick={() => setSheetOpen(false)}>Apply filters</Button>
             </div>
           </section>
-        ) : null}
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Search", active: true },
-          { label: "Trip" },
-          { label: "Profile" },
-        ]}
-      />
+        </div>
+      ) : null}
     </main>
   );
 }

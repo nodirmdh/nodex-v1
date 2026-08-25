@@ -1,132 +1,193 @@
-import Link from "next/link";
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline, formatUzs } from "@nodex/ui";
+"use client";
 
-const operationStatus = {
-  tripStatus: "BOARDING",
-  bookingStatus: "BOARDING",
-  boardingCode: "482913",
-  codeExpiresAt: "10:25",
-  seat: "Front, 1L",
-  pickupPoint: "Nukus Central Station",
-  driver: "Driver Mock",
-  vehicle: "Chevrolet Cobalt",
-  plannedArrival: "10:20",
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { formatUzs } from "@nodex/ui";
+import { Avatar, Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
+
+type DetailState = "upcoming" | "active" | "completed";
+
+const stateCopy = {
+  upcoming: {
+    title: "Trip confirmed",
+    status: "Upcoming",
+    tone: "success" as const,
+    body: "Your request is confirmed. Show the boarding code at pickup.",
+  },
+  active: {
+    title: "Trip in progress",
+    status: "In progress",
+    tone: "info" as const,
+    body: "You are on the way to Urgench. Keep trip details available until arrival.",
+  },
+  completed: {
+    title: "Trip completed",
+    status: "Completed",
+    tone: "accent" as const,
+    body: "Thanks for riding. You can leave a review for the driver.",
+  },
 };
 
-export default async function BookingDetailPage({
-  params,
-}: {
-  params: Promise<{ bookingId: string }>;
-}) {
-  const { bookingId } = await params;
+export default function BookingDetailPage() {
+  const [state, setState] = useState<DetailState>("upcoming");
+
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("state");
+    if (next === "active" || next === "completed") setState(next);
+  }, []);
+
+  const copy = stateCopy[state];
 
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Booking detail" subtitle={bookingId} />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3" aria-label="Booking summary">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-xl font-black">Nukus to Urgench</h1>
-              <p className="m-0 text-sm text-slate-500">08:30 - Cash to driver</p>
-            </div>
-            <Badge tone="info">{operationStatus.tripStatus}</Badge>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge>{operationStatus.bookingStatus}</Badge>
-            <Badge>{operationStatus.seat}</Badge>
-            <Badge tone="info">{formatUzs(17000000)}</Badge>
-          </div>
-        </Panel>
-
-        <Panel className="space-y-3" aria-label="Boarding state">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="m-0 text-base font-bold">Boarding code</h2>
-              <p className="m-0 text-sm text-slate-500">
-                Show this code to the driver at {operationStatus.pickupPoint}
-              </p>
-            </div>
-            <Badge tone="warning">Expires {operationStatus.codeExpiresAt}</Badge>
-          </div>
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-3xl font-black tracking-[0.28em] text-slate-950">
-            {operationStatus.boardingCode}
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="block text-slate-500">Driver</span>
-              <strong>{operationStatus.driver}</strong>
-            </div>
-            <div>
-              <span className="block text-slate-500">Vehicle</span>
-              <strong>{operationStatus.vehicle}</strong>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button className="flex-1" type="button" variant="secondary">
-              Copy code
-            </Button>
-            <Button className="flex-1" type="button" variant="secondary">
-              Regenerate
-            </Button>
-          </div>
-        </Panel>
-
-        <Panel className="space-y-2" aria-label="Trip operation status">
-          <h2 className="m-0 text-base font-bold">Trip status</h2>
-          <div className="grid gap-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Boarding</span>
-              <Badge tone="info">Code active</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">In progress</span>
-              <span>{operationStatus.plannedArrival}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Completed</span>
-              <span>Summary ready after arrival</span>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Booking timeline</h2>
-          <Timeline
-            items={[
-              { label: "Seat hold created", time: "08:01", active: true },
-              { label: "Passenger details added", time: "08:03", active: true },
-              { label: "Booking confirmed", time: "08:04", active: true },
-              { label: "Boarding code generated", time: "08:10", active: true },
-            ]}
-          />
-        </Panel>
-
-        <Panel className="space-y-3">
-          <h2 className="m-0 text-base font-bold">Passenger actions</h2>
-          <p className="m-0 text-sm text-slate-500">
-            Cancelled and no-show states will show the public reason and next available action.
-            Review is prepared for a later phase.
-          </p>
-          <Button className="w-full" type="button" variant="secondary">
-            Cancel booking
-          </Button>
-          <Link
-            className="block text-center text-sm font-semibold text-[rgb(var(--primary))]"
-            href="/bookings"
-          >
-            Back to bookings
-          </Link>
-        </Panel>
-      </div>
-      <BottomNav
-        items={[
-          { label: "Home" },
-          { label: "Search" },
-          { label: "Bookings", active: true },
-          { label: "Profile" },
-        ]}
+    <ClientShell active="trips">
+      <ClientHeader
+        backHref="/bookings"
+        level="secondary"
+        title="Trip status"
+        subtitle="Nukus to Urgench"
       />
-    </main>
+
+      <Card className="mt-4 space-y-3" compact label="Booking summary">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+              {copy.status}
+            </p>
+            <h1 className="m-0 mt-1 text-[22px] font-black leading-tight">{copy.title}</h1>
+            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              {copy.body}
+            </p>
+          </div>
+          <StatusPill tone={copy.tone}>{copy.status}</StatusPill>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[22px] bg-[rgb(var(--canvas))] p-3">
+          <div>
+            <div className="text-2xl font-black">08:30</div>
+            <div className="text-sm font-bold text-[rgb(var(--text-muted))]">Nukus</div>
+          </div>
+          <div className="grid place-items-center text-[rgb(var(--primary))]">
+            <Icon name="car" className="h-5 w-5" />
+            <span className="text-[11px] font-black text-[rgb(var(--text-muted))]">3h</span>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-black">11:30</div>
+            <div className="text-sm font-bold text-[rgb(var(--text-muted))]">Urgench</div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mt-3 space-y-3" compact label="Boarding state">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-lg font-black">
+              {state === "completed" ? "Trip summary" : "Boarding code"}
+            </h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              {state === "completed"
+                ? "Ride price was arranged directly with the driver."
+                : "Show this code to the driver at Nukus Central Station."}
+            </p>
+          </div>
+          <StatusPill tone={state === "active" ? "info" : "warning"}>
+            {state === "completed" ? "Archived" : "Expires 10:25"}
+          </StatusPill>
+        </div>
+
+        {state === "completed" ? (
+          <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
+                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Seat</div>
+                <div className="text-base font-black">Front passenger</div>
+              </div>
+              <div className="rounded-[22px] bg-[rgb(var(--surface-tint))] p-3">
+                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Listed price</div>
+                <div className="text-base font-black">{formatUzs(8500000)}</div>
+              </div>
+            </div>
+            <Link
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+              href="/reviews"
+            >
+              Review driver
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-[22px] border border-dashed border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--surface-tint))] p-3 text-center text-4xl font-black tracking-[0.26em] text-[rgb(var(--primary))]">
+            482913
+          </div>
+        )}
+      </Card>
+
+      <Card className="mt-3 space-y-3" compact>
+        <div className="flex items-center gap-3">
+          <Avatar name="Azizbek Karimov" />
+          <div className="min-w-0 flex-1">
+            <h2 className="m-0 truncate text-base font-black">Azizbek Karimov</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Chevrolet Cobalt · Front passenger
+            </p>
+          </div>
+          <StatusPill tone="accent">4.9</StatusPill>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href="/messages/driver-azizbek"
+          >
+            Message driver
+          </Link>
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--primary))] no-underline"
+            href="/safety"
+          >
+            Safety
+          </Link>
+        </div>
+      </Card>
+
+      <Card className="mt-3 space-y-2.5" compact label="Trip operation status">
+        <h2 className="m-0 text-base font-black">Route progress</h2>
+        {[
+          ["Pickup", "Nukus Central Station", true],
+          ["In progress", "Estimated arrival 11:30", state === "active" || state === "completed"],
+          ["Completed", "Summary and review ready after arrival", state === "completed"],
+        ].map(([label, text, active]) => (
+          <div key={label as string} className="grid grid-cols-[20px_1fr_auto] gap-3">
+            <span
+              className={[
+                "mt-1 h-3 w-3 rounded-full",
+                active ? "bg-[rgb(var(--primary))]" : "bg-[rgb(var(--border-strong))]",
+              ].join(" ")}
+            />
+            <div>
+              <div className="text-sm font-black">{label}</div>
+              <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{text}</div>
+            </div>
+            {active ? <Icon name="check" className="h-4 w-4 text-[rgb(var(--primary))]" /> : null}
+          </div>
+        ))}
+      </Card>
+
+      <Card className="mt-3 space-y-3" compact>
+        <h2 className="m-0 text-base font-black">Next action</h2>
+        {state === "completed" ? (
+          <Link
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href="/reviews"
+          >
+            Review driver
+          </Link>
+        ) : (
+          <button
+            className="min-h-11 w-full rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
+            type="button"
+          >
+            Cancel request
+          </button>
+        )}
+      </Card>
+    </ClientShell>
   );
 }
