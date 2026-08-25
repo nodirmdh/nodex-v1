@@ -171,14 +171,14 @@ test.describe("phase 6 booking and seat holds", () => {
     page,
   }) => {
     await page.goto(`${client}/trips/phase5-nukus-urgench-morning`);
-    await page.getByRole("link", { name: "Choose seats" }).click();
-    await expect(page.getByRole("region", { name: "Seat picker" })).toContainText(
-      "Available seats",
+    await page.getByRole("link", { name: "Request seat" }).click();
+    await expect(page.getByRole("region", { name: "Real car cabin seat picker" })).toContainText(
+      "Cabin",
     );
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.getByRole("button", { name: "Confirm booking" }).click();
+    await page.getByRole("button", { name: "Request this seat" }).click();
+    await page.getByRole("button", { name: "Send request" }).click();
     await expect(page.getByRole("region", { name: "Booking confirmation" })).toContainText(
-      "Booking confirmed",
+      "Seat request created",
     );
 
     await page.goto(`${client}/bookings`);
@@ -192,9 +192,12 @@ test.describe("phase 6 booking and seat holds", () => {
     );
 
     await page.goto("http://127.0.0.1:3102/bookings");
-    await expect(page.getByRole("table", { name: "Admin booking list" })).toContainText("BOARDING");
-    await expect(page.getByRole("region", { name: "Booking detail panel" })).toContainText(
-      "Timeline",
+    await expect(page.getByRole("heading", { name: "Seat Requests" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Admin booking list" })).toContainText(
+      "Pending driver",
+    );
+    await expect(page.getByRole("region", { name: "Seat request detail" })).toContainText(
+      "Arranged directly with driver",
     );
   });
 });

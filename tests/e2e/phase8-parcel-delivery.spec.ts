@@ -57,12 +57,12 @@ test.describe("phase 8 parcel delivery", () => {
 
   test("renders admin parcel moderation", async ({ page }) => {
     await page.goto(`${admin}/parcels`);
-    await expect(page.getByRole("heading", { name: "Parcel moderation" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Parcels" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Admin parcel list" })).toContainText(
       "Documents envelope",
     );
     await expect(page.getByRole("region", { name: "Parcel moderation detail" })).toContainText(
-      "Open dispute",
+      "Handoff context",
     );
   });
 });

@@ -107,18 +107,13 @@ test.describe("phase 5 public trip search", () => {
     page,
   }) => {
     await page.goto(`${client}/search`);
-    await expect(page.getByRole("form", { name: "Trip search form" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Search results" })).toContainText(
-      "Available trips",
-    );
-    await page.getByRole("checkbox", { name: "Parcel" }).check();
-    await page.getByRole("button", { name: "Search trips" }).click();
-    await expect(page.getByRole("region", { name: "Recent searches" })).toContainText(
-      "Nukus to Urgench",
-    );
-    await page.getByRole("link", { name: "View 08:30" }).click();
+    await expect(page.getByRole("heading", { name: "Available rides" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Quick filters" })).toContainText("Parcel");
+    await page.getByRole("button", { name: "Parcel" }).click();
+    await expect(page.getByText("3 found")).toBeVisible();
+    await page.getByRole("link").filter({ hasText: "Azizbek Karimov" }).click();
     await expect(page.getByRole("heading", { name: /Nukus to/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Choose seats" })).toBeVisible();
-    await expect(page.getByText("Choose a seat, add passenger details")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Request seat" })).toBeVisible();
+    await expect(page.getByText("Payment is arranged directly with the driver.")).toBeVisible();
   });
 });

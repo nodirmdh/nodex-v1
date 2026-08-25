@@ -108,11 +108,17 @@ test.describe("phase 9 chat, notifications, and support", () => {
     await expect(page.getByRole("button", { name: "Contact support" })).toBeVisible();
 
     await page.goto(`${admin}/communications`);
-    await expect(page.getByRole("heading", { name: "Communications" })).toBeVisible();
-    await expect(page.getByText("Delivery outbox")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Messages" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Conversation queue" })).toContainText("Trip");
+    await expect(page.getByRole("region", { name: "Conversation inspector" })).toContainText(
+      "Internal note",
+    );
 
     await page.goto(`${admin}/support`);
-    await expect(page.getByRole("heading", { name: "Support queue" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Internal note" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Support" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Support queue" })).toContainText("SUP-1842");
+    await expect(page.getByRole("region", { name: "Support ticket detail" })).toContainText(
+      "Add internal note",
+    );
   });
 });

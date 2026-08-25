@@ -116,7 +116,7 @@ test.describe("phase 7 trip operations", () => {
 
     await page.goto("http://127.0.0.1:3101/passengers-demo");
     await expect(page.getByRole("region", { name: "Driver operation dashboard" })).toContainText(
-      "BOARDING",
+      "Boarding",
     );
     await expect(page.getByRole("region", { name: "Boarding code verification" })).toContainText(
       "Confirm boarding",

@@ -160,7 +160,16 @@ test.describe("phase 10 reviews, reliability, and safety", () => {
     await expect(page.getByRole("heading", { name: "Driver safety center" })).toBeVisible();
 
     await page.goto(`${admin}/trust-safety`);
-    await expect(page.getByRole("heading", { name: "Trust & Safety queue" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Restrict account" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Reviews" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Review moderation queue" })).toContainText(
+      "Flagged",
+    );
+
+    await page.goto(`${admin}/trust-safety?view=safety`);
+    await expect(page.getByRole("heading", { name: "Safety" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Safety case queue" })).toContainText("SAF-441");
+    await expect(page.getByRole("region", { name: "Safety case detail" })).toContainText(
+      "Contact support flow",
+    );
   });
 });

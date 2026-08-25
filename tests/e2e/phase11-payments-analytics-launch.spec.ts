@@ -6,15 +6,16 @@ const admin = "http://127.0.0.1:3102";
 const api = "http://127.0.0.1:3103";
 
 test.describe("phase 11 payments analytics launch", () => {
-  test("renders client payment checkout and refund surface", async ({ page }) => {
+  test("renders client payment guidance surface", async ({ page }) => {
     await page.goto(`${client}/payments`);
-    await expect(page.getByRole("heading", { name: "Checkout" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Client payment checkout" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pay cash" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pay online" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Payment status" })).toContainText(
-      "provider-safe status",
+    await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Client payment legacy notice" })).toContainText(
+      "Ride payments happen outside Nodex",
     );
+    await expect(page.getByRole("link", { name: "View trips" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Contact support" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pay cash" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pay online" })).toHaveCount(0);
   });
 
   test("renders driver earnings and cash settlement surface", async ({ page }) => {
@@ -29,9 +30,11 @@ test.describe("phase 11 payments analytics launch", () => {
     await page.goto(`${admin}/finance`);
     await expect(page.getByRole("heading", { name: "Finance" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Finance overview" })).toBeVisible();
-    await expect(page.getByRole("table", { name: "Admin payment list" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ledger entries" })).toContainText(
-      "driver_earnings_payable",
+    await expect(page.getByRole("region", { name: "Finance policy" })).toContainText(
+      "driver subscription revenue",
+    );
+    await expect(page.getByRole("region", { name: "Finance policy" })).toContainText(
+      "No passenger wallet",
     );
   });
 
@@ -39,12 +42,10 @@ test.describe("phase 11 payments analytics launch", () => {
     await page.goto(`${admin}/analytics`);
     await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Analytics dashboard" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Conversion funnel" })).toContainText(
-      "Payment succeeded",
+    await expect(page.getByRole("region", { name: "Subscription renewal trend" })).toContainText(
+      "Mon",
     );
-    await expect(page.getByRole("region", { name: "Launch reporting" })).toContainText(
-      "Operational exceptions",
-    );
+    await expect(page.getByRole("region", { name: "Corridor performance" })).toContainText("Nukus");
   });
 
   test("exposes payment finance and analytics OpenAPI paths", async ({ request }) => {

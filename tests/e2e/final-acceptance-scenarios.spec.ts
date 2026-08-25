@@ -271,7 +271,10 @@ test.describe("final acceptance isolated user journeys", () => {
     await page.goto(`${admin}/finance`);
     await expect(page.getByRole("heading", { name: "Finance" })).toBeVisible();
     await page.goto(`${client}/payments`);
-    await expect(page.getByRole("heading", { name: "Checkout" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Client payment legacy notice" })).toContainText(
+      "Ride payments happen outside Nodex",
+    );
     await page.goto(`${driver}/earnings`);
     await expect(page.getByRole("heading", { name: "Driver earnings" })).toBeVisible();
   });
