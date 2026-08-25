@@ -1,162 +1,263 @@
-import { Badge, Button, Panel, Timeline, formatUzs } from "@nodex/ui";
+"use client";
 
-const bookings = [
+import { useMemo, useState } from "react";
+import { formatUzs } from "@nodex/ui";
+import { AdminPageHeader, AdminPanel, AdminStatusBadge } from "../admin-shell";
+
+type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
+type RequestStatus = "Pending driver" | "Accepted" | "Declined" | "Expired" | "Cancelled";
+
+type SeatRequest = {
+  id: string;
+  passenger: string;
+  route: string;
+  trip: string;
+  driver: string;
+  seat: string;
+  amountMinor: number;
+  status: RequestStatus;
+  submitted: string;
+  attention: string;
+  timeline: Array<{ label: string; time: string }>;
+};
+
+const requests: SeatRequest[] = [
   {
-    id: "booking-confirmed",
-    route: "Nukus to Urgench",
-    client: "A. Karimov",
-    driver: "Phase Driver",
-    seats: ["Front", "1L"],
-    status: "BOARDING",
-    payment: "Cash",
-    totalMinor: 17000000,
-    createdAt: "2026-08-01 09:04 UTC",
+    id: "seat-request-pending",
+    passenger: "Dilshod Allamuratov",
+    route: "Nukus → Urgench",
+    trip: "Today · 18:30 UTC",
+    driver: "Azizbek Karimov",
+    seat: "Rear left",
+    amountMinor: 8500000,
+    status: "Pending driver",
+    submitted: "12:24 UTC",
+    attention: "Waiting for driver response; trip boards in 5h 54m",
+    timeline: [
+      { label: "Passenger sent seat request", time: "12:24" },
+      { label: "Driver notification delivered", time: "12:25" },
+      { label: "No payment collected in app", time: "Policy" },
+    ],
   },
   {
-    id: "booking-progress",
-    route: "Nukus to Khiva",
-    client: "M. Seitov",
-    driver: "Route partner",
-    seats: ["1R"],
-    status: "IN_PROGRESS",
-    payment: "Manual transfer",
-    totalMinor: 9500000,
-    createdAt: "2026-08-01 09:10 UTC",
+    id: "seat-request-accepted",
+    passenger: "Gulnoza Bektemirova",
+    route: "Nukus → Khiva",
+    trip: "Today · 17:20 UTC",
+    driver: "Madina Yusupova",
+    seat: "Front passenger",
+    amountMinor: 9500000,
+    status: "Accepted",
+    submitted: "10:08 UTC",
+    attention: "Accepted by driver; direct payment arranged outside the app",
+    timeline: [
+      { label: "Passenger sent request", time: "10:08" },
+      { label: "Driver accepted seat", time: "10:16" },
+      { label: "Boarding code created", time: "16:52" },
+    ],
   },
   {
-    id: "booking-no-show",
-    route: "Nukus to Bukhara",
-    client: "D. Allamuratov",
-    driver: "Verified driver",
-    seats: ["2R"],
-    status: "NO_SHOW_CLIENT",
-    payment: "Cash",
-    totalMinor: 18000000,
-    createdAt: "2026-08-01 08:44 UTC",
+    id: "seat-request-expired",
+    passenger: "Murod Qodirov",
+    route: "Tashkent → Samarkand",
+    trip: "Tomorrow · 07:40 UTC",
+    driver: "Sherzod Rakhimov",
+    seat: "Whole car request",
+    amountMinor: 48000000,
+    status: "Expired",
+    submitted: "Yesterday · 18:40 UTC",
+    attention: "Expired without driver response; passenger can request again",
+    timeline: [
+      { label: "Passenger requested whole car", time: "Yesterday" },
+      { label: "Driver did not respond before timeout", time: "02:40" },
+      { label: "Request expired automatically", time: "02:41" },
+    ],
   },
 ];
 
-function tone(status: string) {
-  if (status === "CONFIRMED" || status === "COMPLETED") return "success";
-  if (status === "BOARDING" || status === "IN_PROGRESS") return "info";
-  if (status.startsWith("NO_SHOW") || status.startsWith("CANCELLED")) return "danger";
-  if (status === "HOLD") return "warning";
-  return "info";
+function statusTone(status: RequestStatus): BadgeTone {
+  if (status === "Accepted") return "success";
+  if (status === "Pending driver") return "warning";
+  if (status === "Declined" || status === "Expired" || status === "Cancelled") return "danger";
+  return "neutral";
 }
 
 export default function BookingsPage() {
-  const selected = bookings[0]!;
+  const [selectedId, setSelectedId] = useState(requests[0]!.id);
+  const selected = useMemo(
+    () => requests.find((request) => request.id === selectedId) ?? requests[0]!,
+    [selectedId],
+  );
 
   return (
-    <main className="space-y-4 p-5">
-      <Panel className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="m-0 text-lg font-black">Booking operations</h1>
-            <div className="text-sm text-slate-500">
-              Holds, boarding, in-progress trips, no-shows, cancellations, and audit history.
+    <main className="p-5">
+      <AdminPageHeader
+        title="Seat Requests"
+        subtitle="Monitor passenger requests, driver responses, whole-car requests, and direct-payment policy without taking driver actions."
+        actions={
+          <>
+            <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+              Export queue
+            </button>
+            <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
+              Open exceptions
+            </button>
+          </>
+        }
+      />
+
+      <div className="grid gap-4 min-[1380px]:grid-cols-[minmax(0,1fr)_460px]">
+        <AdminPanel className="overflow-hidden" label="Seat request queue">
+          <div className="grid gap-3 border-b border-[rgb(var(--border))] p-4 lg:grid-cols-[1fr_auto]">
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["Pending driver", "18"],
+                ["Accepted today", "46"],
+                ["Whole car", "7"],
+                ["Expired", "3"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="min-w-[118px] rounded-[12px] bg-[rgb(var(--surface-muted))] p-3"
+                >
+                  <div className="text-lg font-black">{value}</div>
+                  <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select className="min-h-10 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm">
+                <option>All request states</option>
+                <option>Pending driver</option>
+                <option>Accepted</option>
+                <option>Expired</option>
+              </select>
+              <input
+                className="min-h-10 w-[250px] rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm outline-none"
+                placeholder="Passenger, route, driver"
+              />
             </div>
           </div>
-          <Badge tone="info">{bookings.length} records</Badge>
-        </div>
-        <div className="grid grid-cols-4 gap-2 text-sm">
-          <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-            <strong>2</strong>
-            <span className="block text-slate-500">Operational</span>
-          </div>
-          <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-            <strong>1</strong>
-            <span className="block text-slate-500">Boarding</span>
-          </div>
-          <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-            <strong>1</strong>
-            <span className="block text-slate-500">No-show</span>
-          </div>
-          <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-            <strong>{formatUzs(26500000)}</strong>
-            <span className="block text-slate-500">Cash/manual</span>
-          </div>
-        </div>
-      </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <Panel className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm" aria-label="Admin booking list">
-            <thead className="text-xs uppercase text-slate-500">
-              <tr>
-                <th className="p-2">Booking</th>
-                <th className="p-2">Client</th>
-                <th className="p-2">Driver</th>
-                <th className="p-2">Seats</th>
-                <th className="p-2">Payment</th>
-                <th className="p-2">Status</th>
-                <th className="p-2">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((booking) => (
-                <tr key={booking.id} className="border-t border-[rgb(var(--border))]">
-                  <td className="p-2">
-                    <strong>{booking.route}</strong>
-                    <span className="block text-xs text-slate-500">{booking.createdAt}</span>
-                  </td>
-                  <td className="p-2">{booking.client}</td>
-                  <td className="p-2">{booking.driver}</td>
-                  <td className="p-2">{booking.seats.join(", ")}</td>
-                  <td className="p-2">
-                    {booking.payment}
-                    <span className="block text-xs text-slate-500">
-                      {formatUzs(booking.totalMinor)}
-                    </span>
-                  </td>
-                  <td className="p-2">
-                    <Badge tone={tone(booking.status)}>{booking.status}</Badge>
-                  </td>
-                  <td className="p-2">
-                    <Button type="button" variant="secondary">
-                      Review
-                    </Button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm" aria-label="Admin booking list">
+              <thead>
+                <tr className="text-left text-[11px] font-black uppercase tracking-[0.08em] text-[rgb(var(--text-muted))]">
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Passenger</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Trip</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Seat</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Listed fare</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
+              </thead>
+              <tbody>
+                {requests.map((request) => (
+                  <tr
+                    key={request.id}
+                    className={[
+                      "cursor-pointer border-b border-[rgb(var(--border))] transition hover:bg-[rgb(var(--surface-muted))]",
+                      selected.id === request.id ? "bg-[rgb(var(--info-soft))]" : "",
+                    ].join(" ")}
+                    onClick={() => setSelectedId(request.id)}
+                  >
+                    <td className="px-4 py-3">
+                      <strong>{request.passenger}</strong>
+                      <span className="block text-xs font-semibold text-[rgb(var(--text-muted))]">
+                        Submitted {request.submitted}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {request.route}
+                      <span className="block text-xs text-[rgb(var(--text-muted))]">
+                        {request.trip}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{request.seat}</td>
+                    <td className="px-4 py-3">{formatUzs(request.amountMinor)}</td>
+                    <td className="px-4 py-3">
+                      <AdminStatusBadge tone={statusTone(request.status)}>
+                        {request.status}
+                      </AdminStatusBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </AdminPanel>
 
-        <Panel className="space-y-4" aria-label="Booking detail panel">
-          <div>
-            <h2 className="m-0 text-base font-bold">Selected booking</h2>
-            <p className="m-0 text-sm text-slate-500">
-              {selected.client} - {selected.route}
-            </p>
+        <AdminPanel className="overflow-hidden" label="Seat request detail">
+          <div className="border-b border-[rgb(var(--border))] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="m-0 text-xl font-black">{selected.passenger}</h2>
+                <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  {selected.route} · {selected.trip}
+                </p>
+              </div>
+              <AdminStatusBadge tone={statusTone(selected.status)}>
+                {selected.status}
+              </AdminStatusBadge>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {selected.seats.map((seat) => (
-              <Badge key={seat}>{seat}</Badge>
-            ))}
-            <Badge tone={tone(selected.status)}>{selected.status}</Badge>
+
+          <div className="space-y-4 p-4">
+            <section className="rounded-[12px] border border-[rgb(var(--border))] p-3">
+              <h3 className="m-0 mb-2 text-sm font-black">Request context</h3>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Seat mode</span>
+                  <strong>{selected.seat}</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Driver</span>
+                  <strong>{selected.driver}</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Listed fare</span>
+                  <strong>{formatUzs(selected.amountMinor)}</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Payment</span>
+                  <strong className="text-right">Arranged directly with driver</strong>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Queue actions</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  Open trip
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  Open driver
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  View passenger
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  Add note
+                </button>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Timeline</h3>
+              <div className="grid gap-2">
+                {selected.timeline.map((event) => (
+                  <div
+                    key={`${event.time}-${event.label}`}
+                    className="grid grid-cols-[74px_1fr] gap-3 text-sm"
+                  >
+                    <span className="font-black text-[rgb(var(--text-muted))]">{event.time}</span>
+                    <span>{event.label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant="secondary">
-              Admin cancel
-            </Button>
-            <Button type="button" variant="secondary">
-              View operations
-            </Button>
-          </div>
-          <div>
-            <h3 className="m-0 mb-3 text-sm font-bold">Timeline</h3>
-            <Timeline
-              items={[
-                { label: "Hold created", time: "09:01", active: true },
-                { label: "Passenger details saved", time: "09:03", active: true },
-                { label: "Booking confirmed", time: "09:04", active: true },
-                { label: "Boarding code generated", time: "09:10", active: true },
-                { label: "Operational status updated", time: selected.status },
-              ]}
-            />
-          </div>
-        </Panel>
+        </AdminPanel>
       </div>
     </main>
   );

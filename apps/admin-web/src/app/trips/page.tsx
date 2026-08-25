@@ -1,18 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
-import { Badge, Button, Panel, Timeline } from "@nodex/ui";
+import { useEffect, useMemo, useState } from "react";
+import { AdminPageHeader, AdminPanel, AdminStatusBadge } from "../admin-shell";
 
-type TripStatus =
-  | "DRAFT"
-  | "PUBLISHED"
-  | "BOARDING"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "UNPUBLISHED"
-  | "CANCELLED"
-  | "BLOCKED";
+type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
+type TripStatus = "Published" | "Boarding" | "In progress" | "Completed" | "Cancelled" | "Blocked";
 
 type TripRow = {
   id: string;
@@ -20,244 +12,293 @@ type TripRow = {
   departure: string;
   driver: string;
   vehicle: string;
-  seats: string;
+  seatMap: string;
+  requests: number;
+  parcels: number;
   price: string;
-  parcel: boolean;
   status: TripStatus;
+  attention: string;
+  timeline: Array<{ label: string; time: string }>;
 };
 
-const rows: TripRow[] = [
-  {
-    id: "trip-published",
-    route: "Nukus -> Khiva",
-    departure: "2026-08-10 10:00",
-    driver: "Driver Mock",
-    vehicle: "Chevrolet Tracker",
-    seats: "4 / 4",
-    price: "95 000 UZS",
-    parcel: true,
-    status: "PUBLISHED",
-  },
+const trips: TripRow[] = [
   {
     id: "trip-boarding",
-    route: "Nukus -> Urgench",
-    departure: "2026-08-08 08:30",
-    driver: "Driver Mock",
-    vehicle: "Chevrolet Cobalt",
-    seats: "3 / 4",
+    route: "Nukus → Urgench",
+    departure: "Today · 18:30 UTC",
+    driver: "Azizbek Karimov",
+    vehicle: "Chevrolet Cobalt · 95 A 184 AA",
+    seatMap: "3 requested · 1 open",
+    requests: 6,
+    parcels: 2,
     price: "85 000 UZS",
-    parcel: false,
-    status: "BOARDING",
+    status: "Boarding",
+    attention: "Boarding started; one passenger request still pending driver response",
+    timeline: [
+      { label: "Trip published", time: "08:12" },
+      { label: "Seat requests received", time: "10:34" },
+      { label: "Boarding window opened", time: "18:00" },
+    ],
   },
   {
-    id: "trip-progress",
-    route: "Nukus -> Tashkent",
-    departure: "2026-08-08 07:00",
-    driver: "Route partner",
-    vehicle: "Chevrolet Tracker",
-    seats: "4 / 4",
-    price: "250 000 UZS",
-    parcel: false,
-    status: "IN_PROGRESS",
+    id: "trip-active",
+    route: "Nukus → Khiva",
+    departure: "Today · 17:20 UTC",
+    driver: "Madina Yusupova",
+    vehicle: "Chevrolet Tracker · 95 B 442 BA",
+    seatMap: "3 onboard · 0 open",
+    requests: 4,
+    parcels: 1,
+    price: "95 000 UZS",
+    status: "In progress",
+    attention: "Active trip; parcel handoff expected at destination",
+    timeline: [
+      { label: "Boarding completed", time: "17:18" },
+      { label: "Trip moved to in progress", time: "17:22" },
+      { label: "Destination ETA updated", time: "19:58" },
+    ],
   },
   {
-    id: "trip-draft",
-    route: "Nukus -> Urgench",
-    departure: "Draft",
-    driver: "Driver Mock",
-    vehicle: "Chevrolet Tracker",
-    seats: "3 / 3",
-    price: "85 000 UZS",
-    parcel: true,
-    status: "DRAFT",
+    id: "trip-published",
+    route: "Tashkent → Samarkand",
+    departure: "Tomorrow · 07:40 UTC",
+    driver: "Sherzod Rakhimov",
+    vehicle: "Kia K5 · 01 K 731 KA",
+    seatMap: "2 requested · 2 open",
+    requests: 3,
+    parcels: 0,
+    price: "120 000 UZS",
+    status: "Published",
+    attention: "Normal demand and approved vehicle",
+    timeline: [
+      { label: "Driver created trip", time: "Yesterday" },
+      { label: "Publication validation passed", time: "Yesterday" },
+      { label: "Search listing visible", time: "Today" },
+    ],
   },
   {
-    id: "trip-unpublished",
-    route: "Nukus -> Bukhara",
-    departure: "2026-08-12 09:00",
-    driver: "Driver Mock",
-    vehicle: "Chevrolet Tracker",
-    seats: "4 / 4",
+    id: "trip-blocked",
+    route: "Nukus → Bukhara",
+    departure: "Tomorrow · 09:00 UTC",
+    driver: "Azizbek Karimov",
+    vehicle: "Chevrolet Cobalt · 95 A 184 AA",
+    seatMap: "0 requested · 4 open",
+    requests: 0,
+    parcels: 0,
     price: "180 000 UZS",
-    parcel: true,
-    status: "UNPUBLISHED",
+    status: "Blocked",
+    attention: "Blocked by operations pending route review",
+    timeline: [
+      { label: "Trip published", time: "13:18" },
+      { label: "Route issue detected", time: "13:31" },
+      { label: "Blocked by operations", time: "13:34" },
+    ],
   },
 ];
 
-function statusTone(status: TripStatus) {
-  if (status === "PUBLISHED" || status === "COMPLETED") return "success";
-  if (status === "BOARDING" || status === "IN_PROGRESS") return "info";
-  if (status === "CANCELLED" || status === "BLOCKED") return "danger";
-  if (status === "UNPUBLISHED") return "warning";
-  return "info";
+function statusTone(status: TripStatus): BadgeTone {
+  if (status === "Published" || status === "Completed") return "success";
+  if (status === "Boarding" || status === "In progress") return "info";
+  if (status === "Blocked" || status === "Cancelled") return "danger";
+  return "neutral";
 }
 
 export default function AdminTripsPage() {
-  const [selected, setSelected] = useState<TripRow>(rows[0]!);
-  const columns = useMemo<ColumnDef<TripRow>[]>(
-    () => [
-      { accessorKey: "route", header: "Route" },
-      { accessorKey: "departure", header: "Departure" },
-      { accessorKey: "driver", header: "Driver" },
-      { accessorKey: "vehicle", header: "Vehicle" },
-      { accessorKey: "seats", header: "Seats" },
-      { accessorKey: "price", header: "Price" },
-      {
-        accessorKey: "parcel",
-        header: "Parcel",
-        cell: ({ row }) => (row.original.parcel ? "Yes" : "No"),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-          <Badge tone={statusTone(row.original.status)}>{row.original.status}</Badge>
-        ),
-      },
-    ],
-    [],
+  const [selectedId, setSelectedId] = useState(trips[0]!.id);
+  const selected = useMemo(
+    () => trips.find((trip) => trip.id === selectedId) ?? trips[0]!,
+    [selectedId],
   );
-  const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() });
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("state") === "active") {
+      setSelectedId("trip-active");
+    }
+  }, []);
 
   return (
-    <main className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-      <Panel className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgb(var(--border))] p-4">
-          <div>
-            <h1 className="m-0 text-lg font-black">Trip supply</h1>
-            <div className="text-sm text-slate-500">
-              Driver-published routes, capacity, pricing, parcels, and moderation actions
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm">
-              <option>All statuses</option>
-              <option>Published</option>
-              <option>Boarding</option>
-              <option>In progress</option>
-              <option>Completed</option>
-              <option>Draft</option>
-              <option>Blocked</option>
-            </select>
-            <input
-              className="min-h-10 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent px-3 text-sm"
-              placeholder="Driver, vehicle, route"
-            />
-          </div>
-        </div>
-        <div aria-label="Admin trips table" role="region">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              {table.getHeaderGroups().map((group) => (
-                <tr key={group.id}>
-                  {group.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className="border-b border-[rgb(var(--border))] px-4 py-3 text-left text-xs uppercase text-slate-500"
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="cursor-pointer hover:bg-[rgb(var(--surface-muted))]"
-                  onClick={() => setSelected(row.original)}
+    <main className="p-5">
+      <AdminPageHeader
+        title="Trip supply"
+        subtitle="Monitor published trips, boarding windows, active journeys, seat requests, parcel load, and operations-only interventions."
+        actions={
+          <>
+            <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+              Export trips
+            </button>
+            <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
+              Open live board
+            </button>
+          </>
+        }
+      />
+
+      <div className="grid gap-4 min-[1380px]:grid-cols-[minmax(0,1fr)_470px]">
+        <AdminPanel className="overflow-hidden" label="Admin trips table">
+          <div className="grid gap-3 border-b border-[rgb(var(--border))] p-4 lg:grid-cols-[1fr_auto]">
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["Boarding", "1"],
+                ["Active", "1"],
+                ["Published", "34"],
+                ["Pending requests", "13"],
+                ["Parcel trips", "18"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="min-w-[108px] rounded-[12px] bg-[rgb(var(--surface-muted))] p-3"
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="border-b border-[rgb(var(--border))] px-4 py-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
+                  <div className="text-lg font-black">{value}</div>
+                  <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{label}</div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select className="min-h-10 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm">
+                <option>All statuses</option>
+                <option>Boarding</option>
+                <option>In progress</option>
+                <option>Published</option>
+                <option>Blocked</option>
+              </select>
+              <input
+                className="min-h-10 w-[240px] rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm outline-none"
+                placeholder="Route, driver, plate"
+              />
+            </div>
+          </div>
 
-      <aside className="space-y-4">
-        <Panel>
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <div className="text-lg font-black">{selected.route}</div>
-              <div className="text-sm text-slate-500">{selected.departure}</div>
-            </div>
-            <Badge tone={statusTone(selected.status)}>{selected.status}</Badge>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="text-left text-[11px] font-black uppercase tracking-[0.08em] text-[rgb(var(--text-muted))]">
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Trip</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Driver</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Seats</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Requests</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Parcels</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trips.map((trip) => (
+                  <tr
+                    key={trip.id}
+                    className={[
+                      "cursor-pointer border-b border-[rgb(var(--border))] transition hover:bg-[rgb(var(--surface-muted))]",
+                      selected.id === trip.id ? "bg-[rgb(var(--info-soft))]" : "",
+                    ].join(" ")}
+                    onClick={() => setSelectedId(trip.id)}
+                  >
+                    <td className="px-4 py-3">
+                      <strong>{trip.route}</strong>
+                      <span className="block text-xs font-semibold text-[rgb(var(--text-muted))]">
+                        {trip.departure} · {trip.price}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold">{trip.driver}</td>
+                    <td className="px-4 py-3">{trip.seatMap}</td>
+                    <td className="px-4 py-3 font-black">{trip.requests}</td>
+                    <td className="px-4 py-3 font-black">{trip.parcels}</td>
+                    <td className="px-4 py-3">
+                      <AdminStatusBadge tone={statusTone(trip.status)}>
+                        {trip.status}
+                      </AdminStatusBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="grid gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Driver</span>
-              <strong>{selected.driver}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Vehicle</span>
-              <strong>{selected.vehicle}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Seats</span>
-              <strong>{selected.seats}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Parcel</span>
-              <strong>{selected.parcel ? "Supported" : "No"}</strong>
-            </div>
-          </div>
-        </Panel>
+        </AdminPanel>
 
-        <Panel className="space-y-3" aria-label="Trip operation detail">
-          <h2 className="m-0 text-base font-bold">Operations</h2>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>3</strong>
-              <span className="block text-xs text-slate-500">Booked</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">Boarded</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">No-show</span>
+        <AdminPanel className="overflow-hidden" label="Trip operation detail">
+          <div className="border-b border-[rgb(var(--border))] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="m-0 text-xl font-black">{selected.route}</h2>
+                <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  {selected.departure}
+                </p>
+              </div>
+              <AdminStatusBadge tone={statusTone(selected.status)}>
+                {selected.status}
+              </AdminStatusBadge>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary">Admin cancel</Button>
-            <Button variant="secondary">Driver no-show</Button>
-          </div>
-        </Panel>
 
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Moderation</h2>
-          <textarea
-            className="mb-3 min-h-24 w-full rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-transparent p-3 text-sm"
-            placeholder="Required reason for block or cancel"
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Button>Block</Button>
-            <Button variant="secondary">Unblock</Button>
-            <Button variant="secondary">Cancel</Button>
-            <Button variant="secondary">Open history</Button>
-          </div>
-        </Panel>
+          <div className="space-y-4 p-4">
+            <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Live operations</h3>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
+                  <strong>{selected.requests}</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">Seat requests</span>
+                </div>
+                <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
+                  <strong>{selected.parcels}</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">Parcels</span>
+                </div>
+                <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
+                  <strong>{selected.price}</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">Listed fare</span>
+                </div>
+              </div>
+            </section>
 
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Audit timeline</h2>
-          <Timeline
-            items={[
-              { label: "Trip draft created", time: "Driver", active: true },
-              { label: "Publication validation", time: selected.status },
-              { label: "Boarding code generated", time: "Operation" },
-              { label: "Passenger boarded or no-show", time: "Operation" },
-              { label: "Latest moderation action", time: "Reason required" },
-            ]}
-          />
-        </Panel>
-      </aside>
+            <section className="rounded-[12px] border border-[rgb(var(--border))] p-3">
+              <h3 className="m-0 mb-2 text-sm font-black">Driver and vehicle</h3>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Driver</span>
+                  <strong>{selected.driver}</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Vehicle</span>
+                  <strong className="text-right">{selected.vehicle}</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Seats</span>
+                  <strong>{selected.seatMap}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Moderation</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  Open driver
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                  Inspect vehicle
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--warning))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--warning))]">
+                  Cancel trip
+                </button>
+                <button className="rounded-[10px] border border-[rgb(var(--destructive))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--destructive))]">
+                  Block
+                </button>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Timeline</h3>
+              <div className="grid gap-2">
+                {selected.timeline.map((event) => (
+                  <div
+                    key={`${event.time}-${event.label}`}
+                    className="grid grid-cols-[64px_1fr] gap-3 text-sm"
+                  >
+                    <span className="font-black text-[rgb(var(--text-muted))]">{event.time}</span>
+                    <span>{event.label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </AdminPanel>
+      </div>
     </main>
   );
 }
