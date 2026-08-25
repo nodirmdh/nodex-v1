@@ -4498,6 +4498,54 @@ function serializeReliabilityProfile(profile: {
   });
 }
 
+type AccountRestrictionTypeCode =
+  | "CHAT_RESTRICTED"
+  | "BOOKING_RESTRICTED"
+  | "DRIVER_TRIP_CREATION_RESTRICTED"
+  | "PARCEL_RESTRICTED"
+  | "TEMPORARY_SUSPENSION"
+  | "FULL_SUSPENSION";
+
+const suspensionRestrictionTypes = ["TEMPORARY_SUSPENSION", "FULL_SUSPENSION"] as const;
+
+async function activeAccountRestriction(
+  tx: Prisma.TransactionClient | PrismaClient,
+  userId: string,
+  types: AccountRestrictionTypeCode[],
+) {
+  const now = new Date();
+  return tx.accountRestriction.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      type: { in: types },
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function assertNoActiveAccountRestriction(
+  tx: Prisma.TransactionClient | PrismaClient,
+  userId: string,
+  operationCode: string,
+  types: AccountRestrictionTypeCode[],
+) {
+  const restriction = await activeAccountRestriction(tx, userId, [
+    ...types,
+    ...suspensionRestrictionTypes,
+  ]);
+  if (!restriction) return;
+  const suspended =
+    restriction.type === "TEMPORARY_SUSPENSION" || restriction.type === "FULL_SUSPENSION";
+  throw Object.assign(new Error("Account restriction blocks this action"), {
+    statusCode: 403,
+    code: suspended ? "ACCOUNT_SUSPENDED" : operationCode,
+    details: { restrictionId: restriction.id, restrictionType: restriction.type },
+  });
+}
+
 async function ensureIdempotency<T>(
   tx: Prisma.TransactionClient,
   scope: string,
@@ -4686,6 +4734,38 @@ function safeTripShareProjection(
   });
 }
 
+type SeatHoldWithItems = Prisma.SeatHoldGetPayload<{ include: { items: true } }>;
+
+async function releaseActiveSeatHold(
+  tx: Prisma.TransactionClient,
+  hold: SeatHoldWithItems,
+  status: "EXPIRED" | "RELEASED",
+  now = new Date(),
+) {
+  const claimed = await tx.seatHold.updateMany({
+    where: { id: hold.id, status: "ACTIVE", version: hold.version },
+    data: { status, releasedAt: now, version: { increment: 1 } },
+  });
+  if (claimed.count !== 1) return false;
+
+  const tripSeatIds = hold.items
+    .map((item) => item.tripSeatId)
+    .filter((id): id is string => Boolean(id));
+  if (tripSeatIds.length) {
+    await tx.tripSeat.updateMany({
+      where: { id: { in: tripSeatIds }, status: "HELD" },
+      data: { status: "AVAILABLE", version: { increment: 1 } },
+    });
+  }
+  if (hold.bookingId) {
+    await tx.bookingSeat.updateMany({
+      where: { bookingId: hold.bookingId, tripSeatId: { in: tripSeatIds }, status: "HELD" },
+      data: { status: "RELEASED" },
+    });
+  }
+  return true;
+}
+
 async function expireSeatHolds(tx: Prisma.TransactionClient, tripId?: string) {
   const now = new Date();
   const holds = await tx.seatHold.findMany({
@@ -4693,37 +4773,24 @@ async function expireSeatHolds(tx: Prisma.TransactionClient, tripId?: string) {
     include: { items: true, booking: true },
     take: 100,
   });
+  let expired = 0;
   for (const hold of holds) {
-    await tx.tripSeat.updateMany({
-      where: {
-        tripId: hold.tripId,
-        seatKey: { in: hold.items.map((item) => item.seatKey) },
-        status: "HELD",
-      },
-      data: { status: "AVAILABLE", version: { increment: 1 } },
+    const released = await releaseActiveSeatHold(tx, hold, "EXPIRED", now);
+    if (!released) continue;
+    expired += 1;
+    if (!hold.bookingId) continue;
+    await tx.booking.update({
+      where: { id: hold.bookingId },
+      data: { status: "EXPIRED", expiresAt: hold.expiresAt, version: { increment: 1 } },
     });
-    await tx.bookingSeat.updateMany({
-      where: { bookingId: hold.bookingId ?? "", status: "HELD" },
-      data: { status: "RELEASED" },
+    await writeBookingEvent(tx, hold.bookingId, null, "BOOKING_HOLD_EXPIRED", {
+      seatKeys: hold.items.map((item) => item.seatKey),
     });
-    await tx.seatHold.update({
-      where: { id: hold.id },
-      data: { status: "EXPIRED", releasedAt: now, version: { increment: 1 } },
+    await enqueueBookingEvent(tx, "booking.hold.expired", hold.bookingId, {
+      tripId: hold.tripId,
     });
-    if (hold.bookingId) {
-      await tx.booking.update({
-        where: { id: hold.bookingId },
-        data: { status: "EXPIRED", expiresAt: hold.expiresAt, version: { increment: 1 } },
-      });
-      await writeBookingEvent(tx, hold.bookingId, null, "BOOKING_HOLD_EXPIRED", {
-        seatKeys: hold.items.map((item) => item.seatKey),
-      });
-      await enqueueBookingEvent(tx, "booking.hold.expired", hold.bookingId, {
-        tripId: hold.tripId,
-      });
-    }
   }
-  return holds.length;
+  return expired;
 }
 
 function assertSeatSelection(type: string, seatKeys: string[], passengerCount: number) {
@@ -5323,6 +5390,24 @@ async function registerTripSupplyRoutes(http: {
       res.json({ trip: serializeTrip(trip), validation: { canPublish: true, errors: [] } });
       return;
     }
+    const restriction = await activeAccountRestriction(prisma, req.auth!.userId, [
+      "DRIVER_TRIP_CREATION_RESTRICTED",
+      ...suspensionRestrictionTypes,
+    ]);
+    if (restriction) {
+      res
+        .status(403)
+        .json(
+          errorBody(
+            restriction.type === "FULL_SUSPENSION" || restriction.type === "TEMPORARY_SUSPENSION"
+              ? "ACCOUNT_SUSPENDED"
+              : "DRIVER_TRIP_CREATION_RESTRICTED",
+            "Account restriction blocks this action",
+            req,
+          ),
+        );
+      return;
+    }
     const validation = await validateTripPublication(trip.id);
     if (!validation.canPublish) {
       res.status(422).json({
@@ -5759,6 +5844,9 @@ async function registerParcelRoutes(http: {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
     try {
       const parsed = parcelDraftSchema.parse(req.body ?? {});
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "PARCEL_RESTRICTED", [
+        "PARCEL_RESTRICTED",
+      ]);
       const headerKey = idempotencyKey(req) || randomUUID();
       const response = await prisma.$transaction(async (tx) => {
         const prior = await tx.idempotencyRecord.findUnique({
@@ -6333,6 +6421,9 @@ async function registerCommunicationRoutes(http: {
     if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
     try {
       const parsed = createConversationSchema.parse(req.body ?? {});
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "CHAT_RESTRICTED", [
+        "CHAT_RESTRICTED",
+      ]);
       const conversation = await prisma.$transaction((tx) =>
         createOrGetConversation(tx, req.auth!.userId, {
           ...(parsed.bookingId ? { bookingId: parsed.bookingId } : {}),
@@ -6397,6 +6488,9 @@ async function registerCommunicationRoutes(http: {
     if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
     try {
       const parsed = chatMessageSchema.parse(req.body ?? {});
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "CHAT_RESTRICTED", [
+        "CHAT_RESTRICTED",
+      ]);
       const message = await prisma.$transaction(async (tx) => {
         const conversation = await participantConversation(
           tx,
@@ -6585,22 +6679,37 @@ async function registerCommunicationRoutes(http: {
 
   http.get("/api/v1/bookings/:bookingId/conversation", async (req, res) => {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
-    const conversation = await prisma.$transaction((tx) =>
-      createOrGetConversation(tx, req.auth!.userId, {
-        bookingId: String(req.params.bookingId ?? ""),
-      }),
-    );
-    res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+    try {
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "CHAT_RESTRICTED", [
+        "CHAT_RESTRICTED",
+      ]);
+      const conversation = await prisma.$transaction((tx) =>
+        createOrGetConversation(tx, req.auth!.userId, {
+          bookingId: String(req.params.bookingId ?? ""),
+        }),
+      );
+      res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+    return;
   });
 
   http.get("/api/v1/parcels/:parcelId/conversation", async (req, res) => {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
-    const conversation = await prisma.$transaction((tx) =>
-      createOrGetConversation(tx, req.auth!.userId, {
-        parcelOrderId: String(req.params.parcelId ?? ""),
-      }),
-    );
-    res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+    try {
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "CHAT_RESTRICTED", [
+        "CHAT_RESTRICTED",
+      ]);
+      const conversation = await prisma.$transaction((tx) =>
+        createOrGetConversation(tx, req.auth!.userId, {
+          parcelOrderId: String(req.params.parcelId ?? ""),
+        }),
+      );
+      res.json({ conversation: serializeConversation(conversation, req.auth!.userId) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
   });
 
   http.get("/api/v1/notifications", async (req, res) => {
@@ -8196,114 +8305,176 @@ async function registerFinanceRoutes(http: {
           statusCode: 409,
           code: providerGuard.code,
         });
-      const key = idempotencyKey(req) || `payment:${req.auth!.userId}:${requestHash(parsed)}`;
-      const result = await prisma.$transaction((tx) =>
-        ensureIdempotency(tx, "payment:intent", key, parsed, async () => {
-          const target = await financeTarget(tx, req.auth!.userId, parsed);
-          const existing = await tx.payment.findFirst({
-            where: {
-              targetType: target.targetType,
-              bookingId: target.bookingId,
-              parcelOrderId: target.parcelOrderId,
-              status: {
-                in: ["CREATED", "REQUIRES_ACTION", "PROCESSING", "AUTHORIZED", "SUCCEEDED"],
-              },
-            },
-            include: paymentInclude,
-          });
-          if (existing) return { paymentId: existing.id };
-          const payment = await tx.payment.create({
+      const explicitKey = idempotencyKey(req) || undefined;
+      const implicitKey = `payment:${req.auth!.userId}:${requestHash(parsed)}`;
+      const key = explicitKey ?? implicitKey;
+      const activePaymentStatuses = [
+        "CREATED",
+        "REQUIRES_ACTION",
+        "PROCESSING",
+        "AUTHORIZED",
+        "SUCCEEDED",
+      ] as const;
+      const createPaymentIntent = async (
+        tx: Prisma.TransactionClient,
+        paymentIdempotencyKey: string,
+      ) => {
+        const target = await financeTarget(tx, req.auth!.userId, parsed);
+        const existing = await tx.payment.findFirst({
+          where: {
+            targetType: target.targetType,
+            bookingId: target.bookingId,
+            parcelOrderId: target.parcelOrderId,
+            status: { in: [...activePaymentStatuses] },
+          },
+          include: paymentInclude,
+        });
+        if (existing) return { paymentId: existing.id };
+        const payment = await tx.payment.create({
+          data: {
+            targetType: target.targetType,
+            bookingId: target.bookingId,
+            parcelOrderId: target.parcelOrderId,
+            payerUserId: req.auth!.userId,
+            method: parsed.method,
+            provider: parsed.method === "ONLINE" ? parsed.provider : "MANUAL",
+            status: parsed.method === "CASH" ? "PROCESSING" : "CREATED",
+            currency: target.currency,
+            amountMinor: target.amountMinor,
+            idempotencyKey: paymentIdempotencyKey,
+            expiresAt: new Date(Date.now() + bookingHoldTtlMs),
+          },
+        });
+        if (target.bookingId) {
+          await tx.booking.update({
+            where: { id: target.bookingId },
             data: {
-              targetType: target.targetType,
+              paymentMethod: parsed.method,
+              status: parsed.method === "ONLINE" ? "PAYMENT_PENDING" : "CONFIRMED",
+              version: { increment: 1 },
+            },
+          });
+        }
+        if (parsed.method === "CASH") {
+          await tx.cashPaymentDeclaration.create({
+            data: {
+              paymentId: payment.id,
               bookingId: target.bookingId,
               parcelOrderId: target.parcelOrderId,
-              payerUserId: req.auth!.userId,
-              method: parsed.method,
-              provider: parsed.method === "ONLINE" ? parsed.provider : "MANUAL",
-              status: parsed.method === "CASH" ? "PROCESSING" : "CREATED",
+              declaredByUserId: req.auth!.userId,
               currency: target.currency,
               amountMinor: target.amountMinor,
-              idempotencyKey: key,
-              expiresAt: new Date(Date.now() + bookingHoldTtlMs),
             },
           });
-          if (target.bookingId) {
-            await tx.booking.update({
-              where: { id: target.bookingId },
-              data: {
-                paymentMethod: parsed.method,
-                status: parsed.method === "ONLINE" ? "PAYMENT_PENDING" : "CONFIRMED",
-                version: { increment: 1 },
-              },
-            });
-          }
-          if (parsed.method === "CASH") {
-            await tx.cashPaymentDeclaration.create({
-              data: {
-                paymentId: payment.id,
-                bookingId: target.bookingId,
-                parcelOrderId: target.parcelOrderId,
-                declaredByUserId: req.auth!.userId,
-                currency: target.currency,
-                amountMinor: target.amountMinor,
-              },
-            });
-            await tx.cashSettlement.create({
-              data: {
-                paymentId: payment.id,
-                driverProfileId: target.driverProfileId ?? "unassigned",
-                bookingId: target.bookingId,
-                parcelOrderId: target.parcelOrderId,
-                status: "DECLARED",
-                currency: target.currency,
-                expectedMinor: target.amountMinor,
-              },
-            });
-          } else {
-            const providerIntent = await paymentRegistry
-              .get(parsed.provider as PaymentProviderCode)
-              .createIntent({
-                paymentId: payment.id,
-                amountMinor: target.amountMinor,
-                currency: target.currency,
-                idempotencyKey: key,
-              });
-            const intent = await tx.paymentIntent.create({
-              data: {
-                paymentId: payment.id,
-                provider: parsed.provider,
-                status: providerIntent.status,
-                amountMinor: target.amountMinor,
-                currency: target.currency,
-                providerReference: providerIntent.providerReference,
-                clientAction: (providerIntent.clientAction ?? {}) as Prisma.InputJsonValue,
-                idempotencyKey: key,
-              },
-            });
-            await tx.paymentAttempt.create({
-              data: {
-                paymentIntentId: intent.id,
-                provider: parsed.provider,
-                status: "SENT_TO_PROVIDER",
-                providerReference: providerIntent.providerReference,
-                responsePayload: providerIntent as unknown as Prisma.InputJsonValue,
-              },
-            });
-          }
-          await tx.analyticsEvent.create({
+          await tx.cashSettlement.create({
             data: {
-              type: "PAYMENT_INTENT_CREATED",
-              actorUserId: req.auth!.userId,
-              entityType: "Payment",
-              entityId: payment.id,
+              paymentId: payment.id,
+              driverProfileId: target.driverProfileId ?? "unassigned",
+              bookingId: target.bookingId,
+              parcelOrderId: target.parcelOrderId,
+              status: "DECLARED",
+              currency: target.currency,
+              expectedMinor: target.amountMinor,
             },
           });
-          await tx.outboxEvent.create({
-            data: { type: "payment.intent.created", payload: { paymentId: payment.id } },
+        } else {
+          const providerIntent = await paymentRegistry
+            .get(parsed.provider as PaymentProviderCode)
+            .createIntent({
+              paymentId: payment.id,
+              amountMinor: target.amountMinor,
+              currency: target.currency,
+              idempotencyKey: paymentIdempotencyKey,
+            });
+          const intent = await tx.paymentIntent.create({
+            data: {
+              paymentId: payment.id,
+              provider: parsed.provider,
+              status: providerIntent.status,
+              amountMinor: target.amountMinor,
+              currency: target.currency,
+              providerReference: providerIntent.providerReference,
+              clientAction: (providerIntent.clientAction ?? {}) as Prisma.InputJsonValue,
+              idempotencyKey: paymentIdempotencyKey,
+            },
           });
-          return { paymentId: payment.id };
-        }),
-      );
+          await tx.paymentAttempt.create({
+            data: {
+              paymentIntentId: intent.id,
+              provider: parsed.provider,
+              status: "SENT_TO_PROVIDER",
+              providerReference: providerIntent.providerReference,
+              responsePayload: providerIntent as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+        await tx.analyticsEvent.create({
+          data: {
+            type: "PAYMENT_INTENT_CREATED",
+            actorUserId: req.auth!.userId,
+            entityType: "Payment",
+            entityId: payment.id,
+          },
+        });
+        await tx.outboxEvent.create({
+          data: { type: "payment.intent.created", payload: { paymentId: payment.id } },
+        });
+        return { paymentId: payment.id };
+      };
+      const result = await prisma.$transaction(async (tx) => {
+        if (explicitKey) {
+          return ensureIdempotency(tx, "payment:intent", key, parsed, () =>
+            createPaymentIntent(tx, key),
+          );
+        }
+
+        const scope = "payment:intent";
+        const hash = requestHash(parsed);
+        const existingRecord = await tx.idempotencyRecord.findUnique({
+          where: { scope_key: { scope, key } },
+        });
+        if (existingRecord) {
+          if (existingRecord.requestHash !== hash) {
+            throw Object.assign(new Error("Idempotency key payload mismatch"), {
+              statusCode: 409,
+              code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+            });
+          }
+          const response = existingRecord.responseJson as { paymentId?: unknown };
+          if (typeof response.paymentId === "string") {
+            const existingPayment = await tx.payment.findUnique({
+              where: { id: response.paymentId },
+              select: { id: true, status: true },
+            });
+            if (
+              existingPayment &&
+              activePaymentStatuses.includes(
+                existingPayment.status as (typeof activePaymentStatuses)[number],
+              )
+            ) {
+              return { paymentId: existingPayment.id };
+            }
+          }
+          await tx.idempotencyRecord.update({
+            where: { id: existingRecord.id },
+            data: { status: "PROCESSING" },
+          });
+        }
+
+        const response = await createPaymentIntent(tx, `${key}:${randomUUID()}`);
+        const record = {
+          requestHash: hash,
+          responseJson: response as Prisma.InputJsonValue,
+          status: "COMPLETED",
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        };
+        if (existingRecord) {
+          await tx.idempotencyRecord.update({ where: { id: existingRecord.id }, data: record });
+        } else {
+          await tx.idempotencyRecord.create({ data: { scope, key, ...record } });
+        }
+        return response;
+      });
       const payment = await prisma.payment.findUniqueOrThrow({
         where: { id: result.paymentId },
         include: paymentInclude,
@@ -8772,6 +8943,9 @@ async function registerBookingRoutes(http: {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
     try {
       const parsed = bookingHoldSchema.parse(req.body ?? {});
+      await assertNoActiveAccountRestriction(prisma, req.auth!.userId, "BOOKING_RESTRICTED", [
+        "BOOKING_RESTRICTED",
+      ]);
       const headerKey = idempotencyKey(req) || randomUUID();
       const actor: BookingActor = {
         userId: req.auth!.userId,
@@ -8984,6 +9158,9 @@ async function registerBookingRoutes(http: {
           });
         }
         const seatKeys = hold.items.map((item) => item.seatKey);
+        const tripSeatIds = hold.items
+          .map((item) => item.tripSeatId)
+          .filter((id): id is string => Boolean(id));
         await tx.bookingPassenger.deleteMany({ where: { bookingId: hold.bookingId } });
         await tx.bookingPassenger.createMany({
           data: parsed.passengers.map((passenger, index) => ({
@@ -9009,14 +9186,26 @@ async function registerBookingRoutes(http: {
             })),
           });
         }
-        await tx.tripSeat.updateMany({
-          where: { tripId: hold.tripId, seatKey: { in: seatKeys }, status: "HELD" },
+        const bookedSeats = await tx.tripSeat.updateMany({
+          where: { id: { in: tripSeatIds }, status: "HELD" },
           data: { status: "BOOKED", version: { increment: 1 } },
         });
-        await tx.bookingSeat.updateMany({
-          where: { bookingId: hold.bookingId, status: "HELD" },
+        if (bookedSeats.count !== tripSeatIds.length) {
+          throw Object.assign(new Error("Seat hold can no longer be confirmed"), {
+            statusCode: 409,
+            code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
+          });
+        }
+        const bookedBookingSeats = await tx.bookingSeat.updateMany({
+          where: { bookingId: hold.bookingId, tripSeatId: { in: tripSeatIds }, status: "HELD" },
           data: { status: "BOOKED" },
         });
+        if (bookedBookingSeats.count !== tripSeatIds.length) {
+          throw Object.assign(new Error("Seat hold booking rows can no longer be confirmed"), {
+            statusCode: 409,
+            code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
+          });
+        }
         await tx.seatHold.update({
           where: { id: hold.id },
           data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
@@ -9071,18 +9260,13 @@ async function registerBookingRoutes(http: {
           });
         }
         const seatKeys = hold.items.map((item) => item.seatKey);
-        await tx.tripSeat.updateMany({
-          where: { tripId: hold.tripId, seatKey: { in: seatKeys }, status: "HELD" },
-          data: { status: "AVAILABLE", version: { increment: 1 } },
-        });
-        await tx.bookingSeat.updateMany({
-          where: { bookingId: hold.bookingId, status: "HELD" },
-          data: { status: "RELEASED" },
-        });
-        await tx.seatHold.update({
-          where: { id: hold.id },
-          data: { status: "RELEASED", releasedAt: new Date(), version: { increment: 1 } },
-        });
+        const released = await releaseActiveSeatHold(tx, hold, "RELEASED");
+        if (!released) {
+          return tx.booking.findUniqueOrThrow({
+            where: { id: hold.bookingId },
+            include: bookingInclude,
+          });
+        }
         const saved = await tx.booking.update({
           where: { id: hold.bookingId },
           data: { status: "EXPIRED", version: { increment: 1 } },

@@ -1,5 +1,6 @@
 import { Queue, Worker } from "bullmq";
 import { PrismaClient } from "@nodex/database";
+import { expireActiveSeatHolds, expireStaleOnlinePayments } from "./maintenance.js";
 import pino from "pino";
 
 const loggerOptions: pino.LoggerOptions = {
@@ -88,49 +89,9 @@ const bookingWorker = new Worker(
   bookingQueueName,
   async () => {
     const now = new Date();
-    const holds = await prisma.seatHold.findMany({
-      where: { status: "ACTIVE", expiresAt: { lte: now } },
-      include: { items: true },
-      take: 100,
-    });
-    for (const hold of holds) {
-      await prisma.$transaction(async (tx) => {
-        await tx.tripSeat.updateMany({
-          where: {
-            tripId: hold.tripId,
-            seatKey: { in: hold.items.map((item) => item.seatKey) },
-            status: "HELD",
-          },
-          data: { status: "AVAILABLE", version: { increment: 1 } },
-        });
-        await tx.bookingSeat.updateMany({
-          where: { bookingId: hold.bookingId ?? "", status: "HELD" },
-          data: { status: "RELEASED" },
-        });
-        await tx.seatHold.update({
-          where: { id: hold.id },
-          data: { status: "EXPIRED", releasedAt: now, version: { increment: 1 } },
-        });
-        if (hold.bookingId) {
-          await tx.booking.update({
-            where: { id: hold.bookingId },
-            data: { status: "EXPIRED", version: { increment: 1 } },
-          });
-          await tx.bookingTimelineEvent.create({
-            data: {
-              bookingId: hold.bookingId,
-              type: "BOOKING_HOLD_EXPIRED",
-              payload: { worker: true },
-            },
-          });
-          await tx.outboxEvent.create({
-            data: { type: "booking.hold.expired", payload: { bookingId: hold.bookingId } },
-          });
-        }
-      });
-    }
-    logger.info({ expired: holds.length }, "processed booking hold expiration job");
-    return { expired: holds.length };
+    const expired = await expireActiveSeatHolds(prisma, now);
+    logger.info({ expired }, "processed booking hold expiration job");
+    return { expired };
   },
   { connection, concurrency: 1 },
 );
@@ -388,68 +349,7 @@ const financeWorker = new Worker(
   financeQueueName,
   async () => {
     const now = new Date();
-    const staleCutoff = new Date(now.getTime() - 30 * 60 * 1000);
-    const stalePayments = await prisma.payment.findMany({
-      where: {
-        status: { in: ["CREATED", "REQUIRES_ACTION", "PROCESSING"] },
-        createdAt: { lt: staleCutoff },
-      },
-      take: 50,
-    });
-    for (const payment of stalePayments) {
-      await prisma.$transaction(async (tx) => {
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: { status: "EXPIRED", failedAt: now },
-        });
-        await tx.paymentIntent.updateMany({
-          where: {
-            paymentId: payment.id,
-            status: { in: ["CREATED", "PENDING", "REQUIRES_ACTION", "PROCESSING"] },
-          },
-          data: { status: "EXPIRED", expiresAt: now },
-        });
-        if (payment.bookingId) {
-          const hold = await tx.seatHold.findFirst({
-            where: { bookingId: payment.bookingId, status: "ACTIVE" },
-            include: { items: true },
-          });
-          if (hold) {
-            await tx.tripSeat.updateMany({
-              where: {
-                tripId: hold.tripId,
-                seatKey: { in: hold.items.map((item) => item.seatKey) },
-                status: "HELD",
-              },
-              data: { status: "AVAILABLE", version: { increment: 1 } },
-            });
-            await tx.seatHold.update({
-              where: { id: hold.id },
-              data: { status: "EXPIRED", releasedAt: now },
-            });
-          }
-          await tx.booking.updateMany({
-            where: { id: payment.bookingId, status: "PAYMENT_PENDING" },
-            data: { status: "EXPIRED", version: { increment: 1 } },
-          });
-          await tx.bookingTimelineEvent.create({
-            data: {
-              bookingId: payment.bookingId,
-              type: "PAYMENT_EXPIRED",
-              payload: { worker: true, paymentId: payment.id },
-            },
-          });
-        }
-        await tx.financialAuditEvent.create({
-          data: {
-            type: "PAYMENT_EXPIRED",
-            entityType: "Payment",
-            entityId: payment.id,
-            reason: "worker-timeout",
-          },
-        });
-      });
-    }
+    const expiredPayments = await expireStaleOnlinePayments(prisma, now);
 
     const refunds = await prisma.paymentRefund.findMany({
       where: { status: "REQUESTED" },
@@ -549,7 +449,7 @@ const financeWorker = new Worker(
 
     logger.info(
       {
-        expiredPayments: stalePayments.length,
+        expiredPayments,
         refunds: refunds.length,
         availableEarnings: availableEarnings.count,
         metrics: eventRows.length,
@@ -557,7 +457,7 @@ const financeWorker = new Worker(
       "processed finance maintenance job",
     );
     return {
-      expiredPayments: stalePayments.length,
+      expiredPayments,
       refunds: refunds.length,
       availableEarnings: availableEarnings.count,
       metrics: eventRows.length,
