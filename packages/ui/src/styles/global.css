@@ -8,17 +8,21 @@
 html {
   background: rgb(var(--background));
   color: rgb(var(--foreground));
+  text-rendering: optimizeLegibility;
 }
 
 body {
   margin: 0;
   font-family:
-    Inter,
+    "Inter",
+    "Manrope",
     ui-sans-serif,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
+    "Noto Sans",
+    "Arial",
     sans-serif;
   letter-spacing: 0;
 }
@@ -33,21 +37,28 @@ textarea {
 :focus-visible {
   outline: 2px solid rgb(var(--focus));
   outline-offset: 2px;
+  box-shadow: var(--shadow-ring);
 }
 
 .nodex-app {
   min-height: 100dvh;
   background:
-    radial-gradient(circle at top left, rgb(var(--primary) / 0.14), transparent 34rem),
-    linear-gradient(180deg, rgb(var(--background)), rgb(var(--surface-muted) / 0.78));
+    radial-gradient(circle at 20% 0%, rgb(var(--primary) / 0.12), transparent 25rem),
+    radial-gradient(circle at 82% 12%, rgb(var(--accent) / 0.1), transparent 22rem),
+    linear-gradient(180deg, rgb(var(--background)), rgb(var(--canvas)));
   color: rgb(var(--foreground));
 }
 
 .surface {
-  background: rgb(var(--surface) / 0.92);
-  border: 1px solid rgb(var(--border) / 0.78);
-  box-shadow: var(--shadow-crisp);
-  backdrop-filter: blur(18px);
+  background: rgb(var(--surface) / 0.96);
+  border: 1px solid rgb(var(--border) / 0.36);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(20px);
+}
+
+.surface-muted {
+  background: rgb(var(--surface-muted) / 0.72);
+  border: 1px solid rgb(var(--border) / 0.36);
 }
 
 .status-chip {
@@ -60,4 +71,58 @@ textarea {
   font-size: 0.75rem;
   font-weight: 650;
   white-space: nowrap;
+}
+
+.nodex-pattern {
+  background-image:
+    linear-gradient(135deg, rgb(var(--primary) / 0.08) 25%, transparent 25%),
+    linear-gradient(225deg, rgb(var(--primary) / 0.08) 25%, transparent 25%),
+    linear-gradient(45deg, rgb(var(--accent) / 0.07) 25%, transparent 25%),
+    linear-gradient(315deg, rgb(var(--accent) / 0.07) 25%, rgb(var(--surface)) 25%);
+  background-position:
+    10px 0,
+    10px 0,
+    0 0,
+    0 0;
+  background-size: 20px 20px;
+}
+
+.nodex-route-motif {
+  background:
+    radial-gradient(circle at 18% 22%, rgb(var(--primary)) 0 4px, transparent 5px),
+    radial-gradient(circle at 82% 72%, rgb(var(--accent)) 0 4px, transparent 5px),
+    linear-gradient(
+      135deg,
+      transparent 24%,
+      rgb(var(--primary) / 0.18) 24% 25%,
+      transparent 25% 58%,
+      rgb(var(--accent) / 0.18) 58% 59%,
+      transparent 59%
+    ),
+    rgb(var(--surface-tint));
+}
+
+.nodex-route-line {
+  position: relative;
+}
+
+.nodex-route-line::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--primary) / 0.34), transparent);
+  content: "";
+}
+
+.mobile-shell {
+  padding-right: max(var(--space-mobile), env(safe-area-inset-right, 0px));
+  padding-left: max(var(--space-mobile), env(safe-area-inset-left, 0px));
+  padding-bottom: calc(76px + var(--safe-bottom));
+}
+
+.desktop-density {
+  --space-desktop: 20px;
+  --control-md: 40px;
 }
