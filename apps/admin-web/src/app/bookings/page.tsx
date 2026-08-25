@@ -88,6 +88,7 @@ export default function BookingsPage() {
     () => requests.find((request) => request.id === selectedId) ?? requests[0]!,
     [selectedId],
   );
+  const [actionNotice, setActionNotice] = useState("");
 
   return (
     <main className="p-5">
@@ -99,7 +100,14 @@ export default function BookingsPage() {
             <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
               Export queue
             </button>
-            <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
+            <button
+              className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]"
+              type="button"
+              onClick={() => {
+                setSelectedId("seat-request-expired");
+                setActionNotice("Exception queue opened.");
+              }}
+            >
               Open exceptions
             </button>
           </>
@@ -227,20 +235,48 @@ export default function BookingsPage() {
             <section>
               <h3 className="m-0 mb-2 text-sm font-black">Queue actions</h3>
               <div className="grid grid-cols-2 gap-2">
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/trips?state=active";
+                  }}
+                >
                   Open trip
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/drivers";
+                  }}
+                >
                   Open driver
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() =>
+                    setActionNotice(`${selected.passenger} passenger inspector opened.`)
+                  }
+                >
                   View passenger
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() => setActionNotice(`Internal note added to ${selected.id}.`)}
+                >
                   Add note
                 </button>
               </div>
             </section>
+
+            {actionNotice ? (
+              <section className="rounded-[12px] bg-[rgb(var(--info-soft))] p-3 text-sm font-black text-[rgb(var(--info))]">
+                {actionNotice}
+              </section>
+            ) : null}
 
             <section>
               <h3 className="m-0 mb-2 text-sm font-black">Timeline</h3>

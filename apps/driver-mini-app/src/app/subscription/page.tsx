@@ -35,6 +35,7 @@ const stateCopy = {
 
 export default function DriverSubscriptionPage() {
   const [state, setState] = useState<SubscriptionState>("active");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search).get("state");
@@ -86,10 +87,23 @@ export default function DriverSubscriptionPage() {
         <button
           className="min-h-12 w-full rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
           type="button"
+          onClick={() => {
+            setState("active");
+            setNotice("Subscription access is active for local QA.");
+          }}
         >
-          {copy.cta}
+          {notice ? "Subscription active" : copy.cta}
         </button>
       </DriverCard>
+
+      {notice ? (
+        <DriverCard
+          className="mt-3 text-sm font-black text-[rgb(var(--primary))]"
+          label="Subscription action result"
+        >
+          {notice}
+        </DriverCard>
+      ) : null}
 
       <DriverCard className="mt-3 space-y-3" label="Driver subscription access rules">
         <h2 className="m-0 text-lg font-black">Access rules</h2>

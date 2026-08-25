@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { formatUzs } from "@nodex/ui";
 import { Avatar, Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
 
-type DetailState = "upcoming" | "active" | "completed";
+type DetailState = "upcoming" | "active" | "completed" | "cancelled";
 
 const stateCopy = {
   upcoming: {
@@ -26,6 +26,12 @@ const stateCopy = {
     tone: "accent" as const,
     body: "Thanks for riding. You can leave a review for the driver.",
   },
+  cancelled: {
+    title: "Request cancelled",
+    status: "Cancelled",
+    tone: "danger" as const,
+    body: "Your seat request is no longer active. You can search again when ready.",
+  },
 };
 
 export default function BookingDetailPage() {
@@ -33,7 +39,7 @@ export default function BookingDetailPage() {
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search).get("state");
-    if (next === "active" || next === "completed") setState(next);
+    if (next === "active" || next === "completed" || next === "cancelled") setState(next);
   }, []);
 
   const copy = stateCopy[state];
@@ -81,20 +87,22 @@ export default function BookingDetailPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="m-0 text-lg font-black">
-              {state === "completed" ? "Trip summary" : "Boarding code"}
+              {state === "completed" || state === "cancelled" ? "Trip summary" : "Boarding code"}
             </h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
               {state === "completed"
                 ? "Ride price was arranged directly with the driver."
-                : "Show this code to the driver at Nukus Central Station."}
+                : state === "cancelled"
+                  ? "This request was cancelled before driver confirmation."
+                  : "Show this code to the driver at Nukus Central Station."}
             </p>
           </div>
           <StatusPill tone={state === "active" ? "info" : "warning"}>
-            {state === "completed" ? "Archived" : "Expires 10:25"}
+            {state === "completed" || state === "cancelled" ? "Archived" : "Expires 10:25"}
           </StatusPill>
         </div>
 
-        {state === "completed" ? (
+        {state === "completed" || state === "cancelled" ? (
           <div className="grid gap-2">
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
@@ -183,6 +191,7 @@ export default function BookingDetailPage() {
           <button
             className="min-h-11 w-full rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
             type="button"
+            onClick={() => setState("cancelled")}
           >
             Cancel request
           </button>

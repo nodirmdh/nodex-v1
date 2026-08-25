@@ -1,4 +1,11 @@
+import Link from "next/link";
 import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
+
+const safetyOptions = [
+  { label: "Share trip with trusted contact", href: "/safety?shared=true" },
+  { label: "Contact Nodex support", href: "/messages/support-ticket?safety=support" },
+  { label: "Create safety report", href: "/support?safety=report" },
+];
 
 export default function ClientSosPage() {
   return (
@@ -22,28 +29,26 @@ export default function ClientSosPage() {
             help. This does not place a phone call automatically.
           </p>
         </div>
-        <button
-          className="min-h-14 rounded-full bg-[rgb(var(--destructive))] px-4 text-base font-black text-white"
-          type="button"
+        <Link
+          className="inline-flex min-h-14 items-center justify-center rounded-full bg-[rgb(var(--destructive))] px-4 text-base font-black text-white no-underline"
+          href="/messages/support-ticket?safety=sos"
         >
           Hold to start SOS
-        </button>
+        </Link>
       </Card>
 
       <Card className="mt-3" compact>
         <h2 className="m-0 mb-3 text-lg font-black">Other safety options</h2>
         <div className="grid gap-2">
-          {["Share trip with trusted contact", "Contact Nodex support", "Create safety report"].map(
-            (item) => (
-              <button
-                key={item}
-                className="min-h-11 rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--foreground))]"
-                type="button"
-              >
-                {item}
-              </button>
-            ),
-          )}
+          {safetyOptions.map((item) => (
+            <Link
+              key={item.label}
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-center text-sm font-black text-[rgb(var(--foreground))] no-underline"
+              href={item.href}
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
       </Card>
     </ClientShell>

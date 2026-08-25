@@ -1,8 +1,22 @@
+"use client";
+
+import { useState } from "react";
 import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui";
 
 const tags = ["On time", "Clean car", "Polite", "Safe driving"];
 
 export default function ClientReviewsPage() {
+  const [rating, setRating] = useState(5);
+  const [selectedTags, setSelectedTags] = useState<string[]>(["Clean car", "Safe driving"]);
+  const [submitted, setSubmitted] = useState(false);
+
+  function toggleTag(tag: string) {
+    setSubmitted(false);
+    setSelectedTags((current) =>
+      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
+    );
+  }
+
   return (
     <ClientShell active="profile">
       <ClientHeader
@@ -37,22 +51,29 @@ export default function ClientReviewsPage() {
               Nukus to Urgench · completed today
             </p>
           </div>
-          <StatusPill tone="warning">Pending</StatusPill>
+          <StatusPill tone={submitted ? "success" : "warning"}>
+            {submitted ? "Submitted" : "Pending"}
+          </StatusPill>
         </div>
 
         <div className="grid grid-cols-5 gap-2" aria-label="Overall rating">
-          {[1, 2, 3, 4, 5].map((rating) => (
+          {[1, 2, 3, 4, 5].map((nextRating) => (
             <button
-              key={rating}
+              key={nextRating}
+              aria-pressed={rating === nextRating}
               className={[
                 "grid min-h-11 place-items-center rounded-full text-sm font-black shadow-[var(--shadow-xs)]",
-                rating >= 4
+                nextRating <= rating
                   ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                   : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]",
               ].join(" ")}
               type="button"
+              onClick={() => {
+                setRating(nextRating);
+                setSubmitted(false);
+              }}
             >
-              {rating}
+              {nextRating}
             </button>
           ))}
         </div>
@@ -61,8 +82,15 @@ export default function ClientReviewsPage() {
           {tags.map((tag) => (
             <button
               key={tag}
-              className="min-h-10 rounded-full bg-[rgb(var(--surface-tint))] px-4 text-sm font-black text-[rgb(var(--primary))]"
+              aria-pressed={selectedTags.includes(tag)}
+              className={[
+                "min-h-10 rounded-full px-4 text-sm font-black",
+                selectedTags.includes(tag)
+                  ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
+                  : "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]",
+              ].join(" ")}
               type="button"
+              onClick={() => toggleTag(tag)}
             >
               {tag}
             </button>
@@ -74,13 +102,15 @@ export default function ClientReviewsPage() {
           <textarea
             className="min-h-16 rounded-[18px] border-0 bg-[rgb(var(--canvas))] p-3 text-sm font-semibold outline-none"
             placeholder="Share a short note"
+            onChange={() => setSubmitted(false)}
           />
         </label>
         <button
           className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
           type="button"
+          onClick={() => setSubmitted(true)}
         >
-          Submit review
+          {submitted ? "Review submitted" : "Submit review"}
         </button>
       </Card>
 

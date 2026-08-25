@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Avatar, ClientHeader, ClientShell, StatusPill } from "../../client-ui";
 
 const messages = [
@@ -11,6 +14,20 @@ const messages = [
 ];
 
 export default function ClientChatPage() {
+  const [draft, setDraft] = useState("");
+  const [sentMessages, setSentMessages] = useState<Array<{ text: string; time: string }>>([]);
+  const visibleMessages = [
+    ...messages,
+    ...sentMessages.map((message) => ({ from: "client", ...message })),
+  ];
+
+  function sendMessage() {
+    const text = draft.trim();
+    if (!text) return;
+    setSentMessages((current) => [...current, { text, time: "Now" }]);
+    setDraft("");
+  }
+
   return (
     <ClientShell active="messages">
       <ClientHeader
@@ -34,7 +51,7 @@ export default function ClientChatPage() {
       </section>
 
       <section aria-label="Chat messages" className="mt-3 grid gap-2.5">
-        {messages.map((message) => {
+        {visibleMessages.map((message) => {
           const own = message.from === "client";
           return (
             <div key={`${message.time}-${message.text}`} className={own ? "flex justify-end" : ""}>
@@ -65,10 +82,13 @@ export default function ClientChatPage() {
             className="min-h-11 min-w-0 flex-1 rounded-full border-0 bg-[rgb(var(--canvas))] px-4 text-sm font-semibold outline-none"
             id="chat-message"
             placeholder="Message driver"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
           />
           <button
             className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-5 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"
+            onClick={sendMessage}
           >
             Send
           </button>

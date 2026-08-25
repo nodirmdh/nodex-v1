@@ -86,7 +86,10 @@ function passengerTone(status: PassengerStatus) {
 export default function PassengersDemo() {
   const [code, setCode] = useState("");
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
-  const [acceptSheet, setAcceptSheet] = useState(false);
+  const [acceptSheet, setAcceptSheet] = useState<string | null>(null);
+  const [acceptedRequest, setAcceptedRequest] = useState("");
+  const [rejectedRequests, setRejectedRequests] = useState<string[]>([]);
+  const [confirmedBoarding, setConfirmedBoarding] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("requests");
   const boardedCount = passengers.filter((passenger) => passenger.status === "Boarded").length;
   const noShowCount = passengers.filter((passenger) => passenger.status === "No-show").length;
@@ -95,7 +98,7 @@ export default function PassengersDemo() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setSubscriptionExpired(params.get("subscription") === "expired");
-    setAcceptSheet(params.get("sheet") === "accept");
+    setAcceptSheet(params.get("sheet") === "accept" ? requests[0]!.id : null);
     const nextView = params.get("view");
     if (nextView === "boarding" || nextView === "passengers") setViewMode(nextView);
   }, []);
@@ -157,6 +160,7 @@ export default function PassengersDemo() {
         ].map(([key, label]) => (
           <button
             key={key}
+            aria-pressed={viewMode === key}
             className={[
               "min-h-10 rounded-full border-0 text-xs font-black",
               viewMode === key
@@ -173,54 +177,77 @@ export default function PassengersDemo() {
 
       {viewMode === "requests" && (
         <section aria-label="Driver seat request list" className="mt-3 space-y-3">
-          {requests.map((request, index) => (
-            <DriverCard
-              key={request.id}
-              className="space-y-3"
-              label={`Passenger request ${request.name}`}
-            >
-              <div className="flex items-start gap-3">
-                <Avatar initials={request.initials} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h2 className="m-0 text-lg font-black">{request.name}</h2>
-                      <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-                        {request.count} · {request.submitted}
-                      </p>
+          {requests.map((request) => {
+            const rejected = rejectedRequests.includes(request.id);
+            const accepted = acceptedRequest === request.id;
+
+            return (
+              <DriverCard
+                key={request.id}
+                className="space-y-3"
+                label={`Passenger request ${request.name}`}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar initials={request.initials} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h2 className="m-0 text-lg font-black">{request.name}</h2>
+                        <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                          {request.count} · {request.submitted}
+                        </p>
+                      </div>
+                      <DriverPill tone="accent">{formatUzs(request.totalMinor)}</DriverPill>
                     </div>
-                    <DriverPill tone="accent">{formatUzs(request.totalMinor)}</DriverPill>
-                  </div>
-                  <div className="mt-3 rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-sm">
-                    <div className="font-black">{request.seat}</div>
-                    <div className="mt-1 font-semibold text-[rgb(var(--text-muted))]">
-                      {request.trip}
-                    </div>
-                    <div className="mt-2 text-xs font-bold text-[rgb(var(--text-muted))]">
-                      {request.luggage} · {request.note}
+                    <div className="mt-3 rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-sm">
+                      <div className="font-black">{request.seat}</div>
+                      <div className="mt-1 font-semibold text-[rgb(var(--text-muted))]">
+                        {request.trip}
+                      </div>
+                      <div className="mt-2 text-xs font-bold text-[rgb(var(--text-muted))]">
+                        {request.luggage} · {request.note}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-[1fr_1fr] gap-2">
-                <button
-                  className="min-h-11 rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] disabled:bg-[rgb(var(--warning-soft))] disabled:text-[rgb(var(--warning))]"
-                  disabled={subscriptionExpired}
-                  onClick={() => setAcceptSheet(true)}
-                  type="button"
-                >
-                  {subscriptionExpired ? "Activation required" : "Accept request"}
-                </button>
-                <button
-                  className="min-h-11 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
-                  type="button"
-                >
-                  Reject
-                </button>
-              </div>
-              {index === 0 && acceptSheet && !subscriptionExpired && <AcceptSheet />}
-            </DriverCard>
-          ))}
+                <div className="grid grid-cols-[1fr_1fr] gap-2">
+                  <button
+                    className="min-h-11 rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] disabled:bg-[rgb(var(--warning-soft))] disabled:text-[rgb(var(--warning))]"
+                    disabled={subscriptionExpired}
+                    onClick={() => setAcceptSheet(request.id)}
+                    type="button"
+                  >
+                    {subscriptionExpired
+                      ? "Activation required"
+                      : accepted
+                        ? "Accepted"
+                        : "Accept request"}
+                  </button>
+                  <button
+                    className="min-h-11 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
+                    type="button"
+                    onClick={() => {
+                      setRejectedRequests((current) =>
+                        current.includes(request.id) ? current : [...current, request.id],
+                      );
+                      setAcceptSheet(null);
+                    }}
+                  >
+                    {rejected ? "Rejected" : "Reject"}
+                  </button>
+                </div>
+                {acceptSheet === request.id && !subscriptionExpired && (
+                  <AcceptSheet
+                    onConfirm={() => {
+                      setAcceptedRequest(request.id);
+                      setAcceptSheet(null);
+                      setViewMode("boarding");
+                    }}
+                  />
+                )}
+              </DriverCard>
+            );
+          })}
         </section>
       )}
 
@@ -251,8 +278,9 @@ export default function PassengersDemo() {
             className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] disabled:bg-[rgb(var(--canvas))] disabled:text-[rgb(var(--text-muted))]"
             disabled={code.length < 6}
             type="button"
+            onClick={() => setConfirmedBoarding(true)}
           >
-            Confirm boarding
+            {confirmedBoarding ? "Boarding confirmed" : "Confirm boarding"}
           </button>
           <p className="m-0 text-xs font-semibold text-[rgb(var(--text-muted))]">
             Enter the passenger code exactly as shown in their app.
@@ -288,7 +316,7 @@ export default function PassengersDemo() {
   );
 }
 
-function AcceptSheet() {
+function AcceptSheet({ onConfirm }: { onConfirm: () => void }) {
   return (
     <div className="rounded-[22px] bg-[rgb(var(--foreground))] p-4 text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-floating)]">
       <div className="flex items-start justify-between gap-3">
@@ -306,6 +334,7 @@ function AcceptSheet() {
       <button
         className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
         type="button"
+        onClick={onConfirm}
       >
         Confirm acceptance
       </button>
@@ -347,24 +376,24 @@ function PassengerRow({
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <button
-          className="min-h-10 rounded-full border-0 bg-[rgb(var(--canvas))] text-xs font-black text-[rgb(var(--primary))]"
-          type="button"
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-full border-0 bg-[rgb(var(--canvas))] text-xs font-black text-[rgb(var(--primary))] no-underline"
+          href="/messages/parcel-sender"
         >
           Chat
-        </button>
-        <button
-          className="min-h-10 rounded-full border-0 bg-[rgb(var(--canvas))] text-xs font-black text-[rgb(var(--primary))]"
-          type="button"
+        </Link>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-full border-0 bg-[rgb(var(--canvas))] text-xs font-black text-[rgb(var(--primary))] no-underline"
+          href="/messages/parcel-sender"
         >
           Contact
-        </button>
-        <button
-          className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] text-xs font-black text-[rgb(var(--text-muted))]"
-          type="button"
+        </Link>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] text-xs font-black text-[rgb(var(--text-muted))] no-underline"
+          href="/passengers-demo?view=passengers&marked=no-show"
         >
           No-show
-        </button>
+        </Link>
       </div>
     </DriverCard>
   );

@@ -103,6 +103,7 @@ export default function AdminParcelsPage() {
     () => parcels.find((parcel) => parcel.id === selectedId) ?? parcels[0]!,
     [selectedId],
   );
+  const [actionNotice, setActionNotice] = useState("");
 
   return (
     <main className="p-5">
@@ -111,10 +112,21 @@ export default function AdminParcelsPage() {
         subtitle="Track route-linked parcels, custody handoffs, driver acceptance, delivery issues, and support context."
         actions={
           <>
-            <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+            <button
+              className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+              type="button"
+              onClick={() => setActionNotice("Parcel export queued for local QA.")}
+            >
               Export parcels
             </button>
-            <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
+            <button
+              className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]"
+              type="button"
+              onClick={() => {
+                setSelectedId("parcel-issue");
+                setActionNotice("Parcel issues opened.");
+              }}
+            >
               Open issues
             </button>
           </>
@@ -242,20 +254,46 @@ export default function AdminParcelsPage() {
             <section>
               <h3 className="m-0 mb-2 text-sm font-black">Parcel controls</h3>
               <div className="grid grid-cols-2 gap-2">
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/trips?state=active";
+                  }}
+                >
                   Open trip
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/support";
+                  }}
+                >
                   Contact support
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--warning))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--warning))]">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--warning))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--warning))]"
+                  type="button"
+                  onClick={() => setActionNotice(`${selected.title} damage review opened.`)}
+                >
                   Mark damaged
                 </button>
-                <button className="rounded-[10px] border border-[rgb(var(--destructive))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--destructive))]">
+                <button
+                  className="rounded-[10px] border border-[rgb(var(--destructive))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--destructive))]"
+                  type="button"
+                  onClick={() => setActionNotice(`${selected.title} cancellation review opened.`)}
+                >
                   Cancel parcel
                 </button>
               </div>
             </section>
+
+            {actionNotice ? (
+              <section className="rounded-[12px] bg-[rgb(var(--info-soft))] p-3 text-sm font-black text-[rgb(var(--info))]">
+                {actionNotice}
+              </section>
+            ) : null}
 
             <section>
               <h3 className="m-0 mb-2 text-sm font-black">Timeline</h3>

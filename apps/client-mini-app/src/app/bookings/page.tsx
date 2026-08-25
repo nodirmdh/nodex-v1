@@ -158,12 +158,12 @@ export default function TripsPage() {
 
             <div className="flex items-center gap-2">
               {activeTab === "requests" ? (
-                <button
-                  className="min-h-11 rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
-                  type="button"
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--text-muted))] no-underline"
+                  href="/bookings/phase6-booking-hold?state=cancelled"
                 >
                   Cancel request
-                </button>
+                </Link>
               ) : (
                 <Link
                   className="min-h-11 rounded-full bg-[rgb(var(--canvas))] px-4 py-3 text-sm font-black text-[rgb(var(--primary))] no-underline"

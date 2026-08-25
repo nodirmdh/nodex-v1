@@ -117,7 +117,14 @@ export default function TripOperationDemo() {
           >
             {isActive ? "Finish trip" : "Start trip"}
           </button>
-          {finishSheet && <FinishSheet />}
+          {finishSheet && (
+            <FinishSheet
+              onFinish={() => {
+                setState("completed");
+                setFinishSheet(false);
+              }}
+            />
+          )}
         </DriverCard>
       )}
 
@@ -212,7 +219,7 @@ export default function TripOperationDemo() {
   );
 }
 
-function FinishSheet() {
+function FinishSheet({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="rounded-[22px] bg-[rgb(var(--foreground))] p-4 text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-floating)]">
       <h3 className="m-0 text-lg font-black">Finish trip?</h3>
@@ -222,8 +229,9 @@ function FinishSheet() {
       <button
         className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
         type="button"
+        onClick={onFinish}
       >
-        Finish trip
+        Confirm finish trip
       </button>
     </div>
   );
