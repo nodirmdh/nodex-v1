@@ -1,186 +1,183 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline } from "@nodex/ui";
+import { useEffect, useState } from "react";
+import { DriverCard, DriverHeader, DriverIconView, DriverPill, DriverShell } from "../driver-ui";
 
-type VehicleStatus =
-  | "DRAFT"
-  | "SUBMITTED"
-  | "UNDER_REVIEW"
-  | "CHANGES_REQUESTED"
-  | "APPROVED"
-  | "REJECTED"
-  | "SUSPENDED"
-  | "ARCHIVED";
+type VehicleState = "list" | "edit";
 
-type Vehicle = {
-  id: string;
-  name: string;
-  plate: string;
-  status: VehicleStatus;
-  primary: boolean;
-  seats: number;
-  luggage: string;
-};
-
-const vehicles: Vehicle[] = [
+const vehicles = [
   {
-    id: "vehicle-approved",
-    name: "Chevrolet Tracker",
-    plate: "01 V 104 AA",
-    status: "APPROVED",
-    primary: true,
-    seats: 4,
-    luggage: "2 medium bags",
-  },
-  {
-    id: "vehicle-draft",
     name: "Chevrolet Cobalt",
-    plate: "Draft plate",
-    status: "DRAFT",
-    primary: false,
-    seats: 4,
-    luggage: "Not set",
+    plate: "95 A 214 QA",
+    color: "White",
+    seats: "4 passenger seats",
+    layout: "Sedan",
+    status: "Approved",
+    tone: "success" as const,
+    primary: true,
   },
   {
-    id: "vehicle-changes",
-    name: "Kia K5",
-    plate: "01 V 105 AA",
-    status: "CHANGES_REQUESTED",
+    name: "Chevrolet Tracker",
+    plate: "95 B 412 QA",
+    color: "Silver",
+    seats: "4 passenger seats",
+    layout: "SUV",
+    status: "Under review",
+    tone: "warning" as const,
     primary: false,
-    seats: 4,
-    luggage: "1 large bag",
   },
 ];
 
-function statusTone(status: VehicleStatus) {
-  if (status === "APPROVED") return "success";
-  if (status === "REJECTED" || status === "SUSPENDED" || status === "ARCHIVED") return "danger";
-  if (status === "UNDER_REVIEW" || status === "CHANGES_REQUESTED") return "warning";
-  return "info";
-}
-
 export default function DriverVehiclesPage() {
-  const [selected, setSelected] = useState<Vehicle>(vehicles[0]!);
-  const missing = useMemo(
-    () =>
-      selected.status === "DRAFT"
-        ? ["Registration certificate", "Front photo", "Plate photo"]
-        : selected.status === "CHANGES_REQUESTED"
-          ? ["Insurance document needs replacement"]
-          : [],
-    [selected.status],
-  );
+  const [mode, setMode] = useState<VehicleState>("list");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "edit") setMode("edit");
+  }, []);
 
   return (
-    <main className="nodex-app mobile-shell pb-24">
-      <AppHeader title="My vehicles" subtitle="Drafts, documents, photos, and moderation" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-lg font-black">Vehicles</h1>
-              <div className="text-sm text-slate-500">
-                Approved drivers can submit several cars.
+    <DriverShell active="profile">
+      <DriverHeader
+        title="Vehicles"
+        subtitle="Cars and capacity"
+        status={<DriverPill tone="success">1 active</DriverPill>}
+      />
+
+      {mode === "list" ? (
+        <>
+          <DriverCard className="mt-4 space-y-3" label="Current vehicle">
+            <div className="flex gap-3">
+              <div className="grid h-24 w-28 shrink-0 place-items-center rounded-[22px] bg-[rgb(var(--canvas))] text-[rgb(var(--primary))]">
+                <DriverIconView name="car" className="h-8 w-8" />
               </div>
-            </div>
-            <Button>Add vehicle</Button>
-          </div>
-          <div className="grid gap-2" aria-label="Driver vehicle list">
-            {vehicles.map((vehicle) => (
-              <button
-                key={vehicle.id}
-                className="rounded-[var(--radius-md)] border border-[rgb(var(--border))] p-3 text-left"
-                onClick={() => setSelected(vehicle)}
-                type="button"
-              >
+              <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-bold">{vehicle.name}</div>
-                    <div className="text-sm text-slate-500">{vehicle.plate}</div>
+                    <h1 className="m-0 text-lg font-black">{vehicles[0]!.name}</h1>
+                    <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                      {vehicles[0]!.plate} · {vehicles[0]!.color}
+                    </p>
                   </div>
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {vehicle.primary && <Badge tone="success">Primary</Badge>}
-                    <Badge tone={statusTone(vehicle.status)}>{vehicle.status}</Badge>
-                  </div>
+                  <DriverPill tone="success">Approved</DriverPill>
                 </div>
-              </button>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold">
+                  <Info label="Layout" value={vehicles[0]!.layout} />
+                  <Info label="Capacity" value={vehicles[0]!.seats} />
+                </div>
+              </div>
+            </div>
+            <button
+              className="min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
+              onClick={() => setMode("edit")}
+              type="button"
+            >
+              Manage vehicle
+            </button>
+          </DriverCard>
+
+          <section aria-label="Driver vehicle list" className="mt-3 space-y-3">
+            {vehicles.map((vehicle) => (
+              <DriverCard key={vehicle.plate}>
+                <div className="flex items-center gap-3">
+                  <div className="grid h-14 w-16 shrink-0 place-items-center rounded-[18px] bg-[rgb(var(--canvas))] text-[rgb(var(--primary))]">
+                    <DriverIconView name="car" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="m-0 truncate text-base font-black">{vehicle.name}</h2>
+                    <p className="m-0 truncate text-sm font-semibold text-[rgb(var(--text-muted))]">
+                      {vehicle.plate} · {vehicle.layout} · {vehicle.seats}
+                    </p>
+                  </div>
+                  <DriverPill tone={vehicle.tone}>{vehicle.status}</DriverPill>
+                </div>
+              </DriverCard>
             ))}
-          </div>
-        </Panel>
+          </section>
 
-        <Panel className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="m-0 text-base font-bold">{selected.name}</h2>
-              <div className="text-sm text-slate-500">{selected.plate}</div>
-            </div>
-            <Badge tone={statusTone(selected.status)}>{selected.status}</Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <span className="block text-slate-500">Seats</span>
-              <strong>{selected.seats}</strong>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <span className="block text-slate-500">Luggage</span>
-              <strong>{selected.luggage}</strong>
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Button>{selected.status === "DRAFT" ? "Continue draft" : "Edit vehicle"}</Button>
-            <Button variant="secondary">Upload documents</Button>
-            <Button variant="secondary">Upload photos</Button>
-            {selected.status === "DRAFT" && <Button variant="secondary">Submit for review</Button>}
-            {selected.status === "APPROVED" && !selected.primary && (
-              <Button variant="secondary">Set as primary</Button>
-            )}
-            {selected.status !== "ARCHIVED" && <Button variant="secondary">Archive vehicle</Button>}
-          </div>
-        </Panel>
+          <button
+            className="mt-3 min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
+            type="button"
+          >
+            Add vehicle
+          </button>
+        </>
+      ) : (
+        <DriverVehicleEdit onBack={() => setMode("list")} />
+      )}
+    </DriverShell>
+  );
+}
 
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Review status</h2>
-          {missing.length > 0 ? (
-            <ul className="m-0 grid gap-2 p-0 text-sm">
-              {missing.map((item) => (
-                <li
-                  key={item}
-                  className="list-none rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-[var(--radius-md)] bg-emerald-50 p-3 text-sm text-emerald-900">
-              Vehicle can be used after moderation approval.
-            </div>
-          )}
-        </Panel>
+function DriverVehicleEdit({ onBack }: { onBack: () => void }) {
+  return (
+    <section aria-label="Vehicle edit form" className="mt-4 space-y-3">
+      <DriverCard className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="m-0 text-xl font-black">Edit vehicle</h1>
+          <button
+            className="border-0 bg-transparent text-sm font-black text-[rgb(var(--primary))]"
+            onClick={onBack}
+            type="button"
+          >
+            Done
+          </button>
+        </div>
+        <FieldGroup
+          title="Vehicle"
+          fields={[
+            ["Model", "Chevrolet Cobalt"],
+            ["Color", "White"],
+          ]}
+        />
+        <FieldGroup title="Registration" fields={[["Plate", "95 A 214 QA"]]} />
+        <FieldGroup
+          title="Capacity"
+          fields={[
+            ["Layout", "Sedan"],
+            ["Passenger seats", "4"],
+          ]}
+        />
+        <DriverCard className="bg-[rgb(var(--canvas))] shadow-none" label="Seat layout summary">
+          <div className="text-sm font-black">Sedan</div>
+          <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
+            4 passenger seats · front passenger + rear row
+          </div>
+        </DriverCard>
+        <button
+          className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
+          type="button"
+        >
+          Save vehicle
+        </button>
+      </DriverCard>
+    </section>
+  );
+}
 
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">Decision history</h2>
-          <Timeline
-            items={[
-              { label: "Vehicle draft created", time: "Today", active: true },
-              {
-                label: "Documents uploaded",
-                time: selected.status === "DRAFT" ? "Missing" : "Done",
-              },
-              { label: "Admin decision", time: selected.status },
-            ]}
-          />
-        </Panel>
+function FieldGroup({ title, fields }: { title: string; fields: Array<[string, string]> }) {
+  return (
+    <div>
+      <h2 className="m-0 mb-2 text-sm font-black">{title}</h2>
+      <div className="grid gap-2">
+        {fields.map(([label, value]) => (
+          <label key={label} className="grid gap-1 text-xs font-bold text-[rgb(var(--text-muted))]">
+            {label}
+            <input
+              className="min-h-11 rounded-[16px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm font-black text-[rgb(var(--foreground))]"
+              defaultValue={value}
+            />
+          </label>
+        ))}
       </div>
-      <BottomNav
-        items={[
-          { label: "Verify" },
-          { label: "Vehicles", active: true },
-          { label: "Trips" },
-          { label: "Profile" },
-        ]}
-      />
-    </main>
+    </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[14px] bg-[rgb(var(--canvas))] p-2">
+      <div className="text-[10px] text-[rgb(var(--text-muted))]">{label}</div>
+      <div className="mt-1 text-[11px] font-black">{value}</div>
+    </div>
   );
 }

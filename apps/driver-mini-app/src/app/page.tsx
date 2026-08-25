@@ -1,189 +1,206 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline } from "@nodex/ui";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { formatUzs } from "@nodex/ui";
+import { DriverCard, DriverHeader, DriverIconView, DriverPill, DriverShell } from "./driver-ui";
 
-const steps = [
-  "Личные данные",
-  "Документ личности",
-  "Водительские права",
-  "Данные автомобиля",
-  "Фото автомобиля",
-  "Проверка",
-  "Согласие",
-];
+type SubscriptionState = "active" | "expiring" | "expired";
 
-const documents = [
-  { label: "ID front", status: "Uploaded" },
-  { label: "Driver license", status: "Uploaded" },
-  { label: "Vehicle registration", status: "Missing" },
-  { label: "Selfie", status: "Uploaded" },
-  { label: "Vehicle front", status: "Missing" },
+const subscriptionCopy = {
+  active: {
+    title: "Subscription active",
+    status: "Active",
+    tone: "success" as const,
+    days: "18 days remaining",
+    body: "You can publish trips and accept new passenger requests.",
+    cta: "Manage",
+    createEnabled: true,
+  },
+  expiring: {
+    title: "Subscription expiring soon",
+    status: "3 days left",
+    tone: "warning" as const,
+    days: "Renews soon",
+    body: "Renew before expiry to keep publishing trips without interruption.",
+    cta: "Renew",
+    createEnabled: true,
+  },
+  expired: {
+    title: "Subscription inactive",
+    status: "Inactive",
+    tone: "danger" as const,
+    days: "Access limited",
+    body: "Activate subscription to publish new trips and accept new requests.",
+    cta: "Activate",
+    createEnabled: false,
+  },
+};
+
+const statItems = [
+  ["Today", "1 trip"],
+  ["Passengers", "2 confirmed"],
+  ["Requests", "3 new"],
+  ["Messages", "2 unread"],
 ];
 
 export default function DriverHome() {
-  const [step, setStep] = useState(0);
-  const completion = useMemo(() => Math.round(((step + 1) / steps.length) * 100), [step]);
+  const [subscription, setSubscription] = useState<SubscriptionState>("active");
+
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("subscription");
+    if (next === "expired" || next === "expiring") setSubscription(next);
+  }, []);
+
+  const copy = subscriptionCopy[subscription];
 
   return (
-    <main className="nodex-app mobile-shell pb-24">
-      <AppHeader title="Driver verification" subtitle="Documents, review status, and history" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm text-slate-500">Current status</div>
-              <div className="text-xl font-black">Draft</div>
-            </div>
-            <Badge tone="warning">Autosaved</Badge>
-          </div>
-          <div
-            aria-label="Verification progress"
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={completion}
-            className="h-2 overflow-hidden rounded-full bg-[rgb(var(--surface-muted))]"
-            role="progressbar"
-          >
-            <div
-              className="h-full rounded-full bg-[rgb(var(--primary))]"
-              style={{ width: `${completion}%` }}
-            />
-          </div>
-          <div className="grid grid-cols-7 gap-1" aria-label="Verification steps">
-            {steps.map((item, index) => (
-              <button
-                key={item}
-                className={`h-10 rounded-[var(--radius-sm)] border text-xs font-semibold ${
-                  index === step
-                    ? "border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white"
-                    : index < step
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-[rgb(var(--border))] bg-white text-slate-500"
-                }`}
-                onClick={() => setStep(index)}
-                type="button"
-              >
-                {index + 1}
-              </button>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel className="space-y-4">
-          <div>
-            <h1 className="m-0 text-lg font-black">{steps[step]}</h1>
-            <div className="text-sm text-slate-500">
-              Save a draft, upload documents, then submit.
-            </div>
-          </div>
-
-          {step === 0 && (
-            <div className="grid gap-3">
-              {["Legal first name", "Legal last name", "Phone", "PIN"].map((label) => (
-                <label key={label} className="grid gap-1 text-sm font-semibold">
-                  {label}
-                  <input
-                    className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] px-3 text-base"
-                    defaultValue={label === "Phone" ? "+998 90 000 00 00" : ""}
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-
-          {(step === 1 || step === 2 || step === 4) && (
-            <div className="grid gap-2">
-              {documents.map((document) => (
-                <div
-                  key={document.label}
-                  className="flex min-h-14 items-center justify-between rounded-[var(--radius-md)] border border-[rgb(var(--border))] px-3"
-                >
-                  <div className="text-sm font-semibold">{document.label}</div>
-                  <Badge tone={document.status === "Uploaded" ? "success" : "warning"}>
-                    {document.status}
-                  </Badge>
-                </div>
-              ))}
-              <Button className="min-h-12">Upload document</Button>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="grid gap-3">
-              {["Make", "Model", "Year", "Plate", "Seats"].map((label) => (
-                <label key={label} className="grid gap-1 text-sm font-semibold">
-                  {label}
-                  <input className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] px-3 text-base" />
-                </label>
-              ))}
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="grid gap-2 text-sm">
-              <div className="flex justify-between rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-                <span>Personal data</span>
-                <Badge tone="success">Ready</Badge>
-              </div>
-              <div className="flex justify-between rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-                <span>Documents</span>
-                <Badge tone="warning">2 missing</Badge>
-              </div>
-              <div className="flex justify-between rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-                <span>Vehicle data</span>
-                <Badge tone="success">Ready</Badge>
-              </div>
-            </div>
-          )}
-
-          {step === 6 && (
-            <label className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[rgb(var(--border))] p-3 text-sm">
-              <input className="mt-1" type="checkbox" />
-              <span>I confirm that the data is accurate and agree to document verification.</span>
-            </label>
-          )}
-        </Panel>
-
-        <Panel>
-          <h2 className="m-0 mb-3 text-base font-bold">History</h2>
-          <Timeline
-            items={[
-              { label: "Draft created", time: "Today", active: true },
-              { label: "Documents autosaved", time: "Pending upload" },
-              { label: "Admin review", time: "After submission" },
-            ]}
-          />
-        </Panel>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-14 mx-auto max-w-[430px] border-t border-[rgb(var(--border))] bg-white/95 p-4 backdrop-blur">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            className="min-h-12"
-            disabled={step === 0}
-            onClick={() => setStep((value) => Math.max(0, value - 1))}
-            variant="secondary"
-          >
-            Back
-          </Button>
-          <Button
-            className="min-h-12"
-            onClick={() => setStep((value) => Math.min(steps.length - 1, value + 1))}
-          >
-            {step === steps.length - 1 ? "Submit" : "Next"}
-          </Button>
-        </div>
-      </div>
-
-      <BottomNav
-        items={[
-          { label: "Verify", active: true },
-          { label: "Status" },
-          { label: "History" },
-          { label: "Profile" },
-        ]}
+    <DriverShell active="home">
+      <DriverHeader
+        title="Good morning"
+        subtitle="Azizbek · Ready to drive"
+        status={<DriverPill tone="success">Verified</DriverPill>}
       />
-    </main>
+
+      <DriverCard className="mt-4 space-y-3" label="Driver subscription status">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+              Nodex Driver
+            </p>
+            <h2 className="m-0 mt-1 text-xl font-black">{copy.title}</h2>
+            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              {copy.body}
+            </p>
+          </div>
+          <DriverPill tone={copy.tone}>{copy.status}</DriverPill>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[18px] bg-[rgb(var(--canvas))] p-3">
+          <div>
+            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Plan access</div>
+            <div className="text-sm font-black">{copy.days}</div>
+          </div>
+          <Link
+            className="inline-flex min-h-10 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href={`/subscription?state=${subscription}`}
+          >
+            {copy.cta}
+          </Link>
+        </div>
+      </DriverCard>
+
+      <DriverCard className="mt-3 space-y-3" label="Next driver trip">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-lg font-black">Nukus → Urgench</h2>
+            <p className="m-0 mt-1 flex items-center gap-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              <DriverIconView name="clock" className="h-4 w-4" />
+              Tomorrow, 08:30
+            </p>
+          </div>
+          <DriverPill tone="info">Next trip</DriverPill>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-black">Chevrolet Cobalt · 95 A 214 QA</div>
+            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
+              2 confirmed / 4 seats · 1 pending
+            </div>
+          </div>
+          <Link
+            className="inline-flex min-h-10 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href="/trip-demo"
+          >
+            View
+          </Link>
+        </div>
+      </DriverCard>
+
+      <DriverCard
+        className={
+          copy.createEnabled
+            ? "mt-3 space-y-3"
+            : "mt-3 space-y-3 ring-1 ring-[rgb(var(--warning)/0.2)]"
+        }
+        label="Create trip access"
+      >
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
+            <DriverIconView name={copy.createEnabled ? "route" : "lock"} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="m-0 text-lg font-black">Create trip</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              {copy.createEnabled
+                ? "Publish a new route when your vehicle and plan are ready."
+                : "Blocked until subscription is active."}
+            </p>
+          </div>
+        </div>
+        {copy.createEnabled ? (
+          <Link
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline shadow-[var(--shadow-md)]"
+            href="/trips"
+          >
+            + Create trip
+          </Link>
+        ) : (
+          <Link
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--warning-soft))] px-4 text-sm font-black text-[rgb(var(--warning))] no-underline"
+            href="/subscription?state=expired"
+          >
+            Activate subscription to create trips
+          </Link>
+        )}
+      </DriverCard>
+
+      <DriverCard className="mt-3 space-y-3" label="New passenger requests">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-lg font-black">3 new seat requests</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Review before accepting passengers.
+            </p>
+          </div>
+          <DriverPill tone="warning">New</DriverPill>
+        </div>
+        <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-black">Nodex Client</div>
+              <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
+                Front passenger · Nukus to Urgench
+              </div>
+            </div>
+            <DriverPill tone={copy.createEnabled ? "accent" : "warning"}>
+              {copy.createEnabled ? formatUzs(8500000) : "Locked"}
+            </DriverPill>
+          </div>
+        </div>
+        <Link
+          className={[
+            "inline-flex min-h-11 w-full items-center justify-center rounded-full px-4 text-sm font-black no-underline",
+            copy.createEnabled
+              ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
+              : "bg-[rgb(var(--warning-soft))] text-[rgb(var(--warning))]",
+          ].join(" ")}
+          href={copy.createEnabled ? "/passengers-demo" : "/subscription?state=expired"}
+        >
+          {copy.createEnabled ? "Review requests" : "Activate to accept new requests"}
+        </Link>
+      </DriverCard>
+
+      <section className="mt-3 grid grid-cols-4 gap-2" aria-label="Driver quick status">
+        {statItems.map(([label, value]) => (
+          <div
+            key={label}
+            className="rounded-[18px] bg-[rgb(var(--surface)/0.8)] p-2 shadow-[var(--shadow-xs)]"
+          >
+            <div className="text-[11px] font-bold text-[rgb(var(--text-muted))]">{label}</div>
+            <div className="mt-1 text-xs font-black">{value}</div>
+          </div>
+        ))}
+      </section>
+    </DriverShell>
   );
 }

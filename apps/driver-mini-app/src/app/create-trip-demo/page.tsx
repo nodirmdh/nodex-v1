@@ -3,7 +3,7 @@ import { AppHeader, Badge, BottomNav, Button, Panel, VehicleSummary } from "@nod
 export default function CreateTripDemo() {
   return (
     <main className="nodex-app mobile-shell">
-      <AppHeader title="Create trip" subtitle="Wizard demo" />
+      <AppHeader title="Create trip" subtitle="Trip setup" />
       <div className="space-y-4 px-4">
         <div className="flex gap-2">
           {["Route", "Vehicle", "Seats", "Price"].map((step, index) => (
@@ -29,7 +29,7 @@ export default function CreateTripDemo() {
           </label>
         </Panel>
         <VehicleSummary />
-        <Button className="w-full">Continue demo</Button>
+        <Button className="w-full">Continue</Button>
       </div>
       <BottomNav
         items={[
