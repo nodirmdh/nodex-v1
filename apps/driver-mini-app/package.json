@@ -12,7 +12,11 @@
     "test": "vitest run --passWithNoTests",
     "test:unit": "vitest run --passWithNoTests",
     "test:integration": "vitest run --passWithNoTests",
-    "analyze": "cross-env ANALYZE=true next build && node ../../scripts/write-bundle-report.mjs driver . ../../artifacts/bundle/driver"
+    "analyze": "cross-env ANALYZE=true next build && node ../../scripts/write-bundle-report.mjs driver . ../../artifacts/bundle/driver",
+    "dev:vinext": "vinext dev --port 3201",
+    "build:vinext": "cross-env NEXT_PUBLIC_API_BASE_URL=https://nodex-api-preview.example.invalid/api/v1 vinext build",
+    "start:vinext": "wrangler dev --config dist/server/wrangler.json",
+    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
     "@nodex/testing": "workspace:*",
@@ -24,7 +28,10 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "sonner": "2.0.7",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@vinext/cloudflare": "1.0.0-beta.6",
+    "react-server-dom-webpack": "^19.2.8",
+    "vinext": "1.0.0-beta.8"
   },
   "devDependencies": {
     "@nodex/typescript-config": "workspace:*",
