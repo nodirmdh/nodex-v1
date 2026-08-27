@@ -1,8 +1,9 @@
 import "reflect-metadata";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
-import { Socket } from "node:net";
+import { connect as connectTcp } from "node:net";
 import { dirname, resolve } from "node:path";
+import { connect as connectTls } from "node:tls";
 import { Catch, HttpException, Module } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -3040,47 +3041,84 @@ function encodeRedisCommand(parts: string[]) {
     .join("")}`;
 }
 
-function parseRedisReply(buffer: Buffer) {
+function parseRedisReplies(buffer: Buffer) {
   const text = buffer.toString("utf8");
-  if (text.startsWith("+")) return text.slice(1, text.indexOf("\r\n"));
-  if (text.startsWith(":")) return Number(text.slice(1, text.indexOf("\r\n")));
-  if (text.startsWith("$-1")) return null;
-  if (text.startsWith("$")) {
-    const end = text.indexOf("\r\n");
-    const length = Number(text.slice(1, end));
-    return text.slice(end + 2, end + 2 + length);
+  const replies: Array<string | number | null> = [];
+  let offset = 0;
+  while (offset < text.length) {
+    const lineEnd = text.indexOf("\r\n", offset);
+    if (lineEnd < 0) break;
+    const prefix = text[offset];
+    if (prefix === "+") {
+      replies.push(text.slice(offset + 1, lineEnd));
+      offset = lineEnd + 2;
+      continue;
+    }
+    if (prefix === ":") {
+      replies.push(Number(text.slice(offset + 1, lineEnd)));
+      offset = lineEnd + 2;
+      continue;
+    }
+    if (prefix === "$") {
+      const length = Number(text.slice(offset + 1, lineEnd));
+      if (length < 0) {
+        replies.push(null);
+        offset = lineEnd + 2;
+        continue;
+      }
+      const valueStart = lineEnd + 2;
+      replies.push(text.slice(valueStart, valueStart + length));
+      offset = valueStart + length + 2;
+      continue;
+    }
+    if (prefix === "-") {
+      throw new Error(text.slice(offset + 1, lineEnd));
+    }
+    break;
   }
-  if (text.startsWith("-")) {
-    throw new Error(text.slice(1, text.indexOf("\r\n")));
-  }
-  return text;
+  return replies.at(-1) ?? text;
 }
 
 async function redisCommand(parts: string[]) {
   const url = new URL(env.REDIS_URL);
   const host = url.hostname || "127.0.0.1";
   const port = Number(url.port || 6379);
+  const password = url.password ? decodeURIComponent(url.password) : "";
+  const username = url.username ? decodeURIComponent(url.username) : "";
+  const commands = [
+    ...(password ? [username ? ["AUTH", username, password] : ["AUTH", password]] : []),
+    parts,
+  ];
   return new Promise<string | number | null>((resolve, reject) => {
-    const socket = new Socket();
     const chunks: Buffer[] = [];
+    let settled = false;
     const timeout = setTimeout(() => {
       socket.destroy(new Error("Redis command timed out"));
     }, 3000);
+    const onConnect = () => {
+      socket.end(commands.map(encodeRedisCommand).join(""));
+    };
+    const socket =
+      url.protocol === "rediss:"
+        ? connectTls({ host, port, servername: host }, onConnect)
+        : connectTcp({ host, port }, onConnect);
     socket.once("error", (error) => {
       clearTimeout(timeout);
-      reject(error);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
     });
     socket.on("data", (chunk: Buffer) => chunks.push(chunk));
     socket.once("close", () => {
       clearTimeout(timeout);
+      if (settled) return;
+      settled = true;
       try {
-        resolve(parseRedisReply(Buffer.concat(chunks)));
+        resolve(parseRedisReplies(Buffer.concat(chunks)));
       } catch (error) {
         reject(error);
       }
-    });
-    socket.connect(port, host, () => {
-      socket.end(encodeRedisCommand(parts));
     });
   });
 }
@@ -11432,7 +11470,7 @@ async function bootstrap() {
 
   http.post("/api/v1/auth/mock", async (req: AuthenticatedRequest, res: Response) => {
     try {
-      if (env.NODE_ENV === "production" || !env.AUTH_MOCK_ENABLED) {
+      if (env.APP_ENV === "production" || !env.AUTH_MOCK_ENABLED) {
         res.status(403).json(errorBody("AUTH_MOCK_DISABLED", "Mock auth is disabled", req));
         return;
       }
@@ -11810,7 +11848,8 @@ async function bootstrap() {
     return;
   }
 
-  await app.listen(Number(env.API_PORT));
+  const port = Number(process.env.PORT ?? env.API_PORT);
+  await app.listen(port, "0.0.0.0");
 }
 
 void bootstrap();

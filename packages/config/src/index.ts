@@ -67,10 +67,15 @@ export type AppEnv = z.infer<typeof appEnvSchema>;
 export function parseAppEnv(input: NodeJS.ProcessEnv): AppEnv {
   const env = appEnvSchema.parse(input);
   if (env.NODE_ENV === "production") {
+    const telegramAuthRequired = env.APP_ENV === "production" || !env.AUTH_MOCK_ENABLED;
     const missing = [
       ["AUTH_ACCESS_TOKEN_SECRET", env.AUTH_ACCESS_TOKEN_SECRET],
-      ["TELEGRAM_CLIENT_BOT_TOKEN", env.TELEGRAM_CLIENT_BOT_TOKEN],
-      ["TELEGRAM_DRIVER_BOT_TOKEN", env.TELEGRAM_DRIVER_BOT_TOKEN],
+      ...(telegramAuthRequired
+        ? [
+            ["TELEGRAM_CLIENT_BOT_TOKEN", env.TELEGRAM_CLIENT_BOT_TOKEN],
+            ["TELEGRAM_DRIVER_BOT_TOKEN", env.TELEGRAM_DRIVER_BOT_TOKEN],
+          ]
+        : []),
     ].filter(([, value]) => !value);
     if (missing.length > 0) {
       throw new Error(

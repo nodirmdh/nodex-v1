@@ -9,10 +9,15 @@ const loggerOptions: pino.LoggerOptions = {
 if (process.env.NODE_ENV !== "production") loggerOptions.transport = { target: "pino-pretty" };
 const logger = pino(loggerOptions);
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
+const redisPassword = redisUrl.password ? decodeURIComponent(redisUrl.password) : undefined;
+const redisUsername = redisUrl.username ? decodeURIComponent(redisUrl.username) : undefined;
 const connection = {
   host: redisUrl.hostname,
   port: Number(redisUrl.port || 6379),
+  username: redisUsername,
+  password: redisPassword,
   maxRetriesPerRequest: null,
+  ...(redisUrl.protocol === "rediss:" ? { tls: { servername: redisUrl.hostname } } : {}),
 };
 const prisma = new PrismaClient();
 const queueName = "nodex.foundation.test";

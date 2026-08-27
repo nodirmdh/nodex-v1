@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: nodex-api-preview
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: deploy/render-backend-preview
+    autoDeploy: false
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @nodex/api build
+    preDeployCommand: pnpm db:deploy
+    startCommand: pnpm --filter @nodex/api start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: staging
+      - key: NODE_VERSION
+        value: 24.13.1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nodex-postgres-preview
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: nodex-redis-preview
+          type: keyvalue
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://nodex-client-preview.nodir-nodex.workers.dev,https://nodex-driver-preview.nodir-nodex.workers.dev,https://nodex-admin-preview.nodir-nodex.workers.dev,http://localhost:3100,http://localhost:3101,http://localhost:3102,http://127.0.0.1:3100,http://127.0.0.1:3101,http://127.0.0.1:3102
+      - key: AUTH_COOKIE_SECURE
+        value: true
+      - key: AUTH_MOCK_ENABLED
+        value: true
+      - key: AUTH_ACCESS_TOKEN_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: TELEGRAM_CLIENT_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_DRIVER_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_SUPPORT_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_USER_IDS
+        sync: false
+
+  - type: keyvalue
+    name: nodex-redis-preview
+    plan: free
+    region: frankfurt
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+databases:
+  - name: nodex-postgres-preview
+    databaseName: nodex_preview
+    user: nodex_preview
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+    ipAllowList: []
