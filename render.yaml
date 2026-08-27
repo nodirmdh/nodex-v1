@@ -7,8 +7,7 @@ services:
     branch: deploy/render-backend-preview
     autoDeploy: false
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @nodex/api build
-    preDeployCommand: pnpm db:deploy
-    startCommand: pnpm --filter @nodex/api start
+    startCommand: pnpm db:deploy && pnpm --filter @nodex/api start
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
