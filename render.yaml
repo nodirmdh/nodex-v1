@@ -32,17 +32,9 @@ services:
       - key: AUTH_MOCK_ENABLED
         value: true
       - key: AUTH_ACCESS_TOKEN_SECRET
-        sync: false
+        generateValue: true
       - key: JWT_SECRET
-        sync: false
-      - key: TELEGRAM_CLIENT_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_DRIVER_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_SUPPORT_BOT_TOKEN
-        sync: false
-      - key: ADMIN_TELEGRAM_USER_IDS
-        sync: false
+        generateValue: true
 
   - type: keyvalue
     name: nodex-redis-preview
