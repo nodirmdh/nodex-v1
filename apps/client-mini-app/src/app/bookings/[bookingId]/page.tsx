@@ -9,28 +9,28 @@ type DetailState = "upcoming" | "active" | "completed" | "cancelled";
 
 const stateCopy = {
   upcoming: {
-    title: "Trip confirmed",
-    status: "Upcoming",
+    title: "Поездка подтверждена",
+    status: "Предстоящие",
     tone: "success" as const,
-    body: "Your request is confirmed. Show the boarding code at pickup.",
+    body: "Ваша заявка подтверждена. Покажите код посадки в точке отправления.",
   },
   active: {
-    title: "Trip in progress",
-    status: "In progress",
+    title: "Поездка в пути",
+    status: "В пути",
     tone: "info" as const,
-    body: "You are on the way to Urgench. Keep trip details available until arrival.",
+    body: "Вы едете в Urgench. Держите детали поездки под рукой до прибытия.",
   },
   completed: {
-    title: "Trip completed",
-    status: "Completed",
+    title: "Поездка завершена",
+    status: "Завершённые",
     tone: "accent" as const,
-    body: "Thanks for riding. You can leave a review for the driver.",
+    body: "Спасибо за поездку. Теперь можно оставить отзыв водителю.",
   },
   cancelled: {
-    title: "Request cancelled",
-    status: "Cancelled",
+    title: "Заявка отменена",
+    status: "Отменено",
     tone: "danger" as const,
-    body: "Your seat request is no longer active. You can search again when ready.",
+    body: "Ваша заявка на место больше не активна. Когда будете готовы, можно найти новую поездку.",
   },
 };
 
@@ -49,11 +49,11 @@ export default function BookingDetailPage() {
       <ClientHeader
         backHref="/bookings"
         level="secondary"
-        title="Trip status"
-        subtitle="Nukus to Urgench"
+        title="Статус поездки"
+        subtitle="Nukus → Urgench"
       />
 
-      <Card className="mt-4 space-y-3" compact label="Booking summary">
+      <Card className="mt-4 space-y-3" compact label="Сводка заявки">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
@@ -87,18 +87,18 @@ export default function BookingDetailPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="m-0 text-lg font-black">
-              {state === "completed" || state === "cancelled" ? "Trip summary" : "Boarding code"}
+              {state === "completed" || state === "cancelled" ? "Итог поездки" : "Код посадки"}
             </h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
               {state === "completed"
-                ? "Ride price was arranged directly with the driver."
+                ? "Стоимость поездки согласовывалась напрямую с водителем."
                 : state === "cancelled"
-                  ? "This request was cancelled before driver confirmation."
-                  : "Show this code to the driver at Nukus Central Station."}
+                  ? "Эта заявка была отменена до подтверждения водителем."
+                  : "Покажите этот код водителю на Nukus Central Station."}
             </p>
           </div>
           <StatusPill tone={state === "active" ? "info" : "warning"}>
-            {state === "completed" || state === "cancelled" ? "Archived" : "Expires 10:25"}
+            {state === "completed" || state === "cancelled" ? "В архиве" : "Действует до 10:25"}
           </StatusPill>
         </div>
 
@@ -106,20 +106,31 @@ export default function BookingDetailPage() {
           <div className="grid gap-2">
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
-                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Seat</div>
-                <div className="text-base font-black">Front passenger</div>
+                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Место</div>
+                <div className="text-base font-black">Переднее пассажирское</div>
               </div>
               <div className="rounded-[22px] bg-[rgb(var(--surface-tint))] p-3">
-                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Listed price</div>
+                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
+                  Указанная цена
+                </div>
                 <div className="text-base font-black">{formatUzs(8500000)}</div>
               </div>
             </div>
-            <Link
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-              href="/reviews"
-            >
-              Review driver
-            </Link>
+            {state === "completed" ? (
+              <Link
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+                href="/reviews"
+              >
+                Оценить водителя
+              </Link>
+            ) : (
+              <Link
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+                href="/search"
+              >
+                Найти новую поездку
+              </Link>
+            )}
           </div>
         ) : (
           <div className="rounded-[22px] border border-dashed border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--surface-tint))] p-3 text-center text-4xl font-black tracking-[0.26em] text-[rgb(var(--primary))]">
@@ -128,13 +139,39 @@ export default function BookingDetailPage() {
         )}
       </Card>
 
+      {state === "active" || state === "upcoming" ? (
+        <Card className="mt-3 space-y-3" compact label="Trip Core">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-lg font-black">PIN старта</h2>
+              <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                Код показывается только пассажиру через защищённый API перед началом движения.
+              </p>
+            </div>
+            <StatusPill tone="info">4 цифры</StatusPill>
+          </div>
+          <div className="rounded-[22px] bg-[rgb(var(--foreground))] p-3 text-center text-3xl font-black tracking-[0.24em] text-[rgb(var(--primary-foreground))]">
+            ••••
+          </div>
+          <div className="grid gap-2 rounded-[22px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold text-[rgb(var(--text-muted))]">
+            <div className="flex items-center justify-between gap-3">
+              <span>Геолокация поездки</span>
+              <strong className="text-[rgb(var(--primary))]">Только во время поездки</strong>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>ETA</span>
+              <strong className="text-[rgb(var(--foreground))]">Нет провайдера маршрута</strong>
+            </div>
+          </div>
+        </Card>
+      ) : null}
       <Card className="mt-3 space-y-3" compact>
         <div className="flex items-center gap-3">
           <Avatar name="Azizbek Karimov" />
           <div className="min-w-0 flex-1">
             <h2 className="m-0 truncate text-base font-black">Azizbek Karimov</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Chevrolet Cobalt · Front passenger
+              Chevrolet Cobalt · переднее пассажирское
             </p>
           </div>
           <StatusPill tone="accent">4.9</StatusPill>
@@ -144,23 +181,23 @@ export default function BookingDetailPage() {
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
             href="/messages/driver-azizbek"
           >
-            Message driver
+            Написать водителю
           </Link>
           <Link
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--primary))] no-underline"
             href="/safety"
           >
-            Safety
+            Безопасность
           </Link>
         </div>
       </Card>
 
-      <Card className="mt-3 space-y-2.5" compact label="Trip operation status">
-        <h2 className="m-0 text-base font-black">Route progress</h2>
+      <Card className="mt-3 space-y-2.5" compact label="Статус выполнения поездки">
+        <h2 className="m-0 text-base font-black">Прогресс маршрута</h2>
         {[
-          ["Pickup", "Nukus Central Station", true],
-          ["In progress", "Estimated arrival 11:30", state === "active" || state === "completed"],
-          ["Completed", "Summary and review ready after arrival", state === "completed"],
+          ["Посадка", "Nukus Central Station", true],
+          ["В пути", "Ожидаемое прибытие 11:30", state === "active" || state === "completed"],
+          ["Завершённые", "Итог и отзыв будут доступны после прибытия", state === "completed"],
         ].map(([label, text, active]) => (
           <div key={label as string} className="grid grid-cols-[20px_1fr_auto] gap-3">
             <span
@@ -179,13 +216,13 @@ export default function BookingDetailPage() {
       </Card>
 
       <Card className="mt-3 space-y-3" compact>
-        <h2 className="m-0 text-base font-black">Next action</h2>
+        <h2 className="m-0 text-base font-black">Следующее действие</h2>
         {state === "completed" ? (
           <Link
             className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
             href="/reviews"
           >
-            Review driver
+            Оценить водителя
           </Link>
         ) : (
           <button
@@ -193,7 +230,7 @@ export default function BookingDetailPage() {
             type="button"
             onClick={() => setState("cancelled")}
           >
-            Cancel request
+            Отменить заявку
           </button>
         )}
       </Card>

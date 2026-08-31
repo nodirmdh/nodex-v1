@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui";
 
-const tags = ["On time", "Clean car", "Polite", "Safe driving"];
+const tags = ["Вовремя", "Чистый автомобиль", "Вежливо", "Безопасное вождение"];
 
 export default function ClientReviewsPage() {
   const [rating, setRating] = useState(5);
-  const [selectedTags, setSelectedTags] = useState<string[]>(["Clean car", "Safe driving"]);
-  const [submitted, setSubmitted] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([
+    "Чистый автомобиль",
+    "Безопасное вождение",
+  ]);
+  const [submitted, setОтправлено] = useState(false);
 
   function toggleTag(tag: string) {
-    setSubmitted(false);
+    setОтправлено(false);
     setSelectedTags((current) =>
       current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
     );
@@ -23,18 +26,18 @@ export default function ClientReviewsPage() {
         backHref="/profile"
         level="secondary"
         title="Reviews"
-        subtitle="Completed trips and feedback"
+        subtitle="Завершённые поездки и отзывы"
       />
 
       <Card className="mt-4" compact>
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <div>
             <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
-              Your review activity
+              Ваша активность отзывов
             </p>
             <h2 className="m-0 mt-1 text-3xl font-black">4.9</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Based on completed ride feedback.
+              На основе отзывов о завершённых поездках.
             </p>
           </div>
           <span className="grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
@@ -46,17 +49,17 @@ export default function ClientReviewsPage() {
       <Card className="mt-3 space-y-3.5" compact>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="m-0 text-lg font-black">Review Azizbek</h2>
+            <h2 className="m-0 text-lg font-black">Оценить Azizbek</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Nukus to Urgench · completed today
+              Nukus → Urgench · завершено сегодня
             </p>
           </div>
           <StatusPill tone={submitted ? "success" : "warning"}>
-            {submitted ? "Submitted" : "Pending"}
+            {submitted ? "Отправлено" : "Ожидает"}
           </StatusPill>
         </div>
 
-        <div className="grid grid-cols-5 gap-2" aria-label="Overall rating">
+        <div className="grid grid-cols-5 gap-2" aria-label="Общая оценка">
           {[1, 2, 3, 4, 5].map((nextRating) => (
             <button
               key={nextRating}
@@ -70,7 +73,7 @@ export default function ClientReviewsPage() {
               type="button"
               onClick={() => {
                 setRating(nextRating);
-                setSubmitted(false);
+                setОтправлено(false);
               }}
             >
               {nextRating}
@@ -98,35 +101,39 @@ export default function ClientReviewsPage() {
         </div>
 
         <label className="grid gap-1">
-          <span className="text-xs font-bold text-[rgb(var(--text-muted))]">Optional comment</span>
+          <span className="text-xs font-bold text-[rgb(var(--text-muted))]">
+            Комментарий необязательно
+          </span>
           <textarea
             className="min-h-16 rounded-[18px] border-0 bg-[rgb(var(--canvas))] p-3 text-sm font-semibold outline-none"
-            placeholder="Share a short note"
-            onChange={() => setSubmitted(false)}
+            placeholder="Оставьте короткую заметку"
+            onChange={() => setОтправлено(false)}
           />
         </label>
         <button
           className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
           type="button"
-          onClick={() => setSubmitted(true)}
+          onClick={() => setОтправлено(true)}
         >
-          {submitted ? "Review submitted" : "Submit review"}
+          {submitted ? "Отзыв отправлен" : "Отправить отзыв"}
         </button>
       </Card>
 
       <Card className="mt-3" compact>
-        <h2 className="m-0 mb-3 text-lg font-black">Review history</h2>
+        <h2 className="m-0 mb-3 text-lg font-black">История отзывов</h2>
         <div className="grid gap-2">
-          {["Clean vehicle and clear pickup", "Parcel handover was careful"].map((review) => (
-            <div key={review} className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
-              <div className="flex items-center gap-2 text-sm font-black">
-                <Icon name="star" className="h-4 w-4 text-[rgb(var(--gold))]" /> 5.0
+          {["Чистый автомобиль и понятная посадка", "Передача посылки прошла аккуратно"].map(
+            (review) => (
+              <div key={review} className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
+                <div className="flex items-center gap-2 text-sm font-black">
+                  <Icon name="star" className="h-4 w-4 text-[rgb(var(--gold))]" /> 5.0
+                </div>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  {review}
+                </p>
               </div>
-              <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-                {review}
-              </p>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       </Card>
     </ClientShell>

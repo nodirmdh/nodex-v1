@@ -6,35 +6,35 @@ import { Avatar, ClientHeader, ClientShell, StatusPill } from "../../client-ui";
 const messages = [
   {
     from: "driver",
-    text: "Good morning. I will message before arrival at the pickup point.",
+    text: "Доброе утро. Напишу перед прибытием к точке посадки.",
     time: "08:01",
   },
-  { from: "client", text: "Thank you. I will be near the main entrance.", time: "08:03" },
-  { from: "driver", text: "Perfect. White Chevrolet Cobalt, plate 95 A 214 QA.", time: "08:05" },
+  { from: "client", text: "Спасибо. Я буду у главного входа.", time: "08:03" },
+  { from: "driver", text: "Отлично. Белый Chevrolet Cobalt, номер 95 A 214 QA.", time: "08:05" },
 ];
 
 export default function ClientChatPage() {
   const [draft, setDraft] = useState("");
-  const [sentMessages, setSentMessages] = useState<Array<{ text: string; time: string }>>([]);
-  const visibleMessages = [
+  const [sentСообщениеs, setSentСообщениеs] = useState<Array<{ text: string; time: string }>>([]);
+  const visibleСообщениеs = [
     ...messages,
-    ...sentMessages.map((message) => ({ from: "client", ...message })),
+    ...sentСообщениеs.map((message) => ({ from: "client", ...message })),
   ];
 
-  function sendMessage() {
+  function sendСообщение() {
     const text = draft.trim();
     if (!text) return;
-    setSentMessages((current) => [...current, { text, time: "Now" }]);
+    setSentСообщениеs((current) => [...current, { text, time: "Сейчас" }]);
     setDraft("");
   }
 
   return (
     <ClientShell active="messages">
       <ClientHeader
-        action={<StatusPill tone="success">Trip chat</StatusPill>}
+        action={<StatusPill tone="success">Чат поездки</StatusPill>}
         backHref="/messages"
         level="secondary"
-        subtitle="Nukus to Urgench · seat request"
+        subtitle="Nukus → Urgench · заявка на место"
         title="Azizbek Karimov"
       />
 
@@ -42,16 +42,16 @@ export default function ClientChatPage() {
         <div className="flex items-center gap-3">
           <Avatar name="Azizbek Karimov" />
           <div>
-            <h2 className="m-0 text-base font-black">Driver conversation</h2>
+            <h2 className="m-0 text-base font-black">Диалог с водителем</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Linked to this trip request.
+              Связано с этой заявкой на поездку.
             </p>
           </div>
         </div>
       </section>
 
-      <section aria-label="Chat messages" className="mt-3 grid gap-2.5">
-        {visibleMessages.map((message) => {
+      <section aria-label="Сообщения чата" className="mt-3 grid gap-2.5">
+        {visibleСообщениеs.map((message) => {
           const own = message.from === "client";
           return (
             <div key={`${message.time}-${message.text}`} className={own ? "flex justify-end" : ""}>
@@ -75,22 +75,22 @@ export default function ClientChatPage() {
 
       <form className="sticky bottom-20 mt-4 rounded-full bg-[rgb(var(--surface)/0.96)] p-1.5 shadow-[var(--shadow-floating)] backdrop-blur-xl">
         <label className="sr-only" htmlFor="chat-message">
-          Message
+          Сообщение
         </label>
         <div className="flex items-center gap-2">
           <input
             className="min-h-11 min-w-0 flex-1 rounded-full border-0 bg-[rgb(var(--canvas))] px-4 text-sm font-semibold outline-none"
             id="chat-message"
-            placeholder="Message driver"
+            placeholder="Сообщение driver"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
           <button
             className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-5 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"
-            onClick={sendMessage}
+            onClick={sendСообщение}
           >
-            Send
+            Отправить
           </button>
         </div>
       </form>

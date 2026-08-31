@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Nodex Client",
-  description: "Nodex Intercity client Mini App shell",
+  title: "Nodex Клиент",
+  description: "Клиентское Mini App Nodex Intercity",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

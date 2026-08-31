@@ -57,16 +57,16 @@ const tripDetails = {
     seats: 4,
     driver: "Azizbek Karimov",
     rating: "4.9",
-    completedTrips: "268 rides",
-    response: "Fast response",
-    reliability: 96,
+    completedTrips: "268 поездок",
+    response: "Быстро отвечает",
+    надёжность: 96,
     vehicle: "Chevrolet Cobalt",
-    color: "White",
+    color: "Белый",
     plate: "95 A 214 QA",
-    capacity: "4 seats",
+    capacity: "4 места",
     pickup: "Nukus central station",
     dropoff: "Urgench bus station",
-    note: "Driver accepts small parcels and one medium bag per passenger.",
+    note: "Водитель принимает небольшие посылки и одну среднюю сумку на пассажира.",
     parcel: true,
     luggage: true,
   },
@@ -80,16 +80,16 @@ const tripDetails = {
     seats: 2,
     driver: "Madina Yusupova",
     rating: "4.8",
-    completedTrips: "142 rides",
-    response: "Reliable",
-    reliability: 91,
+    completedTrips: "142 поездки",
+    response: "Надёжный",
+    надёжность: 91,
     vehicle: "Chevrolet Tracker",
-    color: "Silver",
+    color: "Серебристый",
     plate: "95 B 782 LA",
-    capacity: "4 seats",
+    capacity: "4 места",
     pickup: "Nukus central station",
     dropoff: "Urgench bus station",
-    note: "Evening ride with luggage space. Parcels are not accepted on this trip.",
+    note: "Вечерняя поездка с местом для багажа. Посылки в этой поездке не принимаются.",
     parcel: false,
     luggage: true,
   },
@@ -103,16 +103,16 @@ const tripDetails = {
     seats: 1,
     driver: "Sherzod Rakhimov",
     rating: "4.7",
-    completedTrips: "94 rides",
-    response: "Verified",
-    reliability: 94,
+    completedTrips: "94 поездки",
+    response: "Проверен",
+    надёжность: 94,
     vehicle: "BYD Chazor",
-    color: "Blue",
+    color: "Синий",
     plate: "90 C 414 HA",
-    capacity: "4 seats",
+    capacity: "4 места",
     pickup: "Nukus central station",
-    dropoff: "Khiva north gate",
-    note: "Nearly full trip. One medium bag is included.",
+    dropoff: "Северные ворота Khiva",
+    note: "Почти полный рейс. Одна средняя сумка включена.",
     parcel: true,
     luggage: true,
   },
@@ -128,7 +128,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
       <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_30%,rgb(var(--canvas))_100%)] px-4 pb-6 pt-4">
         <header className="flex items-center gap-3">
           <Link
-            aria-label="Back to search"
+            aria-label="Назад к поиску"
             className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
             href="/search"
           >
@@ -136,14 +136,14 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
           </Link>
           <div className="min-w-0 flex-1">
             <p className="m-0 text-xs font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
-              Trip details
+              Детали поездки
             </p>
             <h1 className="m-0 truncate text-xl font-extrabold">
               {trip.origin} to {trip.destination}
             </h1>
           </div>
           <button
-            aria-label="Share trip"
+            aria-label="Поделиться поездкой"
             className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
           >
             <Icon name="share" />
@@ -155,7 +155,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
             <div>
               <div className="flex items-center gap-2 text-sm font-extrabold text-[rgb(var(--text-muted))]">
                 <Icon name="clock" className="h-4 w-4" />
-                Tomorrow · Asia/Tashkent
+                Завтра · Asia/Tashkent
               </div>
               <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                 <div>
@@ -190,7 +190,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
               <div>
                 <div className="text-sm font-extrabold">{trip.pickup}</div>
                 <div className="text-xs font-medium text-[rgb(var(--text-muted))]">
-                  Pickup point
+                  Точка посадки
                 </div>
               </div>
               <div className="text-sm font-extrabold">{trip.departure}</div>
@@ -202,7 +202,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
               <div>
                 <div className="text-sm font-extrabold">{trip.dropoff}</div>
                 <div className="text-xs font-medium text-[rgb(var(--text-muted))]">
-                  Arrival point
+                  Точка прибытия
                 </div>
               </div>
               <div className="text-sm font-extrabold">{trip.arrival}</div>
@@ -218,7 +218,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="m-0 truncate text-lg font-extrabold">{trip.driver}</h2>
-                <Badge tone="success">Verified</Badge>
+                <Badge tone="success">Проверен</Badge>
               </div>
               <div className="mt-1 flex items-center gap-2 text-sm font-bold text-[rgb(var(--text-muted))]">
                 <Icon name="star" className="h-4 w-4 text-[rgb(var(--gold))]" />
@@ -231,21 +231,21 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
               <Icon name="shield" className="h-5 w-5 text-[rgb(var(--primary))]" />
-              <div className="mt-2 text-lg font-black">{trip.reliability}%</div>
-              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">reliability</div>
+              <div className="mt-2 text-lg font-black">{trip.надёжность}%</div>
+              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">надёжность</div>
             </div>
             <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
               <Icon name="message" className="h-5 w-5 text-[rgb(var(--primary))]" />
               <div className="mt-2 text-lg font-black">{trip.response}</div>
-              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">driver response</div>
+              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">ответ водителя</div>
             </div>
           </div>
         </section>
 
         <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="m-0 text-lg font-extrabold">Vehicle</h2>
-            <Badge tone="info">Approved</Badge>
+            <h2 className="m-0 text-lg font-extrabold">Автомобиль</h2>
+            <Badge tone="info">Одобрен</Badge>
           </div>
           <VehicleImage alt={trip.vehicle} className="rounded-[26px]" />
           <div className="mt-4 flex items-start justify-between gap-3">
@@ -262,16 +262,16 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
         </section>
 
         <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
-          <h2 className="m-0 text-lg font-extrabold">Trip conditions</h2>
+          <h2 className="m-0 text-lg font-extrabold">Условия поездки</h2>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-[22px] bg-[rgb(var(--primary))] p-3 text-[rgb(var(--primary-foreground))]">
-              <div className="text-xs font-bold opacity-80">Price per seat</div>
+              <div className="text-xs font-bold opacity-80">Цена за место</div>
               <div className="mt-1 text-lg font-black">{formatUzs(trip.priceMinor)}</div>
             </div>
             <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
               <Icon name="seat" className="h-5 w-5 text-[rgb(var(--primary))]" />
               <div className="mt-1 text-lg font-black">{trip.seats} left</div>
-              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">available seats</div>
+              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">доступные места</div>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -279,12 +279,16 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
               <Badge tone="accent">
                 <span className="inline-flex items-center gap-1">
                   <Icon name="bag" className="h-3.5 w-3.5" />
-                  Luggage
+                  Багаж
                 </span>
               </Badge>
             ) : null}
-            {trip.parcel ? <Badge tone="info">Parcel accepted</Badge> : <Badge>No parcel</Badge>}
-            <Badge tone="success">Approved driver</Badge>
+            {trip.parcel ? (
+              <Badge tone="info">Посылка принимается</Badge>
+            ) : (
+              <Badge>Без посылок</Badge>
+            )}
+            <Badge tone="success">Одобрен driver</Badge>
           </div>
           <p className="m-0 mt-3 rounded-[22px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-medium text-[rgb(var(--text-muted))]">
             {trip.note}
@@ -292,25 +296,25 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
         </section>
 
         <section
-          aria-label="Trip request summary"
+          aria-label="Сводка заявки на поездку"
           className="mt-4 rounded-[28px] bg-[rgb(var(--surface)/0.96)] p-3 shadow-[var(--shadow-floating)]"
         >
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
             <div>
-              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Price per seat</div>
+              <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Цена за место</div>
               <div className="text-lg font-black">{formatUzs(trip.priceMinor)}</div>
             </div>
             <div className="text-right text-xs font-semibold text-[rgb(var(--text-muted))]">
-              Payment is arranged
+              Оплата согласуется
               <br />
-              directly with the driver.
+              напрямую с водителем.
             </div>
           </div>
           <Link
             className="inline-flex min-h-[var(--control-md)] w-full items-center justify-center rounded-[var(--radius-md)] border border-[rgb(var(--primary))] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline shadow-[var(--shadow-md)] transition hover:brightness-105"
             href={`/trips/${tripId}/book`}
           >
-            Request seat
+            Запросить место
           </Link>
         </section>
       </div>

@@ -265,6 +265,69 @@ export interface PublicTripDto {
   vehicle: PublicTripVehicle;
 }
 
+export type BookingType = "SEAT" | "MULTI_SEAT" | "WHOLE_CAR";
+export type BookingPreferenceType =
+  | "CHILD"
+  | "PET"
+  | "ASSISTANCE"
+  | "NO_SMOKING"
+  | "STOP_ON_ROUTE"
+  | "QUIET_RIDE";
+export type BookingScheduleOption = "NOW" | "TODAY" | "TOMORROW" | "CUSTOM";
+export type BookingBaggageType = "CABIN_BAG" | "SUITCASE" | "OVERSIZED" | "OTHER";
+
+export interface BookingPreferencesDto {
+  types: BookingPreferenceType[];
+  driverComment: string | null;
+}
+
+export interface BookingPickupLocationDto {
+  latitude: number | null;
+  longitude: number | null;
+  label: string | null;
+  comment: string | null;
+}
+
+export interface BookingScheduleDto {
+  option: BookingScheduleOption;
+  requestedDepartureAtUtc: string | null;
+}
+
+export interface BookingBaggageDto {
+  type: BookingBaggageType;
+  quantity: number;
+  weightKg?: number | null;
+  notes?: string | null;
+}
+
+export interface BookingHoldRequestDto {
+  tripId: string;
+  type: BookingType;
+  seatKeys: string[];
+  passengerCount: number;
+  pickupPointId?: string | null;
+  destinationPickupPointId?: string | null;
+  requestedDepartureAtUtc?: string | null;
+  paymentMethod: "CASH" | "MANUAL_TRANSFER";
+}
+
+export interface BookingConfirmRequestDto {
+  passengers: Array<{
+    firstName: string;
+    lastName?: string | null;
+    phone?: string | null;
+    ageCategory?: "ADULT" | "CHILD" | "INFANT";
+    seatKey?: string | null;
+    notes?: string | null;
+  }>;
+  baggage: BookingBaggageDto[];
+  preferences: BookingPreferencesDto;
+  pickupLocation?: BookingPickupLocationDto | null;
+  schedule: BookingScheduleDto;
+  clientComment?: string | null;
+  consentAccepted: true;
+  paymentMethod: "CASH" | "MANUAL_TRANSFER";
+}
 export interface TripSearchResponse {
   trips: PublicTripDto[];
   pagination: {
@@ -273,4 +336,129 @@ export interface TripSearchResponse {
     total: number;
     hasMore: boolean;
   };
+}
+
+export type TripLocationActorType = "DRIVER" | "PASSENGER";
+export type TripLocationSource =
+  | "PERIODIC"
+  | "DRIVER_ARRIVED"
+  | "PIN_VERIFIED"
+  | "TRIP_STARTED"
+  | "TRIP_COMPLETED"
+  | "MANUAL"
+  | "OTHER";
+
+export interface TripStartPinDto {
+  id: string;
+  tripId: string;
+  bookingId: string;
+  pin?: string;
+  status: string;
+  codeLength: number;
+  expiresAt: string;
+  attemptsRemaining: number;
+  lockedAt: string | null;
+  verifiedAt: string | null;
+}
+
+export interface TripLocationPointDto {
+  id: string;
+  tripId: string;
+  bookingId: string | null;
+  actorType: TripLocationActorType;
+  actorUserId: string | null;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  speedMetersPerSecond: number | null;
+  headingDegrees: number | null;
+  source: TripLocationSource;
+  reason: string | null;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export interface TripEtaSnapshotDto {
+  driverEtaToPickupSeconds: number | null;
+  driverEtaToDropoffSeconds: number | null;
+  delaySeconds: number | null;
+  status: "UNKNOWN" | "AVAILABLE" | "UNAVAILABLE";
+  source: string;
+  updatedAt?: string;
+}
+
+export interface TripLatestLocationDto {
+  tripId: string;
+  tripStatus: string | null;
+  realtimeShared: boolean;
+  driver: TripLocationPointDto | null;
+  passenger: TripLocationPointDto | null;
+  eta: TripEtaSnapshotDto;
+}
+
+export interface TripHistoryDto {
+  tripId: string;
+  status: string;
+  timeline: unknown[];
+  operations: unknown[];
+  locations: TripLocationPointDto[];
+  eta: TripEtaSnapshotDto;
+}
+export type RewardStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "REVOKED" | "PENDING_REVIEW";
+export type RewardRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type FraudEvaluationStatus = "AUTO_APPROVED" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+export type RewardRoleContext = "CLIENT" | "DRIVER";
+
+export interface FraudEvaluationDto {
+  riskLevel: RewardRiskLevel;
+  status: FraudEvaluationStatus;
+  score: number;
+  reasons: unknown;
+}
+
+export interface RewardTransactionDto {
+  id: string;
+  userId: string;
+  driverProfileId: string | null;
+  roleContext: RewardRoleContext | string;
+  type: string;
+  amount: number;
+  status: RewardStatus | string;
+  sourceType: string;
+  sourceId: string;
+  reason: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  rejectedAt: string | null;
+  reviewedAt: string | null;
+  trip: {
+    id: string;
+    originCity: string;
+    destinationCity: string;
+    status: string;
+  } | null;
+  referral: {
+    id: string;
+    roleContext: string;
+    status: string;
+  } | null;
+  fraud: FraudEvaluationDto | null;
+}
+
+export interface RewardSummaryDto {
+  confirmed: number;
+  pending: number;
+  rejected: number;
+}
+
+export interface RewardsResponseDto {
+  summary: RewardSummaryDto;
+  rewards: RewardTransactionDto[];
+  referrals: unknown[];
+}
+
+export interface DriverRewardsResponseDto {
+  summary: RewardSummaryDto;
+  rewards: RewardTransactionDto[];
+  milestones: unknown[];
 }

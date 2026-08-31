@@ -97,6 +97,14 @@ import {
   tripCancelSchema,
   tripCompleteSchema,
   tripDraftSchema,
+  tripLocationPointSchema,
+  tripStartPinVerifySchema,
+  evaluateTripLocationWrite,
+  evaluateRewardFraud,
+  calculateDriverMilestoneProgress,
+  rewardReviewDecisionSchema,
+  referralCreateSchema,
+  rewardStatusForFraudStatus,
   tripStartSchema,
   evaluateTripTransition,
   tripSearchQuerySchema,
@@ -146,6 +154,12 @@ const bookingLockTtlMs = durationToMs(process.env.BOOKING_LOCK_TTL ?? "15s");
 const boardingCodeTtlMs = durationToMs(process.env.BOARDING_CODE_TTL ?? "2h");
 const boardingCodeLength = Number(process.env.BOARDING_CODE_LENGTH ?? 6);
 const boardingCodeMaxAttempts = Number(process.env.BOARDING_CODE_MAX_ATTEMPTS ?? 5);
+const tripStartPinTtlMs = durationToMs(process.env.TRIP_START_PIN_TTL ?? "2h");
+const tripStartPinLength = Number(process.env.TRIP_START_PIN_LENGTH ?? 4);
+const tripStartPinMaxAttempts = Number(process.env.TRIP_START_PIN_MAX_ATTEMPTS ?? 5);
+const periodicTrackingMinIntervalMs = durationToMs(
+  process.env.TRIP_PERIODIC_TRACKING_MIN_INTERVAL ?? "60s",
+);
 const parcelCodeTtlMs = durationToMs(process.env.PARCEL_CODE_TTL ?? "24h");
 const parcelCodeLength = Number(process.env.PARCEL_CODE_LENGTH ?? 6);
 const parcelCodeMaxAttempts = Number(process.env.PARCEL_CODE_MAX_ATTEMPTS ?? 5);
@@ -2986,6 +3000,9 @@ function serializeBooking(booking: BookingWithInclude) {
         }
       : null,
     clientComment: booking.clientComment,
+    travelPreferences: booking.travelPreferences,
+    pickupLocation: booking.pickupLocation,
+    requestedDepartureAtUtc: booking.requestedDepartureAtUtc,
     expiresAt: booking.expiresAt,
     confirmedAt: booking.confirmedAt,
     cancelledAt: booking.cancelledAt,
@@ -3211,7 +3228,7 @@ async function writeTripOperationEvent(
     data: { tripId, actorUserId, type, payload: payload as Prisma.InputJsonValue },
   });
   await tx.tripTimelineEvent.create({
-    data: { tripId, type, payload: payload as Prisma.InputJsonValue },
+    data: { tripId, actorUserId, type, payload: payload as Prisma.InputJsonValue },
   });
 }
 
@@ -3289,6 +3306,267 @@ function serializeBoardingCodeForClient(
   };
 }
 
+function serializeTripStartPinForClient(
+  pin: {
+    id: string;
+    tripId: string;
+    bookingId: string;
+    status: string;
+    codeLength: number;
+    expiresAt: Date;
+    attemptsCount: number;
+    maxAttempts: number;
+    lockedAt: Date | null;
+    verifiedAt: Date | null;
+  },
+  plainCode?: string,
+) {
+  return {
+    id: pin.id,
+    tripId: pin.tripId,
+    bookingId: pin.bookingId,
+    pin: plainCode,
+    status: pin.status,
+    codeLength: pin.codeLength,
+    expiresAt: pin.expiresAt,
+    attemptsRemaining: Math.max(0, pin.maxAttempts - pin.attemptsCount),
+    lockedAt: pin.lockedAt,
+    verifiedAt: pin.verifiedAt,
+  };
+}
+
+function serializeTripLocationPoint(point: {
+  id: string;
+  tripId: string;
+  bookingId: string | null;
+  actorType: string;
+  actorUserId: string | null;
+  latitude: Prisma.Decimal | number;
+  longitude: Prisma.Decimal | number;
+  accuracyMeters: Prisma.Decimal | number | null;
+  speedMetersPerSecond: Prisma.Decimal | number | null;
+  headingDegrees: Prisma.Decimal | number | null;
+  source: string;
+  reason: string | null;
+  recordedAt: Date;
+  createdAt: Date;
+}) {
+  return {
+    id: point.id,
+    tripId: point.tripId,
+    bookingId: point.bookingId,
+    actorType: point.actorType,
+    actorUserId: point.actorUserId,
+    latitude: Number(point.latitude),
+    longitude: Number(point.longitude),
+    accuracyMeters: point.accuracyMeters == null ? null : Number(point.accuracyMeters),
+    speedMetersPerSecond:
+      point.speedMetersPerSecond == null ? null : Number(point.speedMetersPerSecond),
+    headingDegrees: point.headingDegrees == null ? null : Number(point.headingDegrees),
+    source: point.source,
+    reason: point.reason,
+    recordedAt: point.recordedAt,
+    createdAt: point.createdAt,
+  };
+}
+
+async function createTripStartPin(
+  tx: Prisma.TransactionClient,
+  booking: { id: string; tripId: string },
+  actorUserId: string | null,
+  now = new Date(),
+) {
+  const plain = boardingCodePlain(tripStartPinLength);
+  const expiresAt = new Date(now.getTime() + tripStartPinTtlMs);
+  await tx.tripStartPin.updateMany({
+    where: { bookingId: booking.id, status: "ACTIVE", verifiedAt: null },
+    data: { status: "REPLACED" },
+  });
+  const pin = await tx.tripStartPin.create({
+    data: {
+      bookingId: booking.id,
+      tripId: booking.tripId,
+      codeHash: hashSecret(plain),
+      codeLength: plain.length,
+      expiresAt,
+      maxAttempts: tripStartPinMaxAttempts,
+    },
+  });
+  await writeBookingOperationEvent(tx, booking.id, actorUserId, "TRIP_START_PIN_GENERATED", {
+    tripId: booking.tripId,
+    expiresAt,
+  });
+  await writeTripOperationEvent(tx, booking.tripId, actorUserId, "TRIP_START_PIN_GENERATED", {
+    bookingId: booking.id,
+    expiresAt,
+  });
+  return { pin, plain };
+}
+
+async function activeTripStartPinForBooking(
+  tx: Prisma.TransactionClient,
+  booking: { id: string; tripId: string },
+  actorUserId: string | null,
+) {
+  const now = new Date();
+  const existing = await tx.tripStartPin.findFirst({
+    where: { bookingId: booking.id, status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+  });
+  if (
+    existing &&
+    boardingCodeCanAttempt({
+      status: existing.status,
+      expiresAt: existing.expiresAt,
+      attemptsCount: existing.attemptsCount,
+      maxAttempts: existing.maxAttempts,
+      lockedAt: existing.lockedAt,
+      verifiedAt: existing.verifiedAt,
+      now,
+    }).ok
+  ) {
+    return { pin: existing, plain: undefined };
+  }
+  return createTripStartPin(tx, booking, actorUserId, now);
+}
+
+async function verifyTripStartPinForBooking(
+  bookingId: string,
+  pin: string,
+  actor: BookingActor,
+  location?: Omit<ReturnType<typeof tripLocationPointSchema.parse>, "bookingId">,
+) {
+  return prisma.$transaction(async (tx) => {
+    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
+      include: { trip: true, seats: true },
+    });
+    if (!booking) {
+      throw Object.assign(new Error("Booking not found"), {
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+      });
+    }
+    if (booking.trip.status !== "BOARDING" || booking.status !== "BOARDING") {
+      throw Object.assign(new Error("Trip start PIN is not available"), {
+        statusCode: 409,
+        code: "TRIP_START_PIN_NOT_AVAILABLE",
+      });
+    }
+    if (!booking.seats.some((seat) => seat.status === "OCCUPIED")) {
+      throw Object.assign(new Error("Passenger must be boarded before PIN verification"), {
+        statusCode: 409,
+        code: "PASSENGER_NOT_BOARDED",
+      });
+    }
+    const startPin = await tx.tripStartPin.findFirst({
+      where: { bookingId: booking.id, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!startPin) {
+      throw Object.assign(new Error("Trip start PIN not found"), {
+        statusCode: 404,
+        code: "TRIP_START_PIN_NOT_FOUND",
+      });
+    }
+    const guard = boardingCodeCanAttempt({ ...startPin, now: new Date() });
+    if (!guard.ok) {
+      throw Object.assign(new Error(guard.code), { statusCode: 409, code: guard.code });
+    }
+    const success = startPin.codeHash === hashSecret(pin);
+    const attemptsCount = startPin.attemptsCount + 1;
+    if (!success) {
+      const failedPinData: Prisma.TripStartPinUpdateInput = {
+        attemptsCount,
+        status: attemptsCount >= startPin.maxAttempts ? "LOCKED" : "ACTIVE",
+      };
+      if (attemptsCount >= startPin.maxAttempts) failedPinData.lockedAt = new Date();
+      await tx.tripStartPin.update({ where: { id: startPin.id }, data: failedPinData });
+      throw Object.assign(new Error("Invalid trip start PIN"), {
+        statusCode: 400,
+        code: "TRIP_START_PIN_INVALID",
+      });
+    }
+    await tx.tripStartPin.update({
+      where: { id: startPin.id },
+      data: {
+        attemptsCount,
+        verifiedAt: new Date(),
+        verifiedById: actor.userId,
+        status: "VERIFIED",
+      },
+    });
+    await writeBookingOperationEvent(tx, booking.id, actor.userId, "PASSENGER_PIN_VERIFIED", {
+      tripId: booking.tripId,
+    });
+    await writeTripOperationEvent(tx, booking.tripId, actor.userId, "PASSENGER_PIN_VERIFIED", {
+      bookingId: booking.id,
+    });
+    if (location) {
+      await recordTripLocationPoint(tx, booking.trip, actor, "DRIVER", {
+        ...location,
+        bookingId: booking.id,
+        source: "PIN_VERIFIED",
+      });
+    }
+    return tx.booking.findUniqueOrThrow({ where: { id: booking.id }, include: bookingInclude });
+  });
+}
+async function recordTripLocationPoint(
+  tx: Prisma.TransactionClient,
+  trip: { id: string; status: string },
+  actor: BookingActor,
+  actorType: "DRIVER" | "PASSENGER",
+  point: ReturnType<typeof tripLocationPointSchema.parse>,
+) {
+  const recordedAt = point.recordedAt ?? new Date();
+  const lastPeriodic =
+    point.source === "PERIODIC"
+      ? await tx.tripLocationPoint.findFirst({
+          where: {
+            tripId: trip.id,
+            actorUserId: actor.userId,
+            actorType,
+            source: "PERIODIC",
+          },
+          orderBy: { recordedAt: "desc" },
+        })
+      : null;
+  const guard = evaluateTripLocationWrite({
+    tripStatus: trip.status as Parameters<typeof evaluateTripLocationWrite>[0]["tripStatus"],
+    source: point.source,
+    lastRecordedAt: lastPeriodic?.recordedAt ?? null,
+    now: recordedAt,
+    minIntervalMs: periodicTrackingMinIntervalMs,
+  });
+  if (!guard.ok) {
+    throw Object.assign(new Error(guard.code), { statusCode: 409, code: guard.code });
+  }
+  const saved = await tx.tripLocationPoint.create({
+    data: {
+      tripId: trip.id,
+      bookingId: point.bookingId ?? null,
+      actorType,
+      actorUserId: actor.userId,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      accuracyMeters: point.accuracyMeters ?? null,
+      speedMetersPerSecond: point.speedMetersPerSecond ?? null,
+      headingDegrees: point.headingDegrees ?? null,
+      source: point.source,
+      reason: point.reason ?? null,
+      recordedAt,
+    },
+  });
+  await writeTripOperationEvent(tx, trip.id, actor.userId, "TRIP_LOCATION_RECORDED", {
+    actorType,
+    bookingId: point.bookingId ?? null,
+    source: point.source,
+    critical: guard.critical,
+  });
+  return saved;
+}
 async function createBoardingCode(
   tx: Prisma.TransactionClient,
   bookingId: string,
@@ -3572,6 +3850,356 @@ async function markClientNoShow(bookingId: string, actor: BookingActor, reason: 
   });
 }
 
+function rewardConfig() {
+  return {
+    clientTripTickets: env.REWARD_CLIENT_TRIP_TICKETS,
+    driverTripTickets: env.REWARD_DRIVER_TRIP_TICKETS,
+    clientReferralTickets: env.REWARD_CLIENT_REFERRAL_TICKETS,
+    driverReferralTickets: env.REWARD_DRIVER_REFERRAL_TICKETS,
+    milestoneTargetCount: env.REWARD_DRIVER_MILESTONE_TARGET,
+    milestoneRewardValue: env.REWARD_DRIVER_MILESTONE_VALUE_MINOR,
+    minTripDurationMinutes: env.REWARD_MIN_TRIP_DURATION_MINUTES,
+    minMovementMeters: env.REWARD_MIN_MOVEMENT_METERS,
+    mediumReviewThreshold: env.REWARD_MEDIUM_REVIEW_THRESHOLD,
+    highReviewThreshold: env.REWARD_HIGH_REVIEW_THRESHOLD,
+  };
+}
+
+async function writeRewardReviewAudit(
+  tx: Prisma.TransactionClient,
+  rewardId: string,
+  actor: BookingActor,
+  decision: string,
+  reason: string,
+) {
+  await tx.auditEvent.create({
+    data: {
+      actorUserId: actor.userId,
+      action: `REWARD_${decision}`,
+      entityType: "RewardTransaction",
+      entityId: rewardId,
+      reason,
+      requestId: actor.requestId ?? null,
+    },
+  });
+}
+
+async function createRewardWithEvaluation(
+  tx: Prisma.TransactionClient,
+  input: {
+    userId: string;
+    driverProfileId?: string | null;
+    roleContext: "CLIENT" | "DRIVER";
+    type: string;
+    amount: number;
+    sourceType: string;
+    sourceId: string;
+    tripId?: string | null;
+    referralId?: string | null;
+    reason: string;
+    fraudContext: Parameters<typeof evaluateRewardFraud>[0];
+  },
+) {
+  const existing = await tx.rewardTransaction.findUnique({
+    where: {
+      userId_type_sourceType_sourceId: {
+        userId: input.userId,
+        type: input.type,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+      },
+    },
+  });
+  if (existing) return existing;
+  const fraud = evaluateRewardFraud(input.fraudContext, rewardConfig());
+  const status = rewardStatusForFraudStatus(fraud.status);
+  const now = new Date();
+  const reward = await tx.rewardTransaction.create({
+    data: {
+      userId: input.userId,
+      driverProfileId: input.driverProfileId ?? null,
+      roleContext: input.roleContext,
+      type: input.type,
+      amount: input.amount,
+      status,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      tripId: input.tripId ?? null,
+      referralId: input.referralId ?? null,
+      idempotencyKey: `${input.userId}:${input.type}:${input.sourceType}:${input.sourceId}`,
+      reason: input.reason,
+      metadata: { movementMeters: fraud.movementMeters } as Prisma.InputJsonValue,
+      confirmedAt: status === "CONFIRMED" ? now : null,
+      rejectedAt: status === "REJECTED" ? now : null,
+    },
+  });
+  await tx.fraudEvaluation.create({
+    data: {
+      rewardTransactionId: reward.id,
+      tripId: input.tripId ?? null,
+      referralId: input.referralId ?? null,
+      subjectUserId: input.userId,
+      riskLevel: fraud.riskLevel,
+      status: fraud.status,
+      score: fraud.score,
+      reasons: fraud.reasons as Prisma.InputJsonValue,
+      metadata: { movementMeters: fraud.movementMeters } as Prisma.InputJsonValue,
+    },
+  });
+  return reward;
+}
+
+async function ensureDriverMilestoneDefinition(tx: Prisma.TransactionClient) {
+  return tx.rewardMilestoneDefinition.upsert({
+    where: { code: "DRIVER_QUALIFYING_TRIPS" },
+    create: {
+      code: "DRIVER_QUALIFYING_TRIPS",
+      title: "Driver qualifying trips milestone",
+      targetCount: env.REWARD_DRIVER_MILESTONE_TARGET,
+      rewardType: "DRIVER_MILESTONE_BONUS",
+      rewardAmount: env.REWARD_DRIVER_MILESTONE_VALUE_MINOR,
+      metadata: { currency: "UZS", paymentRequiredLater: true } as Prisma.InputJsonValue,
+    },
+    update: {
+      targetCount: env.REWARD_DRIVER_MILESTONE_TARGET,
+      rewardAmount: env.REWARD_DRIVER_MILESTONE_VALUE_MINOR,
+    },
+  });
+}
+
+async function updateDriverMilestoneProgress(
+  tx: Prisma.TransactionClient,
+  driverProfileId: string,
+  driverUserId: string,
+) {
+  const definition = await ensureDriverMilestoneDefinition(tx);
+  const qualifyingTripCount = await tx.rewardTransaction.count({
+    where: { driverProfileId, type: "DRIVER_TRIP_TICKET", status: "CONFIRMED" },
+  });
+  const progress = calculateDriverMilestoneProgress({
+    qualifyingTrips: qualifyingTripCount,
+    targetCount: definition.targetCount,
+  });
+  const existing = await tx.driverMilestoneProgress.findUnique({
+    where: {
+      driverProfileId_milestoneDefinitionId: {
+        driverProfileId,
+        milestoneDefinitionId: definition.id,
+      },
+    },
+  });
+  let rewardTransactionId = existing?.rewardTransactionId ?? null;
+  if (progress.reached && !rewardTransactionId) {
+    const reward = await createRewardWithEvaluation(tx, {
+      userId: driverUserId,
+      driverProfileId,
+      roleContext: "DRIVER",
+      type: "DRIVER_MILESTONE_BONUS",
+      amount: definition.rewardAmount,
+      sourceType: "MILESTONE",
+      sourceId: definition.id,
+      reason: `Milestone progress ${progress.completed}/${progress.target}`,
+      fraudContext: {
+        pinVerified: true,
+        gpsPoints: [
+          { latitude: 0, longitude: 0, recordedAt: new Date() },
+          { latitude: 0.01, longitude: 0.01, recordedAt: new Date(Date.now() + 3600000) },
+        ],
+        completedTripDurationMinutes: env.REWARD_MIN_TRIP_DURATION_MINUTES,
+      },
+    });
+    rewardTransactionId = reward.id;
+  }
+  return tx.driverMilestoneProgress.upsert({
+    where: {
+      driverProfileId_milestoneDefinitionId: {
+        driverProfileId,
+        milestoneDefinitionId: definition.id,
+      },
+    },
+    create: {
+      driverProfileId,
+      milestoneDefinitionId: definition.id,
+      qualifyingTripCount,
+      status: progress.reached ? "REACHED" : "IN_PROGRESS",
+      reachedAt: progress.reached ? new Date() : null,
+      rewardTransactionId,
+    },
+    update: {
+      qualifyingTripCount,
+      status: progress.reached ? "REACHED" : "IN_PROGRESS",
+      reachedAt: progress.reached ? (existing?.reachedAt ?? new Date()) : null,
+      rewardTransactionId,
+    },
+  });
+}
+
+async function qualifyReferralRewardForUser(
+  tx: Prisma.TransactionClient,
+  input: {
+    referredUserId: string;
+    roleContext: "CLIENT" | "DRIVER";
+    rewardType: "CLIENT_REFERRAL_TICKET" | "DRIVER_REFERRAL_TICKET";
+    amount: number;
+    tripId: string;
+    fraudContext: Parameters<typeof evaluateRewardFraud>[0];
+  },
+) {
+  const referral = await tx.referral.findFirst({
+    where: {
+      referredUserId: input.referredUserId,
+      roleContext: input.roleContext,
+      status: { in: ["INVITED", "REGISTERED", "QUALIFIED"] },
+    },
+  });
+  if (!referral) return null;
+  const reverseReferral = await tx.referral.findFirst({
+    where: {
+      referrerUserId: input.referredUserId,
+      referredUserId: referral.referrerUserId,
+      roleContext: input.roleContext,
+    },
+  });
+  const reward = await createRewardWithEvaluation(tx, {
+    userId: referral.referrerUserId,
+    roleContext: input.roleContext,
+    type: input.rewardType,
+    amount: input.amount,
+    sourceType: "REFERRAL",
+    sourceId: referral.id,
+    tripId: input.tripId,
+    referralId: referral.id,
+    reason: `${input.roleContext.toLowerCase()} referral qualified by completed trip`,
+    fraudContext: {
+      ...input.fraudContext,
+      referralSelf: referral.referrerUserId === referral.referredUserId,
+      referralCycle: Boolean(reverseReferral),
+    },
+  });
+  await tx.referral.update({
+    where: { id: referral.id },
+    data: {
+      status:
+        reward.status === "CONFIRMED"
+          ? "REWARDED"
+          : reward.status === "REJECTED"
+            ? "REJECTED"
+            : "QUALIFIED",
+      qualifiedAt: new Date(),
+      rewardedAt: reward.status === "CONFIRMED" ? new Date() : null,
+      rejectedAt: reward.status === "REJECTED" ? new Date() : null,
+    },
+  });
+  return reward;
+}
+async function qualifyRewardsForCompletedTrip(tx: Prisma.TransactionClient, tripId: string) {
+  const trip = await tx.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      driverProfile: true,
+      bookings: { include: { client: true, startPins: true } },
+      locationPoints: { orderBy: { recordedAt: "asc" } },
+      operationEvents: { orderBy: { createdAt: "asc" } },
+      completionSummary: true,
+    },
+  });
+  if (!trip || trip.status !== "COMPLETED") return [];
+  const started = trip.operationEvents.find(
+    (event) => event.type === "TRIP_IN_PROGRESS" || event.type === "TRIP_STARTED",
+  );
+  const completed = trip.operationEvents.findLast((event) => event.type === "TRIP_COMPLETED");
+  const gpsPoints = trip.locationPoints.map((point) => ({
+    latitude: Number(point.latitude),
+    longitude: Number(point.longitude),
+    recordedAt: point.recordedAt,
+  }));
+  const created: Awaited<ReturnType<typeof createRewardWithEvaluation>>[] = [];
+  for (const booking of trip.bookings.filter(
+    (item) => item.clientId && item.status === "COMPLETED",
+  )) {
+    const pinVerified = booking.startPins.some(
+      (pin) => pin.status === "VERIFIED" && pin.verifiedAt,
+    );
+    const pairCount = await tx.booking.count({
+      where: {
+        clientId: booking.clientId,
+        status: "COMPLETED",
+        trip: { driverProfileId: trip.driverProfileId, status: "COMPLETED" },
+      },
+    });
+    const fraudContext = {
+      pinVerified,
+      gpsPoints,
+      tripStartedAt: started?.createdAt ?? null,
+      tripCompletedAt: completed?.createdAt ?? trip.completionSummary?.completedAt ?? null,
+      repeatPairCompletedTrips: pairCount,
+    };
+    const clientReward = await createRewardWithEvaluation(tx, {
+      userId: booking.clientId!,
+      roleContext: "CLIENT",
+      type: "CLIENT_TRIP_TICKET",
+      amount: env.REWARD_CLIENT_TRIP_TICKETS,
+      sourceType: "BOOKING",
+      sourceId: booking.id,
+      tripId: trip.id,
+      reason: `Completed qualifying trip ${trip.originCity} → ${trip.destinationCity}`,
+      fraudContext,
+    });
+    created.push(clientReward);
+    const referralReward = await qualifyReferralRewardForUser(tx, {
+      referredUserId: booking.clientId!,
+      roleContext: "CLIENT",
+      rewardType: "CLIENT_REFERRAL_TICKET",
+      amount: env.REWARD_CLIENT_REFERRAL_TICKETS,
+      tripId: trip.id,
+      fraudContext,
+    });
+    if (referralReward) created.push(referralReward);
+  }
+  const boardedCount = trip.bookings.filter((booking) => booking.status === "COMPLETED").length;
+  if (boardedCount > 0) {
+    const driverReward = await createRewardWithEvaluation(tx, {
+      userId: trip.driverProfile.userId,
+      driverProfileId: trip.driverProfileId,
+      roleContext: "DRIVER",
+      type: "DRIVER_TRIP_TICKET",
+      amount: env.REWARD_DRIVER_TRIP_TICKETS,
+      sourceType: "TRIP",
+      sourceId: trip.id,
+      tripId: trip.id,
+      reason: `Completed qualifying driver trip ${trip.originCity} → ${trip.destinationCity}`,
+      fraudContext: {
+        pinVerified: trip.bookings.some((booking) =>
+          booking.startPins.some((pin) => pin.status === "VERIFIED" && pin.verifiedAt),
+        ),
+        gpsPoints,
+        tripStartedAt: started?.createdAt ?? null,
+        tripCompletedAt: completed?.createdAt ?? trip.completionSummary?.completedAt ?? null,
+      },
+    });
+    created.push(driverReward);
+    if (trip.driverProfile.verificationStatus === "APPROVED") {
+      const driverReferralReward = await qualifyReferralRewardForUser(tx, {
+        referredUserId: trip.driverProfile.userId,
+        roleContext: "DRIVER",
+        rewardType: "DRIVER_REFERRAL_TICKET",
+        amount: env.REWARD_DRIVER_REFERRAL_TICKETS,
+        tripId: trip.id,
+        fraudContext: {
+          pinVerified: trip.bookings.some((booking) =>
+            booking.startPins.some((pin) => pin.status === "VERIFIED" && pin.verifiedAt),
+          ),
+          gpsPoints,
+          tripStartedAt: started?.createdAt ?? null,
+          tripCompletedAt: completed?.createdAt ?? trip.completionSummary?.completedAt ?? null,
+        },
+      });
+      if (driverReferralReward) created.push(driverReferralReward);
+    }
+    await updateDriverMilestoneProgress(tx, trip.driverProfileId, trip.driverProfile.userId);
+  }
+  return created;
+}
 async function startTripOperation(
   tripId: string,
   actor: BookingActor,
@@ -3591,6 +4219,23 @@ async function startTripOperation(
         statusCode: 409,
         code: "TRIP_UNRESOLVED_PASSENGERS",
       });
+    }
+    if (!allowUnresolvedPassengers && boarded.length > 0) {
+      const verifiedPins = await tx.tripStartPin.groupBy({
+        by: ["bookingId"],
+        where: {
+          tripId,
+          bookingId: { in: boarded.map((booking) => booking.id) },
+          status: "VERIFIED",
+          verifiedAt: { not: null },
+        },
+      });
+      if (verifiedPins.length !== boarded.length) {
+        throw Object.assign(new Error("Trip start PIN must be verified before start"), {
+          statusCode: 409,
+          code: "TRIP_START_PIN_REQUIRED",
+        });
+      }
     }
     await transitionTripStatus(tx, trip, "START_TRIP", actor);
     await tx.booking.updateMany({
@@ -3650,6 +4295,8 @@ async function completeTripOperation(tripId: string, actor: BookingActor, notes?
       create: summaryCreate,
       update: summaryUpdate,
     });
+    await qualifyRewardsForCompletedTrip(tx, tripId);
+    await writeTripOperationEvent(tx, tripId, actor.userId, "REWARDS_EVALUATED", {});
     await enqueueTripEvent(tx, "trip.completed", tripId);
     return tx.trip.findUniqueOrThrow({ where: { id: tripId }, include: tripInclude });
   });
@@ -5805,6 +6452,222 @@ async function registerTripSupplyRoutes(http: {
   });
 }
 
+function rewardSummary(transactions: Array<{ amount: number; status: string }>) {
+  return transactions.reduce(
+    (summary, transaction) => {
+      if (transaction.status === "CONFIRMED") summary.confirmed += transaction.amount;
+      if (transaction.status === "PENDING" || transaction.status === "PENDING_REVIEW") {
+        summary.pending += transaction.amount;
+      }
+      if (transaction.status === "REJECTED") summary.rejected += transaction.amount;
+      return summary;
+    },
+    { confirmed: 0, pending: 0, rejected: 0 },
+  );
+}
+
+function serializeRewardTransaction(
+  reward: Prisma.RewardTransactionGetPayload<{
+    include: { fraudEvaluation: true; trip: true; referral: true };
+  }>,
+) {
+  return serializeBigInt({
+    id: reward.id,
+    userId: reward.userId,
+    driverProfileId: reward.driverProfileId,
+    roleContext: reward.roleContext,
+    type: reward.type,
+    amount: reward.amount,
+    status: reward.status,
+    sourceType: reward.sourceType,
+    sourceId: reward.sourceId,
+    reason: reward.reason,
+    createdAt: reward.createdAt,
+    confirmedAt: reward.confirmedAt,
+    rejectedAt: reward.rejectedAt,
+    reviewedAt: reward.reviewedAt,
+    trip: reward.trip
+      ? {
+          id: reward.trip.id,
+          originCity: reward.trip.originCity,
+          destinationCity: reward.trip.destinationCity,
+          status: reward.trip.status,
+        }
+      : null,
+    referral: reward.referral
+      ? {
+          id: reward.referral.id,
+          roleContext: reward.referral.roleContext,
+          status: reward.referral.status,
+        }
+      : null,
+    fraud: reward.fraudEvaluation
+      ? {
+          riskLevel: reward.fraudEvaluation.riskLevel,
+          status: reward.fraudEvaluation.status,
+          score: reward.fraudEvaluation.score,
+          reasons: reward.fraudEvaluation.reasons,
+        }
+      : null,
+  });
+}
+
+async function registerRewardRoutes(http: {
+  get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
+  post: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+}) {
+  http.get("/api/v1/rewards/me", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const rewards = await prisma.rewardTransaction.findMany({
+      where: { userId: req.auth!.userId },
+      include: { fraudEvaluation: true, trip: true, referral: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const referrals = await prisma.referral.findMany({
+      where: { OR: [{ referrerUserId: req.auth!.userId }, { referredUserId: req.auth!.userId }] },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    res.json({
+      summary: rewardSummary(rewards),
+      rewards: rewards.map(serializeRewardTransaction),
+      referrals: serializeBigInt(referrals),
+    });
+  });
+
+  http.get("/api/v1/driver/rewards", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    if (!profile) {
+      res.status(404).json(errorBody("DRIVER_PROFILE_NOT_FOUND", "Driver profile not found", req));
+      return;
+    }
+    const rewards = await prisma.rewardTransaction.findMany({
+      where: { OR: [{ userId: req.auth!.userId }, { driverProfileId: profile.id }] },
+      include: { fraudEvaluation: true, trip: true, referral: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const milestones = await prisma.driverMilestoneProgress.findMany({
+      where: { driverProfileId: profile.id },
+      include: { milestoneDefinition: true, rewardTransaction: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json({
+      summary: rewardSummary(rewards),
+      rewards: rewards.map(serializeRewardTransaction),
+      milestones: serializeBigInt(milestones),
+    });
+  });
+
+  http.post("/api/v1/referrals", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = referralCreateSchema.parse(req.body ?? {});
+      if (parsed.referredUserId === req.auth!.userId) {
+        res
+          .status(400)
+          .json(errorBody("REFERRAL_SELF_NOT_ALLOWED", "Self referral is not allowed", req));
+        return;
+      }
+      const referred = await prisma.user.findUnique({ where: { id: parsed.referredUserId } });
+      if (!referred) {
+        res.status(404).json(errorBody("REFERRED_USER_NOT_FOUND", "Referred user not found", req));
+        return;
+      }
+      const referral = await prisma.referral.upsert({
+        where: {
+          referredUserId_roleContext: {
+            referredUserId: parsed.referredUserId,
+            roleContext: parsed.roleContext,
+          },
+        },
+        create: {
+          referrerUserId: req.auth!.userId,
+          referredUserId: parsed.referredUserId,
+          roleContext: parsed.roleContext,
+          code: parsed.code ?? null,
+          status: "REGISTERED",
+          registeredAt: new Date(),
+        },
+        update: {
+          ...(parsed.code ? { code: parsed.code } : {}),
+          status: "REGISTERED",
+          registeredAt: new Date(),
+        },
+      });
+      await writeAudit(
+        "REFERRAL_REGISTERED",
+        "Referral",
+        referral.id,
+        req.auth!.userId,
+        req.requestId,
+      );
+      res.status(201).json({ referral: serializeBigInt(referral) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/rewards", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    const status = cleanText(req.query.status, 40);
+    const where: Prisma.RewardTransactionWhereInput = status ? { status } : {};
+    const rewards = await prisma.rewardTransaction.findMany({
+      where,
+      include: { fraudEvaluation: true, trip: true, referral: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    res.json({ summary: rewardSummary(rewards), rewards: rewards.map(serializeRewardTransaction) });
+  });
+
+  http.post("/api/v1/admin/rewards/:rewardId/review", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
+    try {
+      const parsed = rewardReviewDecisionSchema.parse(req.body ?? {});
+      const reward = await prisma.$transaction(async (tx) => {
+        const status = parsed.decision === "APPROVE" ? "CONFIRMED" : "REJECTED";
+        const now = new Date();
+        const saved = await tx.rewardTransaction.update({
+          where: { id: String(req.params.rewardId ?? "") },
+          data: {
+            status,
+            reviewedAt: now,
+            reviewedById: req.auth!.userId,
+            confirmedAt: status === "CONFIRMED" ? now : null,
+            rejectedAt: status === "REJECTED" ? now : null,
+          },
+          include: { fraudEvaluation: true, trip: true, referral: true },
+        });
+        await tx.fraudEvaluation.updateMany({
+          where: { rewardTransactionId: saved.id },
+          data: {
+            status: parsed.decision === "APPROVE" ? "APPROVED" : "REJECTED",
+            decision: parsed.reason,
+            reviewedAt: now,
+            reviewedById: req.auth!.userId,
+          },
+        });
+        await writeRewardReviewAudit(
+          tx,
+          saved.id,
+          { userId: req.auth!.userId, role: "ADMIN", requestId: req.requestId },
+          parsed.decision,
+          parsed.reason,
+        );
+        return saved;
+      });
+      res.json({ reward: serializeRewardTransaction(reward) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+}
 async function registerParcelRoutes(http: {
   get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
   post: (
@@ -9025,6 +9888,7 @@ async function registerBookingRoutes(http: {
               passengerCount: parsed.passengerCount,
               pickupPointId: parsed.pickupPointId ?? null,
               destinationPickupPointId: parsed.destinationPickupPointId ?? null,
+              requestedDepartureAtUtc: parsed.requestedDepartureAtUtc ?? null,
               pricingSnapshot: {
                 currency: "UZS",
                 totalMinor: totalMinor.toString(),
@@ -9035,6 +9899,7 @@ async function registerBookingRoutes(http: {
                 originCity: trip.originCity,
                 destinationCity: trip.destinationCity,
                 departureAtUtc: trip.departureAtUtc.toISOString(),
+                requestedDepartureAtUtc: parsed.requestedDepartureAtUtc?.toISOString() ?? null,
               },
               termsSnapshot: { version: env.TERMS_VERSION },
               expiresAt,
@@ -9219,7 +10084,15 @@ async function registerBookingRoutes(http: {
           data: {
             status: "CONFIRMED",
             paymentMethod: parsed.paymentMethod,
-            clientComment: parsed.clientComment ?? null,
+            clientComment: parsed.clientComment ?? parsed.preferences.driverComment ?? null,
+            travelPreferences: parsed.preferences as Prisma.InputJsonValue,
+            ...(parsed.pickupLocation
+              ? { pickupLocation: parsed.pickupLocation as Prisma.InputJsonValue }
+              : {}),
+            requestedDepartureAtUtc:
+              parsed.schedule.requestedDepartureAtUtc ??
+              hold.booking.requestedDepartureAtUtc ??
+              null,
             confirmedAt: new Date(),
             version: { increment: 1 },
           },
@@ -9228,6 +10101,9 @@ async function registerBookingRoutes(http: {
         await writeBookingEvent(tx, saved.id, req.auth!.userId, "BOOKING_CONFIRMED", {
           seatKeys,
           paymentMethod: parsed.paymentMethod,
+          preferences: parsed.preferences,
+          pickupLocation: parsed.pickupLocation,
+          schedule: parsed.schedule,
         });
         await writeBookingAudit(tx, "BOOKING_CONFIRMED", saved.id, actor, { seatKeys });
         await enqueueBookingEvent(tx, "booking.confirmed", saved.id, { tripId: hold.tripId });
@@ -9366,6 +10242,33 @@ async function registerBookingRoutes(http: {
     }
   });
 
+  http.get("/api/v1/bookings/:bookingId/start-pin", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.findFirst({
+          where: { id: String(req.params.bookingId), clientId: req.auth!.userId },
+          include: { trip: true, seats: true },
+        });
+        if (!booking) {
+          throw Object.assign(new Error("Booking not found"), {
+            statusCode: 404,
+            code: "BOOKING_NOT_FOUND",
+          });
+        }
+        if (booking.trip.status !== "BOARDING" || booking.status !== "BOARDING") {
+          throw Object.assign(new Error("Trip start PIN is not available"), {
+            statusCode: 409,
+            code: "TRIP_START_PIN_NOT_AVAILABLE",
+          });
+        }
+        return activeTripStartPinForBooking(tx, booking, req.auth!.userId);
+      });
+      res.json({ startPin: serializeTripStartPinForClient(result.pin, result.plain) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
   http.get("/api/v1/bookings/:bookingId/operation-status", async (req, res) => {
     if (!(await authenticate(req, res, ["CLIENT"]))) return;
     const booking = await prisma.booking.findFirst({
@@ -9375,6 +10278,7 @@ async function registerBookingRoutes(http: {
         seats: true,
         timelineEvents: { orderBy: { createdAt: "desc" }, take: 20 },
         boardingCodes: { orderBy: { createdAt: "desc" }, take: 1 },
+        startPins: { orderBy: { createdAt: "desc" }, take: 1 },
       },
     });
     if (!booking) {
@@ -9391,6 +10295,9 @@ async function registerBookingRoutes(http: {
           seats: booking.seats,
           boardingCode: booking.boardingCodes[0]
             ? serializeBoardingCodeForClient(booking.boardingCodes[0])
+            : null,
+          startPin: booking.startPins[0]
+            ? serializeTripStartPinForClient(booking.startPins[0])
             : null,
           timeline: booking.timelineEvents,
         },
@@ -9414,6 +10321,174 @@ async function registerBookingRoutes(http: {
     }
   });
 
+  http.post("/api/v1/trips/:tripId/location", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = tripLocationPointSchema.parse(req.body ?? {});
+      const tripId = String(req.params.tripId);
+      const saved = await prisma.$transaction(async (tx) => {
+        const isDriver = req.auth!.roles.includes("DRIVER");
+        if (isDriver) {
+          const profile = await tx.driverProfile.findUnique({
+            where: { userId: req.auth!.userId },
+          });
+          const trip = await tx.trip.findFirst({
+            where: { id: tripId, driverProfileId: profile?.id ?? "" },
+          });
+          if (!trip) {
+            throw Object.assign(new Error("Trip not found"), {
+              statusCode: 404,
+              code: "TRIP_NOT_FOUND",
+            });
+          }
+          return recordTripLocationPoint(
+            tx,
+            trip,
+            { userId: req.auth!.userId, role: "DRIVER", requestId: req.requestId },
+            "DRIVER",
+            parsed,
+          );
+        }
+        const bookingWhere: Prisma.BookingWhereInput = {
+          tripId,
+          clientId: req.auth!.userId,
+          status: { in: ["BOARDING", "IN_PROGRESS", "COMPLETED"] },
+        };
+        if (parsed.bookingId) bookingWhere.id = parsed.bookingId;
+        const booking = await tx.booking.findFirst({
+          where: bookingWhere,
+          include: { trip: true },
+        });
+        if (!booking) {
+          throw Object.assign(new Error("Trip not found"), {
+            statusCode: 404,
+            code: "TRIP_NOT_FOUND",
+          });
+        }
+        return recordTripLocationPoint(
+          tx,
+          booking.trip,
+          { userId: req.auth!.userId, role: "CLIENT", requestId: req.requestId },
+          "PASSENGER",
+          { ...parsed, bookingId: booking.id },
+        );
+      });
+      res.json({ location: serializeTripLocationPoint(saved) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/trips/:tripId/location/latest", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    const tripId = String(req.params.tripId);
+    const isDriver = req.auth!.roles.includes("DRIVER");
+    const allowed = isDriver
+      ? await prisma.driverProfile
+          .findUnique({ where: { userId: req.auth!.userId } })
+          .then((profile) =>
+            profile
+              ? prisma.trip.findFirst({ where: { id: tripId, driverProfileId: profile.id } })
+              : null,
+          )
+      : await prisma.booking.findFirst({ where: { tripId, clientId: req.auth!.userId } });
+    if (!allowed) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: { etaSnapshot: true },
+    });
+    const shareRealtime = trip?.status === "BOARDING" || trip?.status === "IN_PROGRESS";
+    const driver = await prisma.tripLocationPoint.findFirst({
+      where: { tripId, actorType: "DRIVER" },
+      orderBy: { recordedAt: "desc" },
+    });
+    const passenger = await prisma.tripLocationPoint.findFirst({
+      where: {
+        tripId,
+        actorType: "PASSENGER",
+        ...(isDriver ? {} : { actorUserId: req.auth!.userId }),
+      },
+      orderBy: { recordedAt: "desc" },
+    });
+    res.json({
+      latest: {
+        tripId,
+        tripStatus: trip?.status ?? null,
+        realtimeShared: shareRealtime,
+        driver: shareRealtime && driver ? serializeTripLocationPoint(driver) : null,
+        passenger: shareRealtime && passenger ? serializeTripLocationPoint(passenger) : null,
+        eta: trip?.etaSnapshot
+          ? serializeBigInt({
+              driverEtaToPickupSeconds: trip.etaSnapshot.driverEtaToPickupSeconds,
+              driverEtaToDropoffSeconds: trip.etaSnapshot.driverEtaToDropoffSeconds,
+              delaySeconds: trip.etaSnapshot.delaySeconds,
+              status: trip.etaSnapshot.status,
+              source: trip.etaSnapshot.source,
+              updatedAt: trip.etaSnapshot.updatedAt,
+            })
+          : { status: "UNKNOWN", source: "MANUAL_MAPS_ADAPTER" },
+      },
+    });
+  });
+
+  http.get("/api/v1/trips/:tripId/history", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER", "ADMIN"]))) return;
+    const tripId = String(req.params.tripId);
+    const isAdmin = req.auth!.roles.includes("ADMIN");
+    const isDriver = req.auth!.roles.includes("DRIVER");
+    const allowed = isAdmin
+      ? await prisma.trip.findUnique({ where: { id: tripId } })
+      : isDriver
+        ? await prisma.driverProfile
+            .findUnique({ where: { userId: req.auth!.userId } })
+            .then((profile) =>
+              profile
+                ? prisma.trip.findFirst({ where: { id: tripId, driverProfileId: profile.id } })
+                : null,
+            )
+        : await prisma.booking.findFirst({ where: { tripId, clientId: req.auth!.userId } });
+    if (!allowed) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    const history = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        timelineEvents: { orderBy: { createdAt: "asc" }, take: 200 },
+        operationEvents: { orderBy: { createdAt: "asc" }, take: 200 },
+        locationPoints: { orderBy: { recordedAt: "asc" }, take: 500 },
+        etaSnapshot: true,
+      },
+    });
+    if (!history) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json(
+      serializeBigInt({
+        history: {
+          tripId: history.id,
+          status: history.status,
+          timeline: history.timelineEvents,
+          operations: history.operationEvents,
+          locations: history.locationPoints.map(serializeTripLocationPoint),
+          eta: history.etaSnapshot
+            ? {
+                driverEtaToPickupSeconds: history.etaSnapshot.driverEtaToPickupSeconds,
+                driverEtaToDropoffSeconds: history.etaSnapshot.driverEtaToDropoffSeconds,
+                delaySeconds: history.etaSnapshot.delaySeconds,
+                status: history.etaSnapshot.status,
+                source: history.etaSnapshot.source,
+                updatedAt: history.etaSnapshot.updatedAt,
+              }
+            : { status: "UNKNOWN", source: "MANUAL_MAPS_ADAPTER" },
+        },
+      }),
+    );
+  });
   http.get("/api/v1/driver/trips/:tripId/bookings", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
@@ -9503,6 +10578,25 @@ async function registerBookingRoutes(http: {
     }
   });
 
+  http.post("/api/v1/driver/bookings/:bookingId/start-pin/verify", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = tripStartPinVerifySchema.parse(req.body ?? {});
+      const booking = await verifyTripStartPinForBooking(
+        String(req.params.bookingId),
+        parsed.pin,
+        {
+          userId: req.auth!.userId,
+          role: "DRIVER",
+          requestId: req.requestId,
+        },
+        parsed.location,
+      );
+      res.json({ booking: serializeBooking(booking) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
   http.post("/api/v1/driver/bookings/:bookingId/no-show", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     try {
@@ -11769,6 +12863,7 @@ async function bootstrap() {
   await registerParcelRoutes(http);
   await registerCommunicationRoutes(http);
   await registerTrustSafetyRoutes(http);
+  await registerRewardRoutes(http);
   await registerFinanceRoutes(http);
   await registerBookingRoutes(http);
   await registerVehicleRoutes(http);

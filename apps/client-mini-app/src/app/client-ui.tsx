@@ -47,13 +47,13 @@ export function Icon({ name, className = "" }: { name: ClientIcon; className?: s
       aria-hidden="true"
       className={className}
       fill="none"
-      height="18"
+      height="20"
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2"
       viewBox="0 0 24 24"
-      width="18"
+      width="20"
     >
       {iconPaths[name]}
     </svg>
@@ -94,7 +94,7 @@ export function ClientHeader({
     >
       {backHref ? (
         <Link
-          aria-label="Back"
+          aria-label="Назад"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface)/0.94)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
           href={backHref}
         >
@@ -117,7 +117,7 @@ export function ClientHeader({
       </div>
       {action ?? (
         <Link
-          aria-label="Notifications"
+          aria-label="Уведомления"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface)/0.94)] text-[rgb(var(--primary))] shadow-[var(--shadow-xs)]"
           href="/notifications"
         >
@@ -130,27 +130,27 @@ export function ClientHeader({
 
 export function ClientBottomNav({ active }: { active: ClientNavKey }) {
   const items: Array<{ key: ClientNavKey; label: string; href: string; icon: ClientIcon }> = [
-    { key: "home", label: "Home", href: "/", icon: "home" },
-    { key: "trips", label: "Trips", href: "/bookings", icon: "car" },
-    { key: "messages", label: "Messages", href: "/messages", icon: "chat" },
-    { key: "profile", label: "Profile", href: "/profile", icon: "profile" },
+    { key: "home", label: "Главная", href: "/", icon: "home" },
+    { key: "trips", label: "Поездки", href: "/bookings", icon: "car" },
+    { key: "messages", label: "Сообщения", href: "/messages", icon: "chat" },
+    { key: "profile", label: "Профиль", href: "/profile", icon: "profile" },
   ];
 
   return (
-    <nav className="fixed inset-x-4 bottom-3 z-[var(--z-nav)] mx-auto max-w-[386px] rounded-full bg-[rgb(var(--surface)/0.95)] p-1 shadow-[var(--shadow-floating)] backdrop-blur-xl">
+    <nav className="fixed inset-x-4 bottom-4 z-[var(--z-nav)] mx-auto max-w-[398px] rounded-full bg-[rgb(var(--surface)/0.96)] p-1.5 shadow-[var(--shadow-floating)] backdrop-blur-xl">
       <div className="grid grid-cols-4 gap-1">
         {items.map((item) => (
           <Link
             key={item.key}
             className={[
-              "grid min-h-[48px] place-items-center rounded-full px-2 text-[10px] font-bold no-underline",
+              "grid min-h-[56px] place-items-center rounded-full px-2 text-[11px] font-black no-underline transition",
               active === item.key
                 ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-sm)]"
                 : "text-[rgb(var(--text-muted))]",
             ].join(" ")}
             href={item.href}
           >
-            <Icon name={item.icon} className="h-4 w-4" />
+            <Icon name={item.icon} className="h-5 w-5" />
             {item.label}
           </Link>
         ))}

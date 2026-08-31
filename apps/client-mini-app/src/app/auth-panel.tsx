@@ -105,27 +105,29 @@ export function ClientAuthPanel() {
       <Panel className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm text-slate-500">Identity</div>
-            <div className="text-lg font-bold">{user?.displayName ?? "Local client preview"}</div>
+            <div className="text-sm text-slate-500">Профиль входа</div>
+            <div className="text-lg font-bold">
+              {user?.displayName ?? "Локальный клиентский preview"}
+            </div>
           </div>
           <Badge tone={user ? "success" : "warning"}>{status}</Badge>
         </div>
         <Button onClick={mockLogin} className="w-full">
-          Mock Telegram login
+          Войти через тестовый Telegram
         </Button>
       </Panel>
 
       {user ? (
         <>
           <Panel className="space-y-3">
-            <div className="text-sm font-bold">Profile</div>
+            <div className="text-sm font-bold">Профиль</div>
             {(
               [
-                ["displayName", "Display name"],
-                ["phone", "Phone"],
-                ["city", "City"],
-                ["emergencyContactName", "Emergency contact"],
-                ["emergencyContactPhone", "Emergency phone"],
+                ["displayName", "Имя"],
+                ["phone", "Телефон"],
+                ["city", "Город"],
+                ["emergencyContactName", "Экстренный контакт"],
+                ["emergencyContactPhone", "Телефон экстренного контакта"],
               ] as const
             ).map(([key, label]) => (
               <label key={key} className="block text-sm">
@@ -138,7 +140,7 @@ export function ClientAuthPanel() {
               </label>
             ))}
             <Button onClick={saveProfile} className="w-full">
-              Save profile
+              Сохранить профиль
             </Button>
           </Panel>
           <Panel className="space-y-3">
@@ -158,15 +160,19 @@ export function ClientAuthPanel() {
                   variant="secondary"
                   onClick={() => savePreferences(user.locale, theme)}
                 >
-                  {theme}
+                  {
+                    { TELEGRAM: "Telegram", LIGHT: "Светлая", DARK: "Тёмная", SYSTEM: "Системная" }[
+                      theme
+                    ]
+                  }
                 </Button>
               ))}
             </div>
             <Button variant="secondary" onClick={acceptTerms}>
-              {user.acceptedTermsAt ? "Terms accepted" : "Accept terms"}
+              {user.acceptedTermsAt ? "Условия приняты" : "Принять условия"}
             </Button>
             <Button variant="ghost" onClick={logout}>
-              Logout
+              Выйти
             </Button>
           </Panel>
         </>

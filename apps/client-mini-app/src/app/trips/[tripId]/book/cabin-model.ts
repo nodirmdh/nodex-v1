@@ -11,24 +11,30 @@ export type CabinSeat = {
 };
 
 export type TripCabin = {
+  tripId: string;
   model: string;
   color: string;
   plate: string;
   capacity: string;
+  tariff: string;
   route: string;
   departure: string;
+  departureAtUtc: string;
   priceMinor: number;
   wholeCarPriceMinor: number;
   template: CabinTemplate;
 };
 
 export const tripCabin: TripCabin = {
+  tripId: "phase5-nukus-urgench-morning",
   model: "Chevrolet Cobalt",
-  color: "White",
+  color: "Белый",
   plate: "95 A 214 QA",
-  capacity: "4 passenger seats",
-  route: "Nukus to Urgench",
+  capacity: "4 пассажирских места",
+  tariff: "Комфорт",
+  route: "Nukus → Urgench",
   departure: "08:30",
+  departureAtUtc: "2026-09-03T03:30:00.000Z",
   priceMinor: 8500000,
   wholeCarPriceMinor: 39000000,
   template: "SEDAN_5",

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { boardingCodeCanAttempt, evaluateTripTransition } from "./index";
+import {
+  boardingCodeCanAttempt,
+  evaluateTripLocationWrite,
+  evaluateTripTransition,
+  tripLocationPointSchema,
+  tripStartPinVerifySchema,
+} from "./index";
 
 describe("trip operation state machine", () => {
   it("allows the primary passenger lifecycle", () => {
@@ -98,5 +104,57 @@ describe("boarding code guard", () => {
         now,
       }),
     ).toMatchObject({ ok: false, code: "BOARDING_CODE_MAX_ATTEMPTS" });
+  });
+});
+
+describe("trip core tracking and start PIN guards", () => {
+  const now = new Date("2026-08-01T10:00:00.000Z");
+
+  it("accepts a four digit trip start PIN and rejects boarding-code length", () => {
+    expect(tripStartPinVerifySchema.parse({ pin: "1234" }).pin).toBe("1234");
+    expect(() => tripStartPinVerifySchema.parse({ pin: "123456" })).toThrow();
+  });
+
+  it("validates trip location points from platform geolocation", () => {
+    expect(
+      tripLocationPointSchema.parse({
+        bookingId: "booking-1",
+        latitude: 42.46,
+        longitude: 59.61,
+        accuracyMeters: 18,
+        source: "PERIODIC",
+      }),
+    ).toMatchObject({ source: "PERIODIC", bookingId: "booking-1" });
+    expect(() => tripLocationPointSchema.parse({ latitude: 95, longitude: 59.61 })).toThrow();
+  });
+
+  it("allows periodic tracking only during active trips", () => {
+    expect(
+      evaluateTripLocationWrite({ tripStatus: "IN_PROGRESS", source: "PERIODIC", now }),
+    ).toMatchObject({ ok: true });
+    expect(evaluateTripLocationWrite({ tripStatus: "BOARDING", source: "PERIODIC", now })).toEqual({
+      ok: false,
+      code: "LOCATION_TRIP_NOT_ACTIVE",
+    });
+  });
+
+  it("throttles repeated periodic points but permits critical lifecycle points", () => {
+    expect(
+      evaluateTripLocationWrite({
+        tripStatus: "IN_PROGRESS",
+        source: "PERIODIC",
+        lastRecordedAt: new Date("2026-08-01T09:59:30.000Z"),
+        now,
+        minIntervalMs: 60000,
+      }),
+    ).toEqual({ ok: false, code: "LOCATION_UPDATE_THROTTLED" });
+    expect(
+      evaluateTripLocationWrite({
+        tripStatus: "BOARDING",
+        source: "PIN_VERIFIED",
+        lastRecordedAt: new Date("2026-08-01T09:59:30.000Z"),
+        now,
+      }),
+    ).toMatchObject({ ok: true, critical: true });
   });
 });

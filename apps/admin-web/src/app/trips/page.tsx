@@ -241,6 +241,29 @@ export default function AdminTripsPage() {
 
           <div className="space-y-4 p-4">
             <section>
+              <h3 className="m-0 mb-2 text-sm font-black">Rewards review</h3>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
+                  <strong>4</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">
+                    Pending review
+                  </span>
+                </div>
+                <div className="rounded-[10px] bg-[rgb(var(--success-soft))] p-3">
+                  <strong>128</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">Auto approved</span>
+                </div>
+                <div className="rounded-[10px] bg-[rgb(var(--warning-soft))] p-3">
+                  <strong>2</strong>
+                  <span className="block text-xs text-[rgb(var(--text-muted))]">High risk</span>
+                </div>
+              </div>
+              <p className="m-0 mt-2 text-xs font-semibold text-[rgb(var(--text-muted))]">
+                Rewards are gated by trip completion, start PIN, GPS movement, duplicate checks, and
+                referral cycle checks.
+              </p>
+            </section>
+            <section>
               <h3 className="m-0 mb-2 text-sm font-black">Live operations</h3>
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
@@ -322,6 +345,23 @@ export default function AdminTripsPage() {
               </section>
             ) : null}
 
+            <section className="rounded-[12px] border border-[rgb(var(--border))] p-3">
+              <h3 className="m-0 mb-2 text-sm font-black">Trip core history</h3>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Start PIN</span>
+                  <strong>Verified per passenger before normal start</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">Location history</span>
+                  <strong>Read-only route points</strong>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[rgb(var(--text-muted))]">ETA</span>
+                  <strong>No route provider connected</strong>
+                </div>
+              </div>
+            </section>
             <section>
               <h3 className="m-0 mb-2 text-sm font-black">Timeline</h3>
               <div className="grid gap-2">

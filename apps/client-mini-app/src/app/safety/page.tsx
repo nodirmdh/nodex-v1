@@ -8,7 +8,7 @@ export default function ClientSafetyPage() {
         backHref="/profile"
         level="secondary"
         title="Safety"
-        subtitle="Trusted help for every trip"
+        subtitle="Надёжная помощь в каждой поездке"
       />
 
       <Card className="mt-4 space-y-3" compact>
@@ -17,9 +17,10 @@ export default function ClientSafetyPage() {
             <Icon name="shield" className="h-6 w-6" />
           </span>
           <div>
-            <h2 className="m-0 text-lg font-black">Current trip protection</h2>
+            <h2 className="m-0 text-lg font-black">Защита текущей поездки</h2>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Share trip details, contact support, or open emergency help when needed.
+              Поделитесь деталями поездки, свяжитесь с поддержкой или откройте экстренную помощь при
+              необходимости.
             </p>
           </div>
         </div>
@@ -28,7 +29,7 @@ export default function ClientSafetyPage() {
             className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"
           >
-            Share trip
+            Поделиться поездкой
           </button>
           <Link
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--destructive-soft))] px-4 text-sm font-black text-[rgb(var(--destructive))] no-underline"
@@ -40,13 +41,25 @@ export default function ClientSafetyPage() {
       </Card>
 
       <Card className="mt-3" compact>
-        <h2 className="m-0 mb-3 text-lg font-black">Safety actions</h2>
+        <h2 className="m-0 mb-3 text-lg font-black">Действия безопасности</h2>
         <div className="grid gap-2">
           {(
             [
-              ["Report driver or trip", "Send a private safety report", "warning" as const],
-              ["Contact support", "Get help with a route or pickup issue", "info" as const],
-              ["Trusted contact", "Keep one person informed about your trip", "success" as const],
+              [
+                "Пожаловаться на водителя или поездку",
+                "Отправить приватное обращение по безопасности",
+                "warning" as const,
+              ],
+              [
+                "Связаться с поддержкой",
+                "Получить помощь по маршруту или посадке",
+                "info" as const,
+              ],
+              [
+                "Доверенный контакт",
+                "Держите одного человека в курсе вашей поездки",
+                "success" as const,
+              ],
             ] as const
           ).map(([title, subtitle, tone]) => (
             <div
@@ -59,23 +72,23 @@ export default function ClientSafetyPage() {
                   {subtitle}
                 </div>
               </div>
-              <StatusPill tone={tone}>{tone === "success" ? "Active" : "Open"}</StatusPill>
+              <StatusPill tone={tone}>{tone === "success" ? "Активные" : "Открыть"}</StatusPill>
             </div>
           ))}
         </div>
       </Card>
 
       <Card className="mt-3" compact>
-        <h2 className="m-0 text-lg font-black">Safety tips</h2>
+        <h2 className="m-0 text-lg font-black">Советы по безопасности</h2>
         <ul className="m-0 mt-3 grid gap-2 p-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
           <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            Check vehicle plate before boarding.
+            Проверьте номер автомобиля перед посадкой.
           </li>
           <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            Keep trip chat inside Nodex where possible.
+            По возможности ведите чат поездки внутри Nodex.
           </li>
           <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            Use SOS only for urgent safety situations.
+            Используйте SOS только в срочных ситуациях безопасности.
           </li>
         </ul>
       </Card>
