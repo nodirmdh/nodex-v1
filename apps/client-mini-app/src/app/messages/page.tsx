@@ -5,36 +5,36 @@ const conversations = [
   {
     id: "driver-azizbek",
     participant: "Azizbek Karimov",
-    context: "Nukus to Urgench · Tomorrow 08:30",
-    lastMessage: "I will message before arrival at the pickup point.",
-    timestamp: "2 min",
+    context: "Nukus → Urgench · Завтра 08:30",
+    lastMessage: "Напишу перед прибытием к точке посадки.",
+    timestamp: "2 мин",
     unread: true,
-    category: "Trip",
+    category: "Поездка",
   },
   {
     id: "support-ticket",
-    participant: "Nodex Support",
-    context: "Ticket #2048 · pickup coordination",
-    lastMessage: "We added your note to the request.",
-    timestamp: "1h",
+    participant: "Поддержка Nodex",
+    context: "Заявка #2048 · координация посадки",
+    lastMessage: "Мы добавили вашу заметку к заявке.",
+    timestamp: "1 ч",
     unread: false,
-    category: "Support",
+    category: "Поддержка",
   },
   {
     id: "parcel-driver",
-    participant: "Parcel driver",
-    context: "Accepted parcel · Nukus to Khiva",
-    lastMessage: "Parcel accepted and moving on route.",
-    timestamp: "Yesterday",
+    participant: "Водитель посылки",
+    context: "Принятая посылка · Nukus → Khiva",
+    lastMessage: "Посылка принята и уже в пути.",
+    timestamp: "Вчера",
     unread: false,
-    category: "Parcel",
+    category: "Посылка",
   },
 ];
 
 export default function ClientMessagesPage() {
   return (
     <ClientShell active="messages">
-      <ClientHeader title="Messages" subtitle="Trips, parcels, and support" />
+      <ClientHeader title="Сообщения" subtitle="Поездки, посылки и поддержка" />
 
       <section className="mt-4 grid gap-2.5" aria-label="Message inbox">
         {conversations.map((conversation) => (
@@ -70,7 +70,7 @@ export default function ClientMessagesPage() {
                     <StatusPill tone="accent" subtle>
                       {conversation.category}
                     </StatusPill>
-                    {conversation.unread ? <StatusPill tone="warning">Unread</StatusPill> : null}
+                    {conversation.unread ? <StatusPill tone="warning">Новое</StatusPill> : null}
                   </div>
                 </div>
               </div>

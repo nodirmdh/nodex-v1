@@ -60,6 +60,16 @@ export const appEnvSchema = z.object({
     .optional()
     .default("true")
     .transform((value) => value === "true"),
+  REWARD_CLIENT_TRIP_TICKETS: z.coerce.number().int().positive().default(1),
+  REWARD_DRIVER_TRIP_TICKETS: z.coerce.number().int().positive().default(1),
+  REWARD_CLIENT_REFERRAL_TICKETS: z.coerce.number().int().positive().default(1),
+  REWARD_DRIVER_REFERRAL_TICKETS: z.coerce.number().int().positive().default(1),
+  REWARD_DRIVER_MILESTONE_TARGET: z.coerce.number().int().positive().default(50),
+  REWARD_DRIVER_MILESTONE_VALUE_MINOR: z.coerce.number().int().nonnegative().default(20000000),
+  REWARD_MIN_TRIP_DURATION_MINUTES: z.coerce.number().int().positive().default(20),
+  REWARD_MIN_MOVEMENT_METERS: z.coerce.number().int().nonnegative().default(500),
+  REWARD_MEDIUM_REVIEW_THRESHOLD: z.coerce.number().int().nonnegative().default(2),
+  REWARD_HIGH_REVIEW_THRESHOLD: z.coerce.number().int().nonnegative().default(3),
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;

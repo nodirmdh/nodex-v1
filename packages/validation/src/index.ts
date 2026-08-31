@@ -1,3 +1,4 @@
+import { distanceMetersBetween } from "@nodex/maps";
 import { z } from "zod";
 
 export const idempotencyKeySchema = z.string().min(8).max(128);
@@ -380,6 +381,15 @@ export const bookingTypes = ["SEAT", "MULTI_SEAT", "WHOLE_CAR"] as const;
 export const bookingPaymentMethods = ["CASH", "MANUAL_TRANSFER"] as const;
 export const ageCategories = ["ADULT", "CHILD", "INFANT"] as const;
 export const baggageTypes = ["CABIN_BAG", "SUITCASE", "OVERSIZED", "OTHER"] as const;
+export const bookingPreferenceTypes = [
+  "CHILD",
+  "PET",
+  "ASSISTANCE",
+  "NO_SMOKING",
+  "STOP_ON_ROUTE",
+  "QUIET_RIDE",
+] as const;
+export const bookingScheduleOptions = ["NOW", "TODAY", "TOMORROW", "CUSTOM"] as const;
 
 export const parcelStatuses = [
   "DRAFT",
@@ -490,6 +500,23 @@ export const bookingBaggageSchema = z.object({
   notes: optionalTextField,
 });
 
+export const bookingPreferencesSchema = z.object({
+  types: z.array(z.enum(bookingPreferenceTypes)).max(16).default([]),
+  driverComment: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const bookingPickupLocationSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  label: z.string().trim().max(160).optional().nullable(),
+  comment: z.string().trim().max(500).optional().nullable(),
+});
+
+export const bookingScheduleSchema = z.object({
+  option: z.enum(bookingScheduleOptions).default("NOW"),
+  requestedDepartureAtUtc: z.coerce.date().optional().nullable(),
+});
+
 export const bookingHoldSchema = z.object({
   tripId: z.string().trim().min(1),
   type: z.enum(bookingTypes).default("SEAT"),
@@ -497,12 +524,16 @@ export const bookingHoldSchema = z.object({
   passengerCount: z.coerce.number().int().min(1).max(16),
   pickupPointId: z.string().trim().min(1).optional().nullable(),
   destinationPickupPointId: z.string().trim().min(1).optional().nullable(),
+  requestedDepartureAtUtc: z.coerce.date().optional().nullable(),
   paymentMethod: z.enum(bookingPaymentMethods).default("CASH"),
 });
 
 export const bookingConfirmSchema = z.object({
   passengers: z.array(bookingPassengerSchema).min(1).max(16),
   baggage: z.array(bookingBaggageSchema).max(8).default([]),
+  preferences: bookingPreferencesSchema.default({ types: [] }),
+  pickupLocation: bookingPickupLocationSchema.optional().nullable(),
+  schedule: bookingScheduleSchema.default({ option: "NOW" }),
   clientComment: z.string().trim().max(1000).optional().nullable(),
   consentAccepted: z.literal(true),
   paymentMethod: z.enum(bookingPaymentMethods).default("CASH"),
@@ -534,6 +565,73 @@ export const operationReasonSchema = z.object({
 export const tripStartSchema = z.object({
   allowUnresolvedPassengers: z.boolean().optional().default(false),
 });
+
+export const tripLocationActorTypes = ["DRIVER", "PASSENGER"] as const;
+export const tripLocationSources = [
+  "PERIODIC",
+  "DRIVER_ARRIVED",
+  "PIN_VERIFIED",
+  "TRIP_STARTED",
+  "TRIP_COMPLETED",
+  "MANUAL",
+  "OTHER",
+] as const;
+
+export const tripLocationPointSchema = z.object({
+  bookingId: z.string().trim().min(1).optional().nullable(),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  accuracyMeters: z.coerce.number().min(0).max(10000).optional().nullable(),
+  speedMetersPerSecond: z.coerce.number().min(0).max(120).optional().nullable(),
+  headingDegrees: z.coerce.number().min(0).max(360).optional().nullable(),
+  source: z.enum(tripLocationSources).default("MANUAL"),
+  reason: z.string().trim().min(1).max(80).optional().nullable(),
+  recordedAt: z.coerce.date().optional(),
+});
+
+export const tripStartPinVerifySchema = z.object({
+  pin: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/),
+  location: tripLocationPointSchema.omit({ bookingId: true }).optional(),
+});
+
+export type TripLocationSource = (typeof tripLocationSources)[number];
+
+export function evaluateTripLocationWrite(input: {
+  tripStatus: TripOperationStatus;
+  source: TripLocationSource;
+  lastRecordedAt?: Date | null;
+  now?: Date;
+  minIntervalMs?: number;
+}) {
+  const now = input.now ?? new Date();
+  const activeStatuses: TripOperationStatus[] = ["BOARDING", "IN_PROGRESS"];
+  const criticalSources: TripLocationSource[] = [
+    "DRIVER_ARRIVED",
+    "PIN_VERIFIED",
+    "TRIP_STARTED",
+    "TRIP_COMPLETED",
+  ];
+  if (input.source === "PERIODIC" && input.tripStatus !== "IN_PROGRESS") {
+    return { ok: false as const, code: "LOCATION_TRIP_NOT_ACTIVE" };
+  }
+  if (
+    !activeStatuses.includes(input.tripStatus) &&
+    !(input.source === "TRIP_COMPLETED" && input.tripStatus === "COMPLETED")
+  ) {
+    return { ok: false as const, code: "LOCATION_TRIP_NOT_ACTIVE" };
+  }
+  if (
+    input.source === "PERIODIC" &&
+    input.lastRecordedAt &&
+    now.getTime() - input.lastRecordedAt.getTime() < (input.minIntervalMs ?? 60000)
+  ) {
+    return { ok: false as const, code: "LOCATION_UPDATE_THROTTLED" };
+  }
+  return { ok: true as const, critical: criticalSources.includes(input.source) };
+}
 
 export const tripCompleteSchema = z.object({
   notes: z.string().trim().max(1000).optional(),
@@ -1576,4 +1674,159 @@ function findUnsafeAnalyticsKey(payload: Record<string, unknown>, prefix = ""): 
     }
   }
   return null;
+}
+
+export const rewardStatuses = [
+  "PENDING",
+  "CONFIRMED",
+  "REJECTED",
+  "REVOKED",
+  "PENDING_REVIEW",
+] as const;
+export const rewardTypes = [
+  "CLIENT_TRIP_TICKET",
+  "DRIVER_TRIP_TICKET",
+  "CLIENT_REFERRAL_TICKET",
+  "DRIVER_REFERRAL_TICKET",
+  "DRIVER_MILESTONE_BONUS",
+  "MANUAL_ADMIN_ADJUSTMENT",
+] as const;
+export const rewardSourceTypes = ["TRIP", "BOOKING", "REFERRAL", "MILESTONE", "ADMIN"] as const;
+export const rewardRiskLevels = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+export const fraudEvaluationStatuses = [
+  "AUTO_APPROVED",
+  "PENDING_REVIEW",
+  "APPROVED",
+  "REJECTED",
+] as const;
+export const referralStatuses = [
+  "INVITED",
+  "REGISTERED",
+  "QUALIFIED",
+  "REWARDED",
+  "REJECTED",
+] as const;
+
+export const rewardConfigSchema = z.object({
+  clientTripTickets: z.coerce.number().int().positive().default(1),
+  driverTripTickets: z.coerce.number().int().positive().default(1),
+  clientReferralTickets: z.coerce.number().int().positive().default(1),
+  driverReferralTickets: z.coerce.number().int().positive().default(1),
+  milestoneTargetCount: z.coerce.number().int().positive().default(50),
+  milestoneRewardValue: z.coerce.number().int().nonnegative().default(20000000),
+  minTripDurationMinutes: z.coerce.number().int().positive().default(20),
+  minMovementMeters: z.coerce.number().int().nonnegative().default(500),
+  mediumReviewThreshold: z.coerce.number().int().nonnegative().default(2),
+  highReviewThreshold: z.coerce.number().int().nonnegative().default(3),
+});
+
+export const rewardReviewDecisionSchema = z.object({
+  decision: z.enum(["APPROVE", "REJECT"]),
+  reason: z.string().trim().min(3).max(1000),
+});
+
+export const referralCreateSchema = z.object({
+  referredUserId: z.string().trim().min(1),
+  roleContext: z.enum(["CLIENT", "DRIVER"]).default("CLIENT"),
+  code: z.string().trim().min(3).max(80).optional(),
+});
+
+export type RewardType = (typeof rewardTypes)[number];
+export type RewardStatus = (typeof rewardStatuses)[number];
+export type RewardRiskLevel = (typeof rewardRiskLevels)[number];
+export type FraudEvaluationStatus = (typeof fraudEvaluationStatuses)[number];
+export type RewardConfig = z.infer<typeof rewardConfigSchema>;
+
+export type RewardFraudContext = {
+  pinVerified: boolean;
+  gpsPoints: Array<{ latitude: number; longitude: number; recordedAt: Date }>;
+  tripStartedAt?: Date | null;
+  tripCompletedAt?: Date | null;
+  completedTripDurationMinutes?: number | null;
+  repeatPairCompletedTrips?: number;
+  referralSelf?: boolean;
+  referralCycle?: boolean;
+  duplicateReward?: boolean;
+};
+
+export function rewardStatusForFraudStatus(status: FraudEvaluationStatus): RewardStatus {
+  if (status === "AUTO_APPROVED" || status === "APPROVED") return "CONFIRMED";
+  if (status === "REJECTED") return "REJECTED";
+  return "PENDING_REVIEW";
+}
+
+export function evaluateRewardFraud(
+  context: RewardFraudContext,
+  config: Partial<RewardConfig> = {},
+): {
+  riskLevel: RewardRiskLevel;
+  status: FraudEvaluationStatus;
+  score: number;
+  reasons: string[];
+  movementMeters: number;
+} {
+  const rules = rewardConfigSchema.parse(config);
+  const reasons: string[] = [];
+  if (context.duplicateReward) reasons.push("DUPLICATE_REWARD_SOURCE");
+  if (!context.pinVerified) reasons.push("START_PIN_NOT_VERIFIED");
+  if (context.gpsPoints.length === 0) reasons.push("NO_GPS_POINTS");
+  const sortedPoints = [...context.gpsPoints].sort(
+    (left, right) => left.recordedAt.getTime() - right.recordedAt.getTime(),
+  );
+  const movementMeters = sortedPoints.slice(1).reduce((total, point, index) => {
+    const previous = sortedPoints[index]!;
+    return (
+      total +
+      distanceMetersBetween(
+        { lat: previous.latitude, lng: previous.longitude },
+        { lat: point.latitude, lng: point.longitude },
+      )
+    );
+  }, 0);
+  if (context.gpsPoints.length > 0 && movementMeters < rules.minMovementMeters) {
+    reasons.push("INSUFFICIENT_MOVEMENT");
+  }
+  const durationMinutes =
+    context.completedTripDurationMinutes ??
+    (context.tripStartedAt && context.tripCompletedAt
+      ? (context.tripCompletedAt.getTime() - context.tripStartedAt.getTime()) / 60000
+      : null);
+  if (durationMinutes == null || durationMinutes < rules.minTripDurationMinutes) {
+    reasons.push("ABNORMAL_TRIP_DURATION");
+  }
+  if (
+    context.tripStartedAt &&
+    context.tripCompletedAt &&
+    context.tripStartedAt.getTime() >= context.tripCompletedAt.getTime()
+  ) {
+    reasons.push("TIMELINE_ORDER_INVALID");
+  }
+  if ((context.repeatPairCompletedTrips ?? 0) >= 10) reasons.push("REPEAT_PAIR_PATTERN");
+  if (context.referralSelf) reasons.push("SELF_REFERRAL");
+  if (context.referralCycle) reasons.push("REFERRAL_CYCLE");
+  const score = reasons.length;
+  if (context.duplicateReward || context.referralSelf || context.referralCycle) {
+    return { riskLevel: "CRITICAL", status: "REJECTED", score, reasons, movementMeters };
+  }
+  if (score >= rules.highReviewThreshold) {
+    return { riskLevel: "HIGH", status: "PENDING_REVIEW", score, reasons, movementMeters };
+  }
+  if (score >= rules.mediumReviewThreshold) {
+    return { riskLevel: "MEDIUM", status: "PENDING_REVIEW", score, reasons, movementMeters };
+  }
+  return { riskLevel: "LOW", status: "AUTO_APPROVED", score, reasons, movementMeters };
+}
+
+export function calculateDriverMilestoneProgress(input: {
+  qualifyingTrips: number;
+  targetCount: number;
+}) {
+  const completed = Math.max(0, Math.floor(input.qualifyingTrips));
+  const target = Math.max(1, Math.floor(input.targetCount));
+  return {
+    completed,
+    target,
+    remaining: Math.max(0, target - completed),
+    reached: completed >= target,
+  };
 }

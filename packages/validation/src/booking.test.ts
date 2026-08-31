@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingHoldSchema, generateSeatLayout } from "./index";
+import { bookingConfirmSchema, bookingHoldSchema, generateSeatLayout } from "./index";
 
 describe("generateSeatLayout", () => {
   it("generates stable seat keys from passenger capacity", () => {
@@ -27,5 +27,55 @@ describe("bookingHoldSchema", () => {
 
     expect(parsed.type).toBe("SEAT");
     expect(parsed.paymentMethod).toBe("CASH");
+  });
+
+  it("accepts scheduled hold metadata without changing seat shape", () => {
+    const parsed = bookingHoldSchema.parse({
+      tripId: "trip_1",
+      type: "MULTI_SEAT",
+      seatKeys: ["FRONT_RIGHT", "ROW_1_LEFT"],
+      passengerCount: 2,
+      requestedDepartureAtUtc: "2026-09-03T03:30:00.000Z",
+    });
+
+    expect(parsed.requestedDepartureAtUtc?.toISOString()).toBe("2026-09-03T03:30:00.000Z");
+    expect(parsed.seatKeys).toHaveLength(2);
+  });
+});
+
+describe("bookingConfirmSchema", () => {
+  it("accepts baggage, preferences, pickup location, and schedule data", () => {
+    const parsed = bookingConfirmSchema.parse({
+      passengers: [
+        { firstName: "Nodir", seatKey: "FRONT_RIGHT" },
+        { firstName: "Guest", ageCategory: "CHILD", seatKey: "ROW_1_LEFT" },
+      ],
+      baggage: [{ type: "SUITCASE", quantity: 2 }],
+      preferences: { types: ["CHILD", "NO_SMOKING"], driverComment: "Главный вход" },
+      pickupLocation: {
+        latitude: 42.46,
+        longitude: 59.61,
+        label: "Вокзал",
+        comment: "У главного входа",
+      },
+      schedule: { option: "CUSTOM", requestedDepartureAtUtc: "2026-09-03T03:30:00.000Z" },
+      consentAccepted: true,
+    });
+
+    expect(parsed.baggage[0]?.quantity).toBe(2);
+    expect(parsed.preferences.types).toEqual(["CHILD", "NO_SMOKING"]);
+    expect(parsed.pickupLocation?.label).toBe("Вокзал");
+    expect(parsed.schedule.requestedDepartureAtUtc?.toISOString()).toBe("2026-09-03T03:30:00.000Z");
+  });
+
+  it("keeps no-baggage bookings separate from passenger count", () => {
+    const parsed = bookingConfirmSchema.parse({
+      passengers: [{ firstName: "Nodir", seatKey: "FRONT_RIGHT" }],
+      baggage: [],
+      consentAccepted: true,
+    });
+
+    expect(parsed.baggage).toEqual([]);
+    expect(parsed.preferences.types).toEqual([]);
   });
 });

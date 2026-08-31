@@ -23,6 +23,7 @@ const parcels = [
 export default function TripOperationDemo() {
   const [state, setState] = useState<TripState>("boarding");
   const [finishSheet, setFinishSheet] = useState(false);
+  const [startPin, setStartPin] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -110,12 +111,35 @@ export default function TripOperationDemo() {
               {isActive ? "Arrival" : "Ready"}
             </DriverPill>
           </div>
+          {!isActive ? (
+            <div className="grid gap-2 rounded-[20px] bg-[rgb(var(--canvas))] p-3">
+              <label
+                className="text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]"
+                htmlFor="trip-start-pin"
+              >
+                Passenger start PIN
+              </label>
+              <input
+                id="trip-start-pin"
+                className="min-h-12 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 text-center text-xl font-black tracking-[0.25em] outline-none"
+                inputMode="numeric"
+                maxLength={4}
+                onChange={(event) => setStartPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="••••"
+                value={startPin}
+              />
+              <p className="m-0 text-xs font-semibold text-[rgb(var(--text-muted))]">
+                Start is enabled after the passenger PIN is verified by the API.
+              </p>
+            </div>
+          ) : null}
           <button
-            className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
+            className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] disabled:opacity-50"
+            disabled={!isActive && startPin.length !== 4}
             onClick={() => (isActive ? setFinishSheet(true) : setState("active"))}
             type="button"
           >
-            {isActive ? "Finish trip" : "Start trip"}
+            {isActive ? "Finish trip" : "Verify PIN and start trip"}
           </button>
           {finishSheet && (
             <FinishSheet

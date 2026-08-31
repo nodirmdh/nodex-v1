@@ -3,33 +3,33 @@ import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui"
 const notifications = [
   {
     icon: "car" as const,
-    title: "Driver confirmed your request",
-    body: "Azizbek accepted Nukus to Urgench. Your selected seat is Front passenger.",
-    time: "Now",
+    title: "Водитель подтвердил вашу заявку",
+    body: "Azizbek принял поездку Nukus → Urgench. Ваше место: переднее пассажирское.",
+    time: "Сейчас",
     unread: true,
     tone: "success" as const,
   },
   {
     icon: "chat" as const,
-    title: "New driver message",
-    body: "White Chevrolet Cobalt, plate 95 A 214 QA.",
+    title: "Новое сообщение от водителя",
+    body: "Белый Chevrolet Cobalt, номер 95 A 214 QA.",
     time: "2 min",
     unread: true,
     tone: "accent" as const,
   },
   {
     icon: "help" as const,
-    title: "Support ticket updated",
-    body: "Support added your pickup note to the request.",
+    title: "Обращение в поддержку обновлено",
+    body: "Поддержка добавила вашу заметку о посадке к заявке.",
     time: "1h",
     unread: false,
     tone: "info" as const,
   },
   {
     icon: "shield" as const,
-    title: "Safety reminder",
-    body: "Share trip details with a trusted contact before departure.",
-    time: "Yesterday",
+    title: "Напоминание о безопасности",
+    body: "Перед выездом поделитесь деталями поездки с доверенным контактом.",
+    time: "Вчера",
     unread: false,
     tone: "warning" as const,
   },
@@ -41,11 +41,11 @@ export default function ClientNotificationsPage() {
       <ClientHeader
         backHref="/profile"
         level="secondary"
-        title="Notifications"
-        subtitle="Trips, messages, and safety"
+        title="Уведомления"
+        subtitle="Поездки, сообщения и безопасность"
       />
 
-      <section aria-label="Notifications" className="mt-4 grid gap-2.5">
+      <section aria-label="Уведомления" className="mt-4 grid gap-2.5">
         {notifications.map((notification) => (
           <Card key={notification.title} compact>
             <div className="flex items-start gap-3">
@@ -67,7 +67,7 @@ export default function ClientNotificationsPage() {
                 </p>
                 <div className="mt-2">
                   <StatusPill tone={notification.tone} subtle={!notification.unread}>
-                    {notification.unread ? "Unread" : "Read"}
+                    {notification.unread ? "Новое" : "Прочитано"}
                   </StatusPill>
                 </div>
               </div>

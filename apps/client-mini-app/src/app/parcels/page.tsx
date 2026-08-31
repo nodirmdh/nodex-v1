@@ -4,18 +4,18 @@ import { AppHeader, Badge, BottomNav, Button, Panel, Timeline, formatUzs } from 
 const parcels = [
   {
     id: "phase8-parcel-ready",
-    route: "Nukus to Urgench",
-    title: "Documents envelope",
+    route: "Nukus → Urgench",
+    title: "Конверт с документами",
     status: "READY_FOR_PICKUP",
-    category: "Documents",
+    category: "Документы",
     priceMinor: 3000000,
   },
   {
     id: "phase8-parcel-accepted",
-    route: "Nukus to Khiva",
-    title: "Small electronics",
+    route: "Nukus → Khiva",
+    title: "Мелкая электроника",
     status: "ACCEPTED",
-    category: "Electronics",
+    category: "Электроника",
     priceMinor: 3500000,
   },
 ];
@@ -27,32 +27,32 @@ function tone(status: string) {
   return "warning";
 }
 
-export default function ClientParcelsPage() {
+export default function ClientПосылкиPage() {
   return (
     <main className="nodex-app mobile-shell">
-      <AppHeader title="Parcels" subtitle="Create, track, and verify handover codes" />
+      <AppHeader title="Посылки" subtitle="Создание, отслеживание и коды передачи" />
       <div className="space-y-4 px-4">
-        <Panel className="space-y-3" aria-label="Parcel creation form">
+        <Panel className="space-y-3" aria-label="Форма создания посылки">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="m-0 text-lg font-black">Send a parcel</h1>
+              <h1 className="m-0 text-lg font-black">Отправить посылку</h1>
               <p className="m-0 text-sm text-slate-500">
-                Route-linked delivery with approved drivers.
+                Доставка по маршруту с проверенными водителями.
               </p>
             </div>
             <Badge tone="info">UZS</Badge>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="grid gap-1">
-              <span className="font-medium">Category</span>
+              <span className="font-medium">Категория</span>
               <select className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3">
-                <option>Documents</option>
-                <option>Clothing</option>
-                <option>Electronics</option>
+                <option>Документы</option>
+                <option>Одежда</option>
+                <option>Электроника</option>
               </select>
             </label>
             <label className="grid gap-1">
-              <span className="font-medium">Weight</span>
+              <span className="font-medium">Вес</span>
               <input
                 className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3"
                 defaultValue="1.2 kg"
@@ -60,21 +60,21 @@ export default function ClientParcelsPage() {
             </label>
           </div>
           <label className="grid gap-1 text-sm">
-            <span className="font-medium">Recipient phone</span>
+            <span className="font-medium">Телефон получателя</span>
             <input
               className="min-h-11 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3"
               defaultValue="+998 90 123 45 67"
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <Button type="button">Create parcel</Button>
+            <Button type="button">Создать посылку</Button>
             <Button type="button" variant="secondary">
-              Add photos
+              Добавить фото
             </Button>
           </div>
         </Panel>
 
-        <section aria-label="My parcel orders" className="space-y-3">
+        <section aria-label="Мои посылки" className="space-y-3">
           {parcels.map((parcel) => (
             <Panel key={parcel.id} className="space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -92,29 +92,29 @@ export default function ClientParcelsPage() {
                   className="text-sm font-semibold text-[rgb(var(--primary))]"
                   href={`/parcels/${parcel.id}`}
                 >
-                  Track
+                  Отследить
                 </Link>
               </div>
             </Panel>
           ))}
         </section>
 
-        <Panel aria-label="Parcel timeline preview">
+        <Panel aria-label="Превью истории посылки">
           <Timeline
             items={[
-              { label: "Parcel created", time: "09:00", active: true },
-              { label: "Driver accepted", time: "09:06", active: true },
-              { label: "Ready for pickup", time: "After arrival" },
+              { label: "Посылка создана", time: "09:00", active: true },
+              { label: "Водитель принял", time: "09:06", active: true },
+              { label: "Готово к выдаче", time: "После прибытия" },
             ]}
           />
         </Panel>
       </div>
       <BottomNav
         items={[
-          { label: "Home" },
-          { label: "Search" },
-          { label: "Parcels", active: true },
-          { label: "Profile" },
+          { label: "Главная" },
+          { label: "Поиск" },
+          { label: "Посылки", active: true },
+          { label: "Профиль" },
         ]}
       />
     </main>

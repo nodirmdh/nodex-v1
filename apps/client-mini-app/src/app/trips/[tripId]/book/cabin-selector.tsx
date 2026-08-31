@@ -2,6 +2,12 @@
 
 import { cn, formatUzs } from "@nodex/ui";
 import type { BookingType, CabinSeat, CabinTemplate } from "./cabin-model";
+import {
+  SEAT_MAP_LAYOUTS,
+  type SeatMapLayout,
+  type SeatMapSeatDefinition,
+  seatMapLayoutIdForVehicle,
+} from "./seat-map-layouts";
 
 type CabinSelectorProps = {
   bookingType: BookingType;
@@ -10,195 +16,194 @@ type CabinSelectorProps = {
   seats: CabinSeat[];
   selectedSeats: string[];
   template: CabinTemplate;
+  vehicleModel?: string;
+  tariff?: string;
   unavailableNotice?: string;
   onSeatToggle: (seatKey: string) => void;
 };
 
-const rowNames = {
-  front: "Front row",
-  second: "Second row",
-  third: "Third row",
-} as const;
+type VisualSeatStatus = "free" | "selected" | "reserved" | "blocked" | "driver";
 
-const stateCopy = {
-  available: "available",
-  occupied: "occupied",
-  unavailable: "unavailable",
-  driver: "driver seat",
-} as const;
+const stateCopy: Record<VisualSeatStatus, string> = {
+  free: "доступно",
+  selected: "выбрано",
+  reserved: "резерв",
+  blocked: "закрыто",
+  driver: "место водителя",
+};
 
-function SteeringWheel() {
+function resolveVisualStatus(
+  layoutSeat: SeatMapSeatDefinition,
+  seat: CabinSeat | undefined,
+  selected: boolean,
+): VisualSeatStatus {
+  if (!layoutSeat.bookable || seat?.status === "driver") return "driver";
+  if (!seat || seat.status === "unavailable") return "blocked";
+  if (seat.status === "occupied") return "reserved";
+  if (selected) return "selected";
+  return "free";
+}
+
+function VehicleShell({ shell }: { shell: SeatMapLayout["shell"] }) {
+  if (shell === "minivan") {
+    return (
+      <svg viewBox="0 0 340 620" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <path
+          d="M170 18C112 20 75 42 62 89L41 176C27 238 27 401 43 473L62 541C77 591 114 607 170 610C226 607 263 591 278 541L297 473C313 401 313 238 299 176L278 89C265 42 228 20 170 18Z"
+          className="fill-[rgb(var(--primary)/0.045)] stroke-[rgb(var(--primary))] [stroke-width:3.2]"
+        />
+        <path
+          d="M83 174C99 122 128 103 170 101C212 103 241 122 257 174C272 229 272 386 257 454C242 510 211 532 170 534C129 532 98 510 83 454C68 386 68 229 83 174Z"
+          className="fill-[rgb(var(--surface)/0.52)] stroke-[rgb(var(--primary)/0.25)] [stroke-width:2.4]"
+        />
+        <path
+          d="M107 103C118 73 139 61 170 60C201 61 222 73 233 103M89 478C111 496 139 504 170 505C201 504 229 496 251 478"
+          className="fill-none stroke-[rgb(var(--primary)/0.2)] [stroke-width:2.4] [stroke-linecap:round]"
+        />
+        <path
+          d="M73 179H43M73 250H38M73 378H38M73 449H43M267 179H297M267 250H302M267 378H302M267 449H297"
+          className="fill-none stroke-[rgb(var(--primary)/0.22)] [stroke-width:6] [stroke-linecap:round]"
+        />
+        <path
+          d="M92 294H248M92 384H248M130 117C119 167 116 214 116 264M224 117C235 167 238 214 238 264"
+          className="fill-none stroke-[rgb(var(--primary)/0.13)] [stroke-width:2.2] [stroke-linecap:round]"
+        />
+      </svg>
+    );
+  }
+
   return (
-    <div
-      aria-hidden="true"
-      className="absolute left-[18%] top-[15%] grid h-11 w-11 place-items-center rounded-full border-[7px] border-[rgb(var(--primary))] bg-[rgb(var(--surface))] shadow-[0_8px_18px_rgb(var(--primary)/0.2)]"
-    >
-      <span className="h-1.5 w-6 rounded-full bg-[rgb(var(--primary))]" />
-    </div>
+    <svg viewBox="0 0 320 520" className="absolute inset-0 h-full w-full" aria-hidden="true">
+      <path
+        d="M160 15C109 17 78 37 66 78L46 156C34 205 35 324 48 382L67 448C80 492 112 507 160 510C208 507 240 492 253 448L272 382C285 324 286 205 274 156L254 78C242 37 211 17 160 15Z"
+        className="fill-[rgb(var(--primary)/0.045)] stroke-[rgb(var(--primary))] [stroke-width:3.2]"
+      />
+      <path
+        d="M85 150C99 108 124 92 160 91C196 92 221 108 235 150C250 202 250 321 235 372C221 414 196 431 160 432C124 431 99 414 85 372C70 321 70 202 85 150Z"
+        className="fill-[rgb(var(--surface)/0.56)] stroke-[rgb(var(--primary)/0.25)] [stroke-width:2.3]"
+      />
+      <path
+        d="M101 96C114 72 133 62 160 61C187 62 206 72 219 96M85 397C106 414 132 421 160 422C188 421 214 414 235 397"
+        className="fill-none stroke-[rgb(var(--primary)/0.2)] [stroke-width:2.3] [stroke-linecap:round]"
+      />
+      <path
+        d="M75 167H45M75 232H39M75 336H39M75 400H45M245 167H275M245 232H281M245 336H281M245 400H275"
+        className="fill-none stroke-[rgb(var(--primary)/0.22)] [stroke-width:5.5] [stroke-linecap:round]"
+      />
+      <path
+        d="M92 258H228M117 111C108 153 105 190 105 229M203 111C212 153 215 190 215 229"
+        className="fill-none stroke-[rgb(var(--primary)/0.13)] [stroke-width:2.1] [stroke-linecap:round]"
+      />
+    </svg>
+  );
+}
+function LockMark() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="absolute right-0 top-0 h-3.5 w-3.5">
+      <path
+        d="M5 7V5.5a3 3 0 0 1 6 0V7M4.5 7h7v5.5h-7Z"
+        className="fill-[rgb(var(--surface))] stroke-current [stroke-width:1.4]"
+      />
+    </svg>
   );
 }
 
-function CabinSeatControl({
-  bookingType,
-  priceMinor,
+function SeatIcon({ status }: { status: VisualSeatStatus }) {
+  const selected = status === "selected";
+
+  return (
+    <svg viewBox="0 0 72 86" aria-hidden="true" className="h-full w-full overflow-visible">
+      <path
+        d="M24 6H48C53 6 56 9 56 14V21C56 24 54 26 50 26H22C18 26 16 24 16 21V14C16 9 19 6 24 6Z"
+        className={cn(
+          "stroke-current [stroke-width:2.4]",
+          selected ? "fill-current" : "fill-[rgb(var(--surface))]",
+        )}
+      />
+      <path
+        d="M15 30C18 24 26 21 36 21C46 21 54 24 57 30C60 36 61 49 59 58C58 64 54 68 48 68H24C18 68 14 64 13 58C11 49 12 36 15 30Z"
+        className={cn(
+          "stroke-current [stroke-width:2.7]",
+          selected ? "fill-current" : "fill-[rgb(var(--surface)/0.92)]",
+        )}
+      />
+      <path
+        d="M24 36C27 33 31 32 36 32C41 32 45 33 48 36C51 40 52 51 50 56C49 59 47 61 43 61H29C25 61 23 59 22 56C20 51 21 40 24 36Z"
+        className={cn(
+          "stroke-current [stroke-width:2]",
+          selected
+            ? "fill-[rgb(var(--primary-foreground)/0.18)]"
+            : "fill-[rgb(var(--surface-tint)/0.55)]",
+        )}
+      />
+      <path
+        d="M22 66C25 63 30 62 36 62C42 62 47 63 50 66C54 70 53 77 48 80H24C19 77 18 70 22 66Z"
+        className={cn(
+          "stroke-current [stroke-width:2.4]",
+          selected ? "fill-current" : "fill-[rgb(var(--surface))]",
+        )}
+      />
+      <path
+        d="M13 40H8C6 40 5 42 5 45V56C5 59 7 61 10 61H14M59 40H64C66 40 67 42 67 45V56C67 59 65 61 62 61H58"
+        className="fill-none stroke-current [stroke-width:2.2] [stroke-linecap:round]"
+      />
+      <path d="M36 34V61" className="stroke-current [stroke-width:1.8] opacity-30" />
+    </svg>
+  );
+}
+
+function SeatNode({
+  layoutSeat,
   seat,
-  selected,
-  wholeCarHighlighted,
+  status,
+  disabled,
+  priceMinor,
   onSeatToggle,
 }: {
-  bookingType: BookingType;
+  layoutSeat: SeatMapSeatDefinition;
+  seat: CabinSeat | undefined;
+  status: VisualSeatStatus;
+  disabled: boolean;
   priceMinor: number;
-  seat: CabinSeat;
-  selected: boolean;
-  wholeCarHighlighted: boolean;
   onSeatToggle: (seatKey: string) => void;
 }) {
-  const disabled = seat.status !== "available" || bookingType === "WHOLE_CAR";
-  const state = seat.status === "available" && selected ? "selected" : seat.status;
-  const highlighted = selected || wholeCarHighlighted;
-  const passengerDisabled = state === "occupied" || state === "unavailable";
-
   return (
     <button
-      aria-disabled={disabled}
-      aria-label={`${seat.label} seat, ${state === "selected" ? "selected" : stateCopy[seat.status]}, ${formatUzs(priceMinor)}`}
-      aria-selected={selected}
+      aria-label={`${layoutSeat.label}: ${stateCopy[status]}, ${formatUzs(priceMinor)}`}
+      aria-pressed={status === "selected"}
       className={cn(
-        "group relative min-h-[88px] rounded-[32px] border p-2 transition duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--primary))]",
-        state === "driver" &&
-          "cursor-not-allowed border-[rgb(var(--border-strong))] bg-[linear-gradient(180deg,rgb(var(--surface-muted)),rgb(var(--canvas)))] text-[rgb(var(--text-muted))] shadow-[inset_0_0_0_1px_rgb(var(--surface)/0.8)]",
-        state === "available" &&
-          "border-[rgb(var(--border))] bg-[linear-gradient(180deg,rgb(var(--surface)),rgb(var(--surface-tint)))] text-[rgb(var(--foreground))] shadow-[0_14px_26px_rgb(var(--foreground)/0.08)] hover:-translate-y-0.5",
-        state === "selected" &&
-          "scale-[1.035] border-[rgb(var(--primary))] bg-[linear-gradient(180deg,rgb(var(--primary)),rgb(var(--primary)/0.86))] text-[rgb(var(--primary-foreground))] shadow-[0_18px_34px_rgb(var(--primary)/0.34)]",
-        state === "occupied" &&
-          "cursor-not-allowed border-[rgb(var(--border-strong))] bg-[linear-gradient(180deg,rgb(var(--surface-muted)),rgb(var(--border)))] text-[rgb(var(--text-muted))] opacity-75 shadow-[inset_0_0_0_1px_rgb(var(--foreground)/0.04)]",
-        state === "unavailable" &&
-          "cursor-not-allowed border-dashed border-[rgb(var(--border-strong))] bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))] opacity-55",
-        wholeCarHighlighted &&
-          "border-[rgb(var(--primary))] bg-[linear-gradient(180deg,rgb(var(--primary-soft)),rgb(var(--surface-tint)))] text-[rgb(var(--primary))] shadow-[0_14px_28px_rgb(var(--primary)/0.18)]",
+        "absolute z-20 grid aspect-[72/86] w-[clamp(42px,13vw,56px)] place-items-center border-0 bg-transparent p-0 transition duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--primary))]",
+        status === "free" && "cursor-pointer text-[rgb(var(--primary))] active:scale-95",
+        status === "selected" &&
+          "text-[rgb(var(--primary))] drop-shadow-[0_5px_8px_rgb(var(--primary)/0.24)]",
+        status === "reserved" && "cursor-not-allowed text-[#9facaa] opacity-80",
+        status === "blocked" && "cursor-not-allowed text-[#bdc8c6] opacity-60",
+        status === "driver" && "cursor-not-allowed text-[#314f4b] opacity-95",
       )}
       disabled={disabled}
-      role="option"
+      style={{
+        left: `${layoutSeat.x}%`,
+        top: `${layoutSeat.y}%`,
+        transform: `translate(-50%, -50%) rotate(${layoutSeat.rotate ?? 0}deg)`,
+      }}
       type="button"
-      onClick={() => onSeatToggle(seat.key)}
+      onClick={() => onSeatToggle(seat?.key ?? layoutSeat.seatKey)}
     >
+      <SeatIcon status={status} />
+      {status === "reserved" ? <LockMark /> : null}
       <span
-        aria-hidden="true"
         className={cn(
-          "absolute left-1/2 top-2 h-5 w-12 -translate-x-1/2 rounded-[16px] shadow-[inset_0_-2px_5px_rgb(var(--foreground)/0.08)]",
-          highlighted
-            ? "bg-[rgb(var(--primary-foreground)/0.42)]"
-            : passengerDisabled || state === "driver"
-              ? "bg-[rgb(var(--border-strong))]"
-              : "bg-[rgb(var(--surface-tint))]",
+          "absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 text-[11px] font-black leading-none",
+          status === "selected"
+            ? "text-[rgb(var(--primary-foreground))]"
+            : "text-[rgb(var(--foreground))]",
+          status === "driver" &&
+            "top-[88%] text-[7px] uppercase tracking-[0.06em] text-[rgb(var(--foreground))]",
         )}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-x-2 top-[25px] h-12 rounded-[24px] border transition shadow-[inset_0_8px_14px_rgb(var(--surface)/0.42)]",
-          highlighted
-            ? "border-[rgb(var(--primary-foreground)/0.22)] bg-[rgb(var(--primary-foreground)/0.08)]"
-            : passengerDisabled || state === "driver"
-              ? "border-[rgb(var(--border-strong))] bg-[rgb(var(--surface)/0.3)]"
-              : "border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.72)]",
-        )}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute bottom-2 left-3 right-3 h-9 rounded-[22px] shadow-[inset_0_3px_6px_rgb(var(--surface)/0.56)]",
-          highlighted
-            ? "bg-[rgb(var(--primary-foreground)/0.22)]"
-            : passengerDisabled || state === "driver"
-              ? "bg-[rgb(var(--foreground)/0.08)]"
-              : "bg-[rgb(var(--surface))]",
-        )}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute bottom-5 left-2 h-8 w-3 rounded-full",
-          highlighted ? "bg-[rgb(var(--primary-foreground)/0.18)]" : "bg-[rgb(var(--border)/0.55)]",
-        )}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute bottom-5 right-2 h-8 w-3 rounded-full",
-          highlighted ? "bg-[rgb(var(--primary-foreground)/0.18)]" : "bg-[rgb(var(--border)/0.55)]",
-        )}
-      />
-      <span className="relative z-10 mt-10 block text-center text-[11px] font-black leading-tight">
-        {seat.label}
+      >
+        {layoutSeat.shortLabel}
       </span>
-      {state === "occupied" ? (
-        <span className="absolute right-2 top-2 z-10 grid h-6 min-w-9 place-items-center rounded-full bg-[rgb(var(--foreground)/0.14)] px-1 text-[9px] font-black">
-          Hold
-        </span>
-      ) : null}
-      {state === "unavailable" ? (
-        <span className="absolute right-2 top-2 z-10 grid h-6 min-w-8 place-items-center rounded-full border border-[rgb(var(--border-strong))] bg-[rgb(var(--surface))] px-1 text-[9px] font-black">
-          Off
-        </span>
-      ) : null}
     </button>
-  );
-}
-
-function SeatRow({
-  bookingType,
-  priceMinor,
-  row,
-  seats,
-  selectedSeats,
-  wholeCar,
-  onSeatToggle,
-}: {
-  bookingType: BookingType;
-  priceMinor: number;
-  row: CabinSeat["row"];
-  seats: CabinSeat[];
-  selectedSeats: string[];
-  wholeCar: boolean;
-  onSeatToggle: (seatKey: string) => void;
-}) {
-  const rowSeats = seats.filter((seat) => seat.row === row);
-  if (rowSeats.length === 0) return null;
-
-  return (
-    <div aria-label={rowNames[row]} className="grid grid-cols-3 items-center gap-2" role="group">
-      {(["left", "center", "right"] as const).map((position) => {
-        const seat = rowSeats.find((item) => item.position === position);
-        if (!seat) {
-          return (
-            <div
-              key={position}
-              aria-hidden="true"
-              className={cn(
-                "min-h-[88px] rounded-[28px]",
-                row === "front"
-                  ? "bg-[linear-gradient(180deg,rgb(var(--foreground)/0.045),rgb(var(--surface)/0.3))] shadow-[inset_0_0_0_1px_rgb(var(--surface)/0.7)]"
-                  : "bg-[rgb(var(--surface)/0.28)]",
-              )}
-            />
-          );
-        }
-
-        return (
-          <CabinSeatControl
-            key={seat.key}
-            bookingType={bookingType}
-            onSeatToggle={onSeatToggle}
-            priceMinor={priceMinor}
-            seat={seat}
-            selected={selectedSeats.includes(seat.key)}
-            wholeCarHighlighted={wholeCar && seat.status === "available"}
-          />
-        );
-      })}
-    </div>
   );
 }
 
@@ -209,118 +214,78 @@ export function CabinSelector({
   seats,
   selectedSeats,
   template,
+  vehicleModel,
+  tariff,
   unavailableNotice,
   onSeatToggle,
 }: CabinSelectorProps) {
   const wholeCar = bookingType === "WHOLE_CAR";
-  const hasThirdRow = seats.some((seat) => seat.row === "third");
-  const templateLabel =
-    template === "MINIVAN_8"
-      ? "Minivan cabin"
-      : template === "SUV_7"
-        ? "Seven-seat SUV cabin"
-        : template === "SUV_5"
-          ? "SUV cabin"
-          : "Sedan cabin";
+  const layoutId = seatMapLayoutIdForVehicle({
+    model: vehicleModel,
+    passengerSeatCapacity: seats.filter((seat) => seat.status !== "driver").length,
+    seats,
+    tariff,
+    template,
+  });
+  const layout = SEAT_MAP_LAYOUTS[layoutId];
+  const seatsByKey = new Map(seats.map((seat) => [seat.key, seat]));
 
   return (
     <section
-      aria-label="Real car cabin seat picker"
-      className="rounded-[34px] bg-[rgb(var(--surface))] p-4 shadow-[0_24px_60px_rgb(var(--foreground)/0.12)]"
+      aria-label="Выбор места в салоне автомобиля"
+      className="rounded-[30px] bg-[rgb(var(--surface))] p-4 shadow-[0_20px_48px_rgb(var(--foreground)/0.1)]"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="m-0 text-lg font-black">Cabin</h2>
+          <h2 className="m-0 text-lg font-black">Салон</h2>
           <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
             {wholeCar
-              ? "All available passenger seats highlighted"
-              : `${selectedSeats.length} of ${passengerCount} selected`}
+              ? "Все доступные пассажирские места подсвечены"
+              : `${selectedSeats.length} из ${passengerCount} выбрано`}
           </p>
         </div>
-        <span className="rounded-full bg-[rgb(var(--surface-tint))] px-3 py-2 text-xs font-black text-[rgb(var(--primary))]">
-          {templateLabel}
-        </span>
+        <span className="text-xs font-black text-[rgb(var(--primary))]">{layout.title}</span>
       </div>
 
       <div
         className={cn(
-          "relative overflow-hidden rounded-[42px] border border-[rgb(var(--primary)/0.18)] bg-[radial-gradient(circle_at_50%_12%,rgb(var(--surface))_0%,rgb(var(--surface-tint))_34%,rgb(var(--canvas))_100%)] p-4 shadow-[inset_0_10px_24px_rgb(var(--surface)/0.86),inset_0_-18px_36px_rgb(var(--foreground)/0.04)]",
-          hasThirdRow ? "min-h-[620px]" : "min-h-[452px]",
+          "relative isolate mx-auto w-full overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgb(var(--surface)),rgb(var(--surface-tint)/0.72))]",
+          layout.vehicleType === "minivan" ? "h-[360px] max-w-[318px]" : "h-[300px] max-w-[292px]",
         )}
-        role="listbox"
-        aria-label="Passenger seats"
+        role="group"
+        aria-label="Пассажирские места"
       >
-        <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-[rgb(var(--primary))] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[rgb(var(--primary-foreground))]">
-          Front
+        <VehicleShell shell={layout.shell} />
+        <div className="absolute left-1/2 top-2 z-30 -translate-x-1/2 text-[9px] font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          Перед
         </div>
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-7 top-4 h-16 rounded-t-[42px] bg-[linear-gradient(180deg,rgb(var(--surface)/0.94),rgb(var(--surface)/0.3))] shadow-[0_12px_20px_rgb(var(--primary)/0.08)]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-5 bottom-4 top-8 rounded-[54px] border-[11px] border-[rgb(var(--primary)/0.13)]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-12 top-16 h-12 rounded-[28px] bg-[linear-gradient(180deg,rgb(var(--foreground)/0.08),rgb(var(--foreground)/0.035))]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute bottom-12 left-1/2 top-32 w-[18%] -translate-x-1/2 rounded-[32px] bg-[linear-gradient(180deg,rgb(var(--surface)/0.34),rgb(var(--foreground)/0.035),rgb(var(--surface)/0.5))]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-12 bottom-8 h-3 rounded-full bg-[rgb(var(--primary)/0.12)]"
-        />
-        <SteeringWheel />
 
-        <div className={cn("relative z-10 grid pt-20", hasThirdRow ? "gap-6" : "gap-7")}>
-          <SeatRow
-            bookingType={bookingType}
-            onSeatToggle={onSeatToggle}
-            priceMinor={priceMinor}
-            row="front"
-            seats={seats}
-            selectedSeats={selectedSeats}
-            wholeCar={wholeCar}
-          />
-          <div
-            aria-hidden="true"
-            className="mx-auto h-14 w-20 rounded-[28px] bg-[linear-gradient(180deg,rgb(var(--foreground)/0.075),rgb(var(--surface)/0.4))] shadow-[inset_0_2px_8px_rgb(var(--foreground)/0.05)]"
-          />
-          <SeatRow
-            bookingType={bookingType}
-            onSeatToggle={onSeatToggle}
-            priceMinor={priceMinor}
-            row="second"
-            seats={seats}
-            selectedSeats={selectedSeats}
-            wholeCar={wholeCar}
-          />
-          {hasThirdRow ? (
-            <>
-              <div
-                aria-hidden="true"
-                className="mx-auto h-12 w-24 rounded-[24px] bg-[linear-gradient(90deg,transparent,rgb(var(--surface)/0.82),transparent)]"
-              />
-              <SeatRow
-                bookingType={bookingType}
-                onSeatToggle={onSeatToggle}
-                priceMinor={priceMinor}
-                row="third"
-                seats={seats}
-                selectedSeats={selectedSeats}
-                wholeCar={wholeCar}
-              />
-            </>
-          ) : null}
-        </div>
+        {layout.seats.map((layoutSeat) => {
+          const seat = seatsByKey.get(layoutSeat.seatKey);
+          const selected =
+            selectedSeats.includes(layoutSeat.seatKey) ||
+            (wholeCar && layoutSeat.bookable && seat?.status === "available");
+          const status = resolveVisualStatus(layoutSeat, seat, selected);
+          const disabled =
+            status === "reserved" || status === "blocked" || status === "driver" || wholeCar;
+
+          return (
+            <SeatNode
+              key={layoutSeat.seatKey}
+              disabled={disabled}
+              layoutSeat={layoutSeat}
+              onSeatToggle={onSeatToggle}
+              priceMinor={priceMinor}
+              seat={seat}
+              status={status}
+            />
+          );
+        })}
       </div>
 
       {unavailableNotice ? (
         <p
-          className="m-0 mt-3 rounded-[22px] bg-[rgb(var(--warning-soft))] p-3 text-sm font-semibold text-[rgb(var(--warning))]"
+          className="m-0 mt-3 rounded-[18px] bg-[rgb(var(--warning-soft))] p-3 text-sm font-semibold text-[rgb(var(--warning))]"
           role="status"
         >
           {unavailableNotice}

@@ -28,7 +28,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   ),
   clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
   filter: <path d="M4 7h16M7 12h10M10 17h4" />,
-  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
+  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1 ч-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
   message: <path d="M5 18v-4.5A7.5 7.5 0 1 1 9.5 20H6.8A1.8 1.8 0 0 1 5 18Z" />,
   navigation: <path d="m6 12 12-6-5 12-2-5-5-1Z" />,
   star: <path d="m12 4 2.2 4.7 5.1.6-3.8 3.5 1 5-4.5-2.5-4.5 2.5 1-5-3.8-3.5 5.1-.6L12 4Z" />,
@@ -69,10 +69,10 @@ const trips = [
     priceMinor: 8500000,
     driver: "Azizbek Karimov",
     rating: "4.9",
-    trips: "268 rides",
-    response: "Fast response",
+    trips: "268 поездок",
+    response: "Быстро отвечает",
     vehicle: "Chevrolet Cobalt",
-    vehicleMeta: "White, 4 seats",
+    vehicleMeta: "Белый, 4 места",
     parcel: true,
     luggage: true,
     recommended: true,
@@ -88,10 +88,10 @@ const trips = [
     priceMinor: 9200000,
     driver: "Madina Yusupova",
     rating: "4.8",
-    trips: "142 rides",
-    response: "Reliable",
+    trips: "142 поездки",
+    response: "Надёжный",
     vehicle: "Chevrolet Tracker",
-    vehicleMeta: "Silver, 4 seats",
+    vehicleMeta: "Серебристый, 4 места",
     parcel: false,
     luggage: true,
     recommended: false,
@@ -107,10 +107,10 @@ const trips = [
     priceMinor: 9500000,
     driver: "Sherzod Rakhimov",
     rating: "4.7",
-    trips: "94 rides",
-    response: "Verified",
+    trips: "94 поездки",
+    response: "Проверен",
     vehicle: "BYD Chazor",
-    vehicleMeta: "Blue, 4 seats",
+    vehicleMeta: "Синий, 4 места",
     parcel: true,
     luggage: true,
     recommended: false,
@@ -118,18 +118,18 @@ const trips = [
 ];
 
 const filterChips = [
-  "Recommended",
-  "Cheapest",
-  "Earliest",
-  "Top rated",
-  "Front seat",
-  "Parcel",
-  "Luggage",
+  "Рекомендуемые",
+  "Дешевле",
+  "Раньше",
+  "Лучший рейтинг",
+  "Переднее место",
+  "Посылка",
+  "Багаж",
 ];
 
 export default function SearchPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [sort, setSort] = useState("Recommended");
+  const [sort, setSort] = useState("Рекомендуемые");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -138,9 +138,9 @@ export default function SearchPage() {
 
   const sortedTrips = useMemo(() => {
     const list = [...trips];
-    if (sort === "Cheapest") return list.sort((a, b) => a.priceMinor - b.priceMinor);
-    if (sort === "Earliest") return list.sort((a, b) => a.departure.localeCompare(b.departure));
-    if (sort === "Top rated") return list.sort((a, b) => Number(b.rating) - Number(a.rating));
+    if (sort === "Дешевле") return list.sort((a, b) => a.priceMinor - b.priceMinor);
+    if (sort === "Раньше") return list.sort((a, b) => a.departure.localeCompare(b.departure));
+    if (sort === "Лучший рейтинг") return list.sort((a, b) => Number(b.rating) - Number(a.rating));
     return list.sort((a, b) => Number(b.recommended) - Number(a.recommended));
   }, [sort]);
 
@@ -149,7 +149,7 @@ export default function SearchPage() {
       <div className="mx-auto min-h-screen max-w-[430px] overflow-hidden bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_28%,rgb(var(--canvas))_100%)] px-4 pb-28 pt-4">
         <header className="flex items-center gap-3">
           <Link
-            aria-label="Back home"
+            aria-label="Назад на главную"
             className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
             href="/"
           >
@@ -163,13 +163,13 @@ export default function SearchPage() {
             </div>
             <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-[rgb(var(--text-muted))]">
               <Icon name="calendar" className="h-4 w-4" />
-              Tomorrow
+              Завтра
               <span>·</span>
-              <Icon name="users" className="h-4 w-4" />2 passengers
+              <Icon name="users" className="h-4 w-4" />2 пассажира
             </div>
           </div>
           <button
-            aria-label="Open filters"
+            aria-label="Открыть фильтры"
             className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]"
             onClick={() => setSheetOpen(true)}
           >
@@ -178,14 +178,14 @@ export default function SearchPage() {
         </header>
 
         <section
-          className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-2"
-          aria-label="Quick filters"
+          className="-mx-4 mt-5 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="Быстрые фильтры"
         >
           {filterChips.map((chip) => (
             <button
               key={chip}
               className={[
-                "min-h-10 shrink-0 rounded-full px-4 text-sm font-extrabold shadow-[var(--shadow-xs)]",
+                "min-h-10 shrink-0 snap-start rounded-full px-4 text-sm font-extrabold shadow-[var(--shadow-xs)]",
                 sort === chip
                   ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                   : "bg-[rgb(var(--surface))] text-[rgb(var(--text-muted))]",
@@ -200,12 +200,12 @@ export default function SearchPage() {
         <section className="mt-2">
           <div className="mb-3 flex items-end justify-between">
             <div>
-              <h1 className="m-0 text-2xl font-extrabold">Available rides</h1>
+              <h1 className="m-0 text-2xl font-extrabold">Доступные поездки</h1>
               <p className="m-0 text-sm font-medium text-[rgb(var(--text-muted))]">
-                Verified drivers. Price is per seat.
+                Проверенные водители. Цена указана за место.
               </p>
             </div>
-            <Badge tone="accent">{sortedTrips.length} found</Badge>
+            <Badge tone="accent">{sortedTrips.length} найдено</Badge>
           </div>
 
           <div className="grid gap-3">
@@ -234,7 +234,7 @@ export default function SearchPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    {trip.recommended ? <Badge tone="accent">Best match</Badge> : null}
+                    {trip.recommended ? <Badge tone="accent">Лучший вариант</Badge> : null}
                     <div className="mt-2 rounded-full bg-[rgb(var(--primary))] px-3 py-2 text-sm font-extrabold text-[rgb(var(--primary-foreground))]">
                       {formatUzs(trip.priceMinor)}
                     </div>
@@ -269,11 +269,11 @@ export default function SearchPage() {
                   <Badge tone={trip.seats === 1 ? "warning" : "info"}>
                     {trip.seats} seat{trip.seats === 1 ? "" : "s"} left
                   </Badge>
-                  {trip.luggage ? <Badge tone="accent">Luggage</Badge> : null}
-                  {trip.parcel ? <Badge tone="info">Parcel</Badge> : null}
+                  {trip.luggage ? <Badge tone="accent">Багаж</Badge> : null}
+                  {trip.parcel ? <Badge tone="info">Посылка</Badge> : null}
                   <Badge>{trip.response}</Badge>
                   <span className="ml-auto flex items-center gap-1 text-sm font-extrabold text-[rgb(var(--primary))]">
-                    View
+                    Смотреть
                     <Icon name="navigation" className="h-4 w-4" />
                   </span>
                 </div>
@@ -286,10 +286,10 @@ export default function SearchPage() {
       <nav className="fixed inset-x-4 bottom-4 z-[var(--z-nav)] mx-auto max-w-[398px] rounded-full bg-[rgb(var(--surface)/0.94)] p-1.5 shadow-[var(--shadow-floating)] backdrop-blur-xl">
         <div className="grid grid-cols-4 gap-1">
           {[
-            { label: "Home", icon: "home" as const, active: false, href: "/" },
-            { label: "Trips", icon: "car" as const, active: true, href: "/bookings" },
-            { label: "Messages", icon: "message" as const, active: false, href: "/messages" },
-            { label: "Profile", icon: "user" as const, active: false, href: "/profile" },
+            { label: "Главная", icon: "home" as const, active: false, href: "/" },
+            { label: "Поездки", icon: "car" as const, active: true, href: "/bookings" },
+            { label: "Сообщения", icon: "message" as const, active: false, href: "/messages" },
+            { label: "Профиль", icon: "user" as const, active: false, href: "/profile" },
           ].map((item) => (
             <Link
               key={item.label}
@@ -311,7 +311,7 @@ export default function SearchPage() {
       {sheetOpen ? (
         <div className="fixed inset-0 z-[var(--z-modal)] bg-[rgb(var(--overlay)/0.34)]">
           <button
-            aria-label="Close filters"
+            aria-label="Закрыть фильтры"
             className="absolute inset-0 h-full w-full"
             onClick={() => setSheetOpen(false)}
           />
@@ -319,19 +319,21 @@ export default function SearchPage() {
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[rgb(var(--border-strong))]" />
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="m-0 text-xl font-extrabold">Filters</h2>
+                <h2 className="m-0 text-xl font-extrabold">Фильтры</h2>
                 <p className="m-0 text-sm font-medium text-[rgb(var(--text-muted))]">
-                  Refine supported options only.
+                  Настройте только поддерживаемые параметры.
                 </p>
               </div>
-              <button className="text-sm font-extrabold text-[rgb(var(--primary))]">Reset</button>
+              <button className="text-sm font-extrabold text-[rgb(var(--primary))]">
+                Сбросить
+              </button>
             </div>
 
             <div className="mt-5 space-y-5">
               <div>
-                <h3 className="m-0 mb-2 text-sm font-extrabold">Departure</h3>
+                <h3 className="m-0 mb-2 text-sm font-extrabold">Время выезда</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  {["Morning", "Afternoon", "Evening"].map((item) => (
+                  {["Утро", "День", "Вечер"].map((item) => (
                     <button
                       key={item}
                       className="min-h-11 rounded-full bg-[rgb(var(--canvas))] text-sm font-bold"
@@ -342,9 +344,9 @@ export default function SearchPage() {
                 </div>
               </div>
               <div>
-                <h3 className="m-0 mb-2 text-sm font-extrabold">Driver and comfort</h3>
+                <h3 className="m-0 mb-2 text-sm font-extrabold">Водитель и комфорт</h3>
                 <div className="flex flex-wrap gap-2">
-                  {["Verified driver", "4.8+ rating", "Luggage", "Parcel", "2+ seats"].map(
+                  {["Проверенный водитель", "Рейтинг 4.8+", "Багаж", "Посылка", "2+ места"].map(
                     (item) => (
                       <button
                         key={item}
@@ -364,9 +366,9 @@ export default function SearchPage() {
 
             <div className="mt-5 grid grid-cols-[0.8fr_1.2fr] gap-2">
               <Button variant="secondary" onClick={() => setSheetOpen(false)}>
-                Reset
+                Сбросить
               </Button>
-              <Button onClick={() => setSheetOpen(false)}>Apply filters</Button>
+              <Button onClick={() => setSheetOpen(false)}>Применить фильтры</Button>
             </div>
           </section>
         </div>

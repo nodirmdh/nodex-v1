@@ -769,6 +769,12 @@ model User {
   ticketAssignedBy                        TicketAssignment[]              @relation("TicketAssignmentAssignedBy")
   ticketStatusEvents                      TicketStatusEvent[]             @relation("TicketStatusEventActor")
   communicationTimelineEvents             CommunicationTimelineEvent[]    @relation("CommunicationTimelineActor")
+  rewardTransactions                      RewardTransaction[]             @relation("RewardTransactionUser")
+  reviewedRewardTransactions              RewardTransaction[]             @relation("RewardTransactionReviewer")
+  fraudEvaluations                        FraudEvaluation[]               @relation("FraudEvaluationSubject")
+  reviewedFraudEvaluations                FraudEvaluation[]               @relation("FraudEvaluationReviewer")
+  referralsSent                           Referral[]                      @relation("ReferralReferrer")
+  referralsReceived                       Referral[]                      @relation("ReferralReferred")
 
   @@index([status])
   @@index([phone])
@@ -998,6 +1004,8 @@ model DriverProfile {
   vehicles                 Vehicle[]
   trips                    Trip[]
   parcelOrders             ParcelOrder[]
+  rewardTransactions       RewardTransaction[]
+  milestoneProgress        DriverMilestoneProgress[]
 }
 
 model Region {
@@ -1398,9 +1406,14 @@ model Trip {
   cancellations                 TripCancellation[]
   completionSummary             TripCompletionSummary?
   noShowRecords                 NoShowRecord[]
+  startPins                     TripStartPin[]
+  locationPoints                TripLocationPoint[]
+  etaSnapshot                   TripEtaSnapshot?
   parcelOrders                  ParcelOrder[]
   conversations                 Conversation[]
   supportTickets                SupportTicket[]
+  rewardTransactions            RewardTransaction[]
+  fraudEvaluations              FraudEvaluation[]
 
   @@index([driverProfileId, status, departureAtUtc])
   @@index([vehicleId, status, departureAtUtc])
@@ -1485,14 +1498,16 @@ model TripModerationEvent {
 }
 
 model TripTimelineEvent {
-  id        String   @id @default(cuid())
-  tripId    String
-  type      String
-  payload   Json?
-  createdAt DateTime @default(now())
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  tripId      String
+  actorUserId String?
+  type        String
+  payload     Json?
+  createdAt   DateTime @default(now())
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, createdAt])
+  @@index([actorUserId, createdAt])
   @@index([type, createdAt])
 }
 
@@ -1539,6 +1554,9 @@ model Booking {
   pickupPointId            String?
   destinationPickupPointId String?
   clientComment            String?
+  travelPreferences        Json?
+  pickupLocation           Json?
+  requestedDepartureAtUtc  DateTime?
   pricingSnapshot          Json?
   tripSnapshot             Json?
   termsSnapshot            Json?
@@ -1560,6 +1578,8 @@ model Booking {
   timelineEvents           BookingTimelineEvent[]
   cancellations            BookingCancellation[]
   boardingCodes            BoardingCode[]
+  startPins                TripStartPin[]
+  locationPoints           TripLocationPoint[]
   operationEvents          BookingOperationEvent[]
   noShowRecords            NoShowRecord[]
   conversations            Conversation[]
@@ -2219,23 +2239,23 @@ model CommunicationTimelineEvent {
 }
 
 model ReviewCriterion {
-  id          String              @id @default(cuid())
-  type        ReviewType
-  code        ReviewCriterionCode
-  label       String
-  isRequired  Boolean             @default(false)
-  sortOrder   Int                 @default(0)
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  scores      ReviewCriterionScore[]
+  id         String                 @id @default(cuid())
+  type       ReviewType
+  code       ReviewCriterionCode
+  label      String
+  isRequired Boolean                @default(false)
+  sortOrder  Int                    @default(0)
+  isActive   Boolean                @default(true)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  scores     ReviewCriterionScore[]
 
   @@unique([type, code])
   @@index([type, isActive, sortOrder])
 }
 
 model Review {
-  id               String          @id @default(cuid())
+  id               String                 @id @default(cuid())
   type             ReviewType
   reviewerUserId   String
   revieweeUserId   String
@@ -2244,15 +2264,15 @@ model Review {
   parcelOrderId    String?
   overallRating    Int
   text             String?
-  status           ReviewStatus    @default(PUBLISHED)
+  status           ReviewStatus           @default(PUBLISHED)
   submittedAt      DateTime?
   publishedAt      DateTime?
   editedAt         DateTime?
   moderationReason String?
-  reportedCount    Int             @default(0)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  version          Int             @default(1)
+  reportedCount    Int                    @default(0)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  version          Int                    @default(1)
   scores           ReviewCriterionScore[]
   moderation       ReviewModeration[]
   safetyReports    SafetyReport[]
@@ -2281,15 +2301,15 @@ model ReviewCriterionScore {
 }
 
 model ReviewModeration {
-  id            String       @id @default(cuid())
-  reviewId      String
-  actorUserId   String?
-  action        String
-  fromStatus    ReviewStatus?
-  toStatus      ReviewStatus
-  reason        String?
-  createdAt     DateTime     @default(now())
-  review        Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  reviewId    String
+  actorUserId String?
+  action      String
+  fromStatus  ReviewStatus?
+  toStatus    ReviewStatus
+  reason      String?
+  createdAt   DateTime      @default(now())
+  review      Review        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([reviewId, createdAt])
   @@index([toStatus, createdAt])
@@ -2310,21 +2330,21 @@ model RatingAggregate {
 }
 
 model ReliabilityProfile {
-  id                         String           @id @default(cuid())
-  userId                     String           @unique
-  completedTripsCount         Int              @default(0)
-  completedBookingsCount      Int              @default(0)
-  clientCancellationCount     Int              @default(0)
-  driverCancellationCount     Int              @default(0)
-  clientNoShowCount           Int              @default(0)
-  driverNoShowCount           Int              @default(0)
-  parcelDeliveredCount        Int              @default(0)
-  parcelIssueCount            Int              @default(0)
-  lateCancellationCount       Int              @default(0)
-  accountRestrictionCount     Int              @default(0)
-  reliabilityLevel            ReliabilityLevel @default(NEW)
-  lastCalculatedAt            DateTime         @default(now())
-  version                     Int              @default(1)
+  id                      String           @id @default(cuid())
+  userId                  String           @unique
+  completedTripsCount     Int              @default(0)
+  completedBookingsCount  Int              @default(0)
+  clientCancellationCount Int              @default(0)
+  driverCancellationCount Int              @default(0)
+  clientNoShowCount       Int              @default(0)
+  driverNoShowCount       Int              @default(0)
+  parcelDeliveredCount    Int              @default(0)
+  parcelIssueCount        Int              @default(0)
+  lateCancellationCount   Int              @default(0)
+  accountRestrictionCount Int              @default(0)
+  reliabilityLevel        ReliabilityLevel @default(NEW)
+  lastCalculatedAt        DateTime         @default(now())
+  version                 Int              @default(1)
 
   @@index([reliabilityLevel])
 }
@@ -2363,7 +2383,7 @@ model UserBlock {
 }
 
 model SafetyReport {
-  id                String             @id @default(cuid())
+  id                String                     @id @default(cuid())
   reporterUserId    String
   reportedUserId    String?
   tripId            String?
@@ -2374,18 +2394,18 @@ model SafetyReport {
   reviewId          String?
   supportTicketId   String?
   type              SafetyReportType
-  severity          SafetySeverity     @default(MEDIUM)
+  severity          SafetySeverity             @default(MEDIUM)
   description       String
-  status            SafetyReportStatus @default(SUBMITTED)
+  status            SafetyReportStatus         @default(SUBMITTED)
   assignedToUserId  String?
   resolutionCode    String?
   resolutionSummary String?
   duplicateKey      String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
   resolvedAt        DateTime?
-  version           Int                @default(1)
-  review            Review?            @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  version           Int                        @default(1)
+  review            Review?                    @relation(fields: [reviewId], references: [id], onDelete: SetNull)
   events            SafetyIncidentEvent[]
   attachments       SafetyReportAttachment[]
   internalNotes     SafetyReportInternalNote[]
@@ -2430,16 +2450,16 @@ model SafetyReportInternalNote {
 }
 
 model SafetyIncident {
-  id             String               @id @default(cuid())
+  id              String                @id @default(cuid())
   primaryReportId String?
-  subjectUserId  String?
-  severity       SafetySeverity
-  status         SafetyIncidentStatus @default(OPEN)
-  summary        String
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  resolvedAt     DateTime?
-  events         SafetyIncidentEvent[]
+  subjectUserId   String?
+  severity        SafetySeverity
+  status          SafetyIncidentStatus  @default(OPEN)
+  summary         String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  resolvedAt      DateTime?
+  events          SafetyIncidentEvent[]
 
   @@index([status, severity, createdAt])
   @@index([subjectUserId, status])
@@ -2476,17 +2496,17 @@ model TrustedContact {
 }
 
 model TripShare {
-  id            String    @id @default(cuid())
-  ownerUserId   String
-  tripId        String
-  bookingId     String?
-  tokenHash     String    @unique
-  label         String?
-  expiresAt     DateTime
-  revokedAt     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accessEvents  TripShareAccessEvent[]
+  id           String                 @id @default(cuid())
+  ownerUserId  String
+  tripId       String
+  bookingId    String?
+  tokenHash    String                 @unique
+  label        String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  accessEvents TripShareAccessEvent[]
 
   @@index([ownerUserId, revokedAt, expiresAt])
   @@index([tripId, expiresAt])
@@ -2520,17 +2540,17 @@ model EmergencyAction {
 }
 
 model ModerationCase {
-  id            String               @id @default(cuid())
+  id            String                @id @default(cuid())
   sourceType    String
   sourceId      String
   subjectUserId String?
-  status        ModerationCaseStatus @default(OPEN)
-  severity      SafetySeverity       @default(MEDIUM)
+  status        ModerationCaseStatus  @default(OPEN)
+  severity      SafetySeverity        @default(MEDIUM)
   assigneeId    String?
   decision      String?
   reason        String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
   events        ModerationCaseEvent[]
 
   @@unique([sourceType, sourceId])
@@ -2539,7 +2559,7 @@ model ModerationCase {
 }
 
 model ModerationCaseEvent {
-  id          String         @id @default(cuid())
+  id          String                @id @default(cuid())
   caseId      String
   actorUserId String?
   type        String
@@ -2547,25 +2567,25 @@ model ModerationCaseEvent {
   toStatus    ModerationCaseStatus?
   reason      String?
   payload     Json?
-  createdAt   DateTime       @default(now())
-  case        ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdAt   DateTime              @default(now())
+  case        ModerationCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId, createdAt])
 }
 
 model AccountRestriction {
-  id              String                   @id @default(cuid())
+  id              String                    @id @default(cuid())
   userId          String
   type            AccountRestrictionType
   reason          String
-  startsAt        DateTime                 @default(now())
+  startsAt        DateTime                  @default(now())
   endsAt          DateTime?
-  status          AccountRestrictionStatus @default(ACTIVE)
+  status          AccountRestrictionStatus  @default(ACTIVE)
   createdByUserId String
   removedByUserId String?
   removedReason   String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
   events          AccountRestrictionEvent[]
 
   @@index([userId, status, type])
@@ -2586,24 +2606,24 @@ model AccountRestrictionEvent {
 }
 
 model PaymentProviderAccount {
-  id             String          @id @default(cuid())
-  provider       PaymentProvider
-  displayName    String
-  isActive       Boolean         @default(true)
-  config         Json            @default("{}")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  intents        PaymentIntent[]
-  attempts       PaymentAttempt[]
-  webhooks       PaymentWebhookEvent[]
-  payouts        DriverPayout[]
+  id          String                @id @default(cuid())
+  provider    PaymentProvider
+  displayName String
+  isActive    Boolean               @default(true)
+  config      Json                  @default("{}")
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  intents     PaymentIntent[]
+  attempts    PaymentAttempt[]
+  webhooks    PaymentWebhookEvent[]
+  payouts     DriverPayout[]
 
   @@unique([provider, displayName])
   @@index([provider, isActive])
 }
 
 model Payment {
-  id                  String            @id @default(cuid())
+  id                  String                 @id @default(cuid())
   targetType          PaymentTargetType
   bookingId           String?
   parcelOrderId       String?
@@ -2613,11 +2633,11 @@ model Payment {
   payeeUserId         String?
   method              PaymentMethod
   provider            PaymentProvider?
-  status              PaymentStatus     @default(CREATED)
-  currency            String            @default("UZS")
+  status              PaymentStatus          @default(CREATED)
+  currency            String                 @default("UZS")
   amountMinor         BigInt
-  paidMinor           BigInt            @default(0)
-  refundedMinor       BigInt            @default(0)
+  paidMinor           BigInt                 @default(0)
+  refundedMinor       BigInt                 @default(0)
   pricingSnapshotId   String?
   idempotencyKey      String?
   expiresAt           DateTime?
@@ -2626,9 +2646,9 @@ model Payment {
   cancelledAt         DateTime?
   failureCode         String?
   failureMessage      String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  version             Int               @default(1)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  version             Int                    @default(1)
   intents             PaymentIntent[]
   refunds             PaymentRefund[]
   allocations         PaymentAllocation[]
@@ -2646,26 +2666,26 @@ model Payment {
 }
 
 model PaymentIntent {
-  id                    String              @id @default(cuid())
-  paymentId             String
-  providerAccountId     String?
-  provider              PaymentProvider
-  status                PaymentIntentStatus @default(CREATED)
-  amountMinor           BigInt
-  currency              String              @default("UZS")
-  providerReference     String?
-  clientAction          Json?
-  idempotencyKey        String
-  expiresAt             DateTime?
-  succeededAt           DateTime?
-  failedAt              DateTime?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  version               Int                 @default(1)
-  payment               Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  providerAccount       PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
-  attempts              PaymentAttempt[]
-  webhookEvents         PaymentWebhookEvent[]
+  id                String                  @id @default(cuid())
+  paymentId         String
+  providerAccountId String?
+  provider          PaymentProvider
+  status            PaymentIntentStatus     @default(CREATED)
+  amountMinor       BigInt
+  currency          String                  @default("UZS")
+  providerReference String?
+  clientAction      Json?
+  idempotencyKey    String
+  expiresAt         DateTime?
+  succeededAt       DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  version           Int                     @default(1)
+  payment           Payment                 @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  providerAccount   PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  attempts          PaymentAttempt[]
+  webhookEvents     PaymentWebhookEvent[]
 
   @@unique([idempotencyKey])
   @@unique([provider, providerReference])
@@ -2674,19 +2694,19 @@ model PaymentIntent {
 }
 
 model PaymentAttempt {
-  id                String               @id @default(cuid())
+  id                String                  @id @default(cuid())
   paymentIntentId   String
   providerAccountId String?
   provider          PaymentProvider
-  status            PaymentAttemptStatus @default(CREATED)
+  status            PaymentAttemptStatus    @default(CREATED)
   providerReference String?
   requestPayload    Json?
   responsePayload   Json?
   errorCode         String?
   errorMessage      String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  paymentIntent     PaymentIntent        @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  paymentIntent     PaymentIntent           @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
   providerAccount   PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
 
   @@index([paymentIntentId, createdAt])
@@ -2695,19 +2715,19 @@ model PaymentAttempt {
 }
 
 model PaymentWebhookEvent {
-  id                    String                 @id @default(cuid())
-  provider              PaymentProvider
-  providerAccountId     String?
-  paymentIntentId       String?
-  eventId               String
-  eventType             String
-  signatureValid        Boolean                @default(false)
-  processedAt           DateTime?
-  processingError       String?
-  payload               Json
-  receivedAt            DateTime               @default(now())
-  providerAccount       PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
-  paymentIntent         PaymentIntent?         @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  id                String                  @id @default(cuid())
+  provider          PaymentProvider
+  providerAccountId String?
+  paymentIntentId   String?
+  eventId           String
+  eventType         String
+  signatureValid    Boolean                 @default(false)
+  processedAt       DateTime?
+  processingError   String?
+  payload           Json
+  receivedAt        DateTime                @default(now())
+  providerAccount   PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  paymentIntent     PaymentIntent?          @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
 
   @@unique([provider, eventId])
   @@index([paymentIntentId, receivedAt])
@@ -2715,24 +2735,24 @@ model PaymentWebhookEvent {
 }
 
 model PaymentRefund {
-  id              String                 @id @default(cuid())
-  paymentId       String
+  id                String                 @id @default(cuid())
+  paymentId         String
   requestedByUserId String?
-  reason          RefundReason
-  status          RefundStatus           @default(REQUESTED)
-  currency        String                 @default("UZS")
-  amountMinor     BigInt
-  succeededAt     DateTime?
-  failedAt        DateTime?
-  rejectedAt      DateTime?
-  failureCode     String?
-  failureMessage  String?
-  idempotencyKey  String?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  version         Int                    @default(1)
-  payment         Payment                @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  attempts        PaymentRefundAttempt[]
+  reason            RefundReason
+  status            RefundStatus           @default(REQUESTED)
+  currency          String                 @default("UZS")
+  amountMinor       BigInt
+  succeededAt       DateTime?
+  failedAt          DateTime?
+  rejectedAt        DateTime?
+  failureCode       String?
+  failureMessage    String?
+  idempotencyKey    String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  version           Int                    @default(1)
+  payment           Payment                @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  attempts          PaymentRefundAttempt[]
 
   @@unique([idempotencyKey])
   @@index([paymentId, status])
@@ -2740,47 +2760,47 @@ model PaymentRefund {
 }
 
 model PaymentRefundAttempt {
-  id                String        @id @default(cuid())
+  id                String          @id @default(cuid())
   refundId          String
   provider          PaymentProvider
-  status            RefundStatus  @default(PROCESSING)
+  status            RefundStatus    @default(PROCESSING)
   providerReference String?
   requestPayload    Json?
   responsePayload   Json?
   errorCode         String?
   errorMessage      String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  refund            PaymentRefund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  refund            PaymentRefund   @relation(fields: [refundId], references: [id], onDelete: Cascade)
 
   @@index([refundId, createdAt])
   @@index([provider, providerReference])
 }
 
 model PaymentAllocation {
-  id            String   @id @default(cuid())
-  paymentId     String
-  targetType    String
-  targetId      String
-  currency      String   @default("UZS")
-  amountMinor   BigInt
-  createdAt     DateTime @default(now())
-  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  paymentId   String
+  targetType  String
+  targetId    String
+  currency    String   @default("UZS")
+  amountMinor BigInt
+  createdAt   DateTime @default(now())
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([targetType, targetId])
 }
 
 model PlatformFee {
-  id             String   @id @default(cuid())
-  paymentId      String
-  currency       String   @default("UZS")
-  amountMinor    BigInt
-  rateBps        Int      @default(0)
-  fixedMinor     BigInt   @default(0)
-  ruleSnapshot   Json?
-  createdAt      DateTime @default(now())
-  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  paymentId    String
+  currency     String   @default("UZS")
+  amountMinor  BigInt
+  rateBps      Int      @default(0)
+  fixedMinor   BigInt   @default(0)
+  ruleSnapshot Json?
+  createdAt    DateTime @default(now())
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@unique([paymentId])
   @@index([paymentId])
@@ -2814,54 +2834,54 @@ model DriverEarning {
 }
 
 model DriverPayout {
-  id                  String                 @id @default(cuid())
-  driverProfileId      String
-  providerAccountId    String?
-  provider             PaymentProvider       @default(MANUAL)
-  status               PayoutStatus          @default(DRAFT)
-  currency             String                @default("UZS")
-  grossMinor           BigInt                @default(0)
-  itemCount            Int                   @default(0)
-  providerReference    String?
-  requestedByUserId    String?
-  approvedByUserId     String?
-  paidAt               DateTime?
-  failedAt             DateTime?
-  failureReason        String?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  providerAccount      PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
-  items                DriverPayoutItem[]
-  earnings             DriverEarning[]
+  id                String                  @id @default(cuid())
+  driverProfileId   String
+  providerAccountId String?
+  provider          PaymentProvider         @default(MANUAL)
+  status            PayoutStatus            @default(DRAFT)
+  currency          String                  @default("UZS")
+  grossMinor        BigInt                  @default(0)
+  itemCount         Int                     @default(0)
+  providerReference String?
+  requestedByUserId String?
+  approvedByUserId  String?
+  paidAt            DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  providerAccount   PaymentProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+  items             DriverPayoutItem[]
+  earnings          DriverEarning[]
 
   @@index([driverProfileId, status, createdAt])
   @@index([provider, providerReference])
 }
 
 model DriverPayoutItem {
-  id              String        @id @default(cuid())
-  payoutId        String
-  earningId       String
-  currency        String        @default("UZS")
-  amountMinor     BigInt
-  createdAt       DateTime      @default(now())
-  payout          DriverPayout  @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  payoutId    String
+  earningId   String
+  currency    String       @default("UZS")
+  amountMinor BigInt
+  createdAt   DateTime     @default(now())
+  payout      DriverPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
 
   @@unique([payoutId, earningId])
   @@index([earningId])
 }
 
 model FinancialTransaction {
-  id              String                   @id @default(cuid())
-  type            FinancialTransactionType
-  referenceType   String
-  referenceId     String
-  currency        String                   @default("UZS")
-  amountMinor     BigInt
-  idempotencyKey  String
-  metadata        Json?
-  createdAt       DateTime                 @default(now())
-  entries         FinancialLedgerEntry[]
+  id             String                   @id @default(cuid())
+  type           FinancialTransactionType
+  referenceType  String
+  referenceId    String
+  currency       String                   @default("UZS")
+  amountMinor    BigInt
+  idempotencyKey String
+  metadata       Json?
+  createdAt      DateTime                 @default(now())
+  entries        FinancialLedgerEntry[]
 
   @@unique([idempotencyKey])
   @@index([referenceType, referenceId])
@@ -2869,16 +2889,16 @@ model FinancialTransaction {
 }
 
 model FinancialLedgerEntry {
-  id              String                 @id @default(cuid())
-  transactionId   String
-  paymentId       String?
-  account         String
-  entryType       LedgerEntryType
-  currency        String                 @default("UZS")
-  amountMinor     BigInt
-  createdAt       DateTime               @default(now())
-  transaction     FinancialTransaction   @relation(fields: [transactionId], references: [id], onDelete: Restrict)
-  payment         Payment?               @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  id            String               @id @default(cuid())
+  transactionId String
+  paymentId     String?
+  account       String
+  entryType     LedgerEntryType
+  currency      String               @default("UZS")
+  amountMinor   BigInt
+  createdAt     DateTime             @default(now())
+  transaction   FinancialTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  payment       Payment?             @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@index([transactionId])
   @@index([paymentId])
@@ -2919,16 +2939,16 @@ model ReconciliationItem {
 }
 
 model CashPaymentDeclaration {
-  id              String               @id @default(cuid())
-  paymentId       String?
-  bookingId       String?
-  parcelOrderId   String?
+  id               String               @id @default(cuid())
+  paymentId        String?
+  bookingId        String?
+  parcelOrderId    String?
   declaredByUserId String
-  currency        String               @default("UZS")
-  amountMinor     BigInt
-  status          CashSettlementStatus @default(DECLARED)
-  createdAt       DateTime             @default(now())
-  confirmedAt     DateTime?
+  currency         String               @default("UZS")
+  amountMinor      BigInt
+  status           CashSettlementStatus @default(DECLARED)
+  createdAt        DateTime             @default(now())
+  confirmedAt      DateTime?
 
   @@unique([paymentId])
   @@index([paymentId])
@@ -2959,48 +2979,48 @@ model CashSettlement {
 }
 
 model PaymentDispute {
-  id              String   @id @default(cuid())
-  paymentId       String
-  openedByUserId  String
-  status          String   @default("OPEN")
-  reason          String
-  resolution      String?
+  id               String    @id @default(cuid())
+  paymentId        String
+  openedByUserId   String
+  status           String    @default("OPEN")
+  reason           String
+  resolution       String?
   resolvedByUserId String?
-  createdAt       DateTime @default(now())
-  resolvedAt      DateTime?
-  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  resolvedAt       DateTime?
+  payment          Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId, status])
 }
 
 model PricingRule {
-  id             String   @id @default(cuid())
-  code           String   @unique
-  targetType     PaymentTargetType
-  currency       String   @default("UZS")
-  feeRateBps     Int      @default(0)
-  fixedFeeMinor  BigInt   @default(0)
-  isActive       Boolean  @default(true)
-  startsAt       DateTime @default(now())
-  endsAt         DateTime?
-  payload        Json     @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String            @id @default(cuid())
+  code          String            @unique
+  targetType    PaymentTargetType
+  currency      String            @default("UZS")
+  feeRateBps    Int               @default(0)
+  fixedFeeMinor BigInt            @default(0)
+  isActive      Boolean           @default(true)
+  startsAt      DateTime          @default(now())
+  endsAt        DateTime?
+  payload       Json              @default("{}")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([targetType, isActive, startsAt])
 }
 
 model PricingSnapshot {
-  id             String            @id @default(cuid())
-  targetType     PaymentTargetType
-  targetId       String
-  currency       String            @default("UZS")
-  subtotalMinor  BigInt
-  feeMinor       BigInt            @default(0)
-  totalMinor     BigInt
-  ruleCode       String?
-  snapshot       Json
-  createdAt      DateTime          @default(now())
+  id            String            @id @default(cuid())
+  targetType    PaymentTargetType
+  targetId      String
+  currency      String            @default("UZS")
+  subtotalMinor BigInt
+  feeMinor      BigInt            @default(0)
+  totalMinor    BigInt
+  ruleCode      String?
+  snapshot      Json
+  createdAt     DateTime          @default(now())
 
   @@index([targetType, targetId])
 }
@@ -3030,16 +3050,16 @@ model FinancialAuditEvent {
 }
 
 model AnalyticsEvent {
-  id            String             @id @default(cuid())
-  type          AnalyticsEventType
-  actorUserId   String?
-  sessionId     String?
-  entityType    String?
-  entityId      String?
-  occurredAt    DateTime           @default(now())
-  dedupeKey     String?
-  payload       Json?
-  createdAt     DateTime           @default(now())
+  id          String             @id @default(cuid())
+  type        AnalyticsEventType
+  actorUserId String?
+  sessionId   String?
+  entityType  String?
+  entityId    String?
+  occurredAt  DateTime           @default(now())
+  dedupeKey   String?
+  payload     Json?
+  createdAt   DateTime           @default(now())
 
   @@unique([dedupeKey])
   @@index([type, occurredAt])
@@ -3047,37 +3067,37 @@ model AnalyticsEvent {
 }
 
 model DailyMetric {
-  id          String   @id @default(cuid())
-  metricDate  DateTime
-  metricKey   String
-  dimensions  Json     @default("{}")
-  value       BigInt   @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  metricDate DateTime
+  metricKey  String
+  dimensions Json     @default("{}")
+  value      BigInt   @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([metricDate, metricKey])
   @@index([metricKey, metricDate])
 }
 
 model FunnelSnapshot {
-  id          String   @id @default(cuid())
+  id           String   @id @default(cuid())
   snapshotDate DateTime
-  funnelKey   String
-  steps       Json
-  createdAt   DateTime @default(now())
+  funnelKey    String
+  steps        Json
+  createdAt    DateTime @default(now())
 
   @@unique([snapshotDate, funnelKey])
 }
 
 model ReportExport {
-  id              String   @id @default(cuid())
-  type            String
-  status          String   @default("READY")
+  id                String    @id @default(cuid())
+  type              String
+  status            String    @default("READY")
   requestedByUserId String?
-  storageKey      String?
-  filters         Json?
-  createdAt       DateTime @default(now())
-  completedAt     DateTime?
+  storageKey        String?
+  filters           Json?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
 
   @@index([type, status, createdAt])
 }
@@ -3113,6 +3133,194 @@ model BoardingAttempt {
 
   @@index([boardingCodeId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+model RewardTransaction {
+  id                String                   @id @default(cuid())
+  userId            String
+  driverProfileId   String?
+  roleContext       String
+  type              String
+  amount            Int
+  status            String                   @default("PENDING")
+  sourceType        String
+  sourceId          String
+  tripId            String?
+  referralId        String?
+  idempotencyKey    String
+  reason            String?
+  metadata          Json?
+  createdAt         DateTime                 @default(now())
+  confirmedAt       DateTime?
+  rejectedAt        DateTime?
+  revokedAt         DateTime?
+  reviewedAt        DateTime?
+  reviewedById      String?
+  user              User                     @relation("RewardTransactionUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy        User?                    @relation("RewardTransactionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  driverProfile     DriverProfile?           @relation(fields: [driverProfileId], references: [id], onDelete: SetNull)
+  trip              Trip?                    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  referral          Referral?                @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  fraudEvaluation   FraudEvaluation?
+  milestoneProgress DriverMilestoneProgress?
+
+  @@unique([userId, type, sourceType, sourceId])
+  @@unique([idempotencyKey])
+  @@index([userId, status, createdAt])
+  @@index([driverProfileId, status, createdAt])
+  @@index([tripId, type])
+  @@index([referralId, type])
+  @@index([status, createdAt])
+}
+
+model Referral {
+  id               String              @id @default(cuid())
+  referrerUserId   String
+  referredUserId   String
+  code             String?
+  roleContext      String              @default("CLIENT")
+  status           String              @default("INVITED")
+  createdAt        DateTime            @default(now())
+  registeredAt     DateTime?
+  qualifiedAt      DateTime?
+  rewardedAt       DateTime?
+  rejectedAt       DateTime?
+  reason           String?
+  metadata         Json?
+  referrer         User                @relation("ReferralReferrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred         User                @relation("ReferralReferred", fields: [referredUserId], references: [id], onDelete: Cascade)
+  rewards          RewardTransaction[]
+  fraudEvaluations FraudEvaluation[]
+
+  @@unique([referredUserId, roleContext])
+  @@index([referrerUserId, status, createdAt])
+  @@index([code])
+  @@index([status, createdAt])
+}
+
+model FraudEvaluation {
+  id                  String             @id @default(cuid())
+  rewardTransactionId String?            @unique
+  tripId              String?
+  referralId          String?
+  subjectUserId       String
+  riskLevel           String
+  status              String
+  score               Int                @default(0)
+  reasons             Json
+  decision            String?
+  reviewedAt          DateTime?
+  reviewedById        String?
+  metadata            Json?
+  createdAt           DateTime           @default(now())
+  rewardTransaction   RewardTransaction? @relation(fields: [rewardTransactionId], references: [id], onDelete: Cascade)
+  trip                Trip?              @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  referral            Referral?          @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  subject             User               @relation("FraudEvaluationSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  reviewedBy          User?              @relation("FraudEvaluationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([subjectUserId, status, createdAt])
+  @@index([tripId, riskLevel])
+  @@index([referralId, riskLevel])
+  @@index([status, createdAt])
+}
+
+model RewardMilestoneDefinition {
+  id           String                    @id @default(cuid())
+  code         String                    @unique
+  title        String
+  targetCount  Int
+  rewardType   String
+  rewardAmount Int
+  enabled      Boolean                   @default(true)
+  validFrom    DateTime?
+  validTo      DateTime?
+  metadata     Json?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  progress     DriverMilestoneProgress[]
+}
+
+model DriverMilestoneProgress {
+  id                    String                    @id @default(cuid())
+  driverProfileId       String
+  milestoneDefinitionId String
+  qualifyingTripCount   Int                       @default(0)
+  status                String                    @default("IN_PROGRESS")
+  reachedAt             DateTime?
+  rewardTransactionId   String?                   @unique
+  updatedAt             DateTime                  @updatedAt
+  createdAt             DateTime                  @default(now())
+  driverProfile         DriverProfile             @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  milestoneDefinition   RewardMilestoneDefinition @relation(fields: [milestoneDefinitionId], references: [id], onDelete: Cascade)
+  rewardTransaction     RewardTransaction?        @relation(fields: [rewardTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([driverProfileId, milestoneDefinitionId])
+  @@index([driverProfileId, status])
+}
+
+model TripStartPin {
+  id            String    @id @default(cuid())
+  tripId        String
+  bookingId     String
+  codeHash      String
+  codeLength    Int       @default(4)
+  status        String    @default("ACTIVE")
+  expiresAt     DateTime
+  attemptsCount Int       @default(0)
+  maxAttempts   Int       @default(5)
+  lockedAt      DateTime?
+  verifiedAt    DateTime?
+  verifiedById  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, status, expiresAt])
+  @@index([bookingId, status, expiresAt])
+  @@index([verifiedById, verifiedAt])
+}
+
+model TripLocationPoint {
+  id                   String   @id @default(cuid())
+  tripId               String
+  bookingId            String?
+  actorType            String
+  actorUserId          String?
+  latitude             Decimal  @db.Decimal(9, 6)
+  longitude            Decimal  @db.Decimal(9, 6)
+  accuracyMeters       Decimal? @db.Decimal(8, 2)
+  speedMetersPerSecond Decimal? @db.Decimal(8, 2)
+  headingDegrees       Decimal? @db.Decimal(6, 2)
+  source               String
+  reason               String?
+  recordedAt           DateTime
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking              Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, recordedAt])
+  @@index([bookingId, recordedAt])
+  @@index([actorUserId, actorType, recordedAt])
+  @@index([source, recordedAt])
+}
+
+model TripEtaSnapshot {
+  id                        String   @id @default(cuid())
+  tripId                    String   @unique
+  driverEtaToPickupSeconds  Int?
+  driverEtaToDropoffSeconds Int?
+  delaySeconds              Int?
+  status                    String   @default("UNKNOWN")
+  source                    String   @default("MANUAL_MAPS_ADAPTER")
+  metadata                  Json?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  trip                      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([status, updatedAt])
 }
 
 model TripOperationEvent {

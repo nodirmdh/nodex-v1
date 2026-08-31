@@ -63,6 +63,34 @@ export default function DriverProfile() {
         </div>
       </DriverCard>
 
+      <DriverCard className="mt-3 space-y-3" label="Driver rewards">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-base font-black">Бонусы водителя</h2>
+            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Квалифицирующие поездки проходят проверку PIN, GPS и дублей.
+            </p>
+          </div>
+          <DriverPill tone="accent">20 000 000 UZS</DriverPill>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-[rgb(var(--surface-muted))]">
+          <div className="h-full w-[72%] rounded-full bg-[rgb(var(--primary))]" />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs font-black">
+          <div className="rounded-[12px] bg-[rgb(var(--canvas))] p-2">
+            <span className="block text-base">36</span>
+            <span className="text-[rgb(var(--text-muted))]">из 50</span>
+          </div>
+          <div className="rounded-[12px] bg-[rgb(var(--canvas))] p-2">
+            <span className="block text-base">8</span>
+            <span className="text-[rgb(var(--text-muted))]">билетов</span>
+          </div>
+          <div className="rounded-[12px] bg-[rgb(var(--canvas))] p-2">
+            <span className="block text-base">1</span>
+            <span className="text-[rgb(var(--text-muted))]">ревью</span>
+          </div>
+        </div>
+      </DriverCard>
       {groups.map((group) => (
         <DriverCard key={group.title} className="mt-3 p-0" label={`Driver profile ${group.title}`}>
           <h2 className="m-0 px-3 pt-3 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">

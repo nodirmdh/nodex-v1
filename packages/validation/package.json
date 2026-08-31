@@ -14,7 +14,8 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "@nodex/maps": "workspace:*"
   },
   "devDependencies": {
     "@nodex/typescript-config": "workspace:*",
