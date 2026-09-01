@@ -1,0 +1,8 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AdminPageHeader, AdminPanel } from "../admin-shell";
+import { DataTable, QuickActionModal, Status, Toolbar } from "../admin-components";
+import { rewards } from "../admin-data";
+
+export default function RewardsPage() { const [query,setQuery]=useState(""); const [filter,setFilter]=useState("All statuses"); const rows=useMemo(()=>rewards.filter((r)=>`${r.id} ${r.owner} ${r.role} ${r.source}`.toLowerCase().includes(query.toLowerCase())&&(filter==="All statuses"||r.status===filter||r.role===filter||r.risk===filter)),[filter,query]); return <main className="admin-main"><AdminPageHeader title="Rewards" subtitle="Client rewards, driver rewards, pending review and milestone progress." /><AdminPanel className="overflow-hidden"><Toolbar query={query} onQuery={setQuery} filters={["All statuses","Client","Driver","Pending","Approved","Rejected","Low","Medium","High"]} activeFilter={filter} onFilter={setFilter} placeholder="Reward, user, driver, source" count={rows.length}/><DataTable rows={rows} hrefFor={() => "/rewards"} columns={[{key:"id",label:"Reward",render:(r)=><strong>{r.id}</strong>},{key:"owner",label:"Owner",render:(r)=>`${r.owner} · ${r.role}`},{key:"source",label:"Source",render:(r)=>r.source},{key:"trip",label:"Trip",render:(r)=>r.tripId},{key:"amount",label:"Amount",render:(r)=>r.amount},{key:"status",label:"Status",render:(r)=><Status value={r.status}/>},{key:"risk",label:"Risk",render:(r)=><Status value={r.risk}/>},{key:"action",label:"Action",render:(r)=><QuickActionModal label="Review" title="Reward transaction"><p>{r.owner} · {r.source} · {r.amount}</p><p>Approve/reject waits for existing backend action.</p></QuickActionModal>}]} /></AdminPanel></main>; }

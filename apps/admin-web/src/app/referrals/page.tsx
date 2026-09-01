@@ -1,0 +1,8 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AdminPageHeader, AdminPanel } from "../admin-shell";
+import { DataTable, QuickActionModal, Status, Toolbar } from "../admin-components";
+import { referrals } from "../admin-data";
+
+export default function ReferralsPage() { const [query,setQuery]=useState(""); const [filter,setFilter]=useState("All statuses"); const rows=useMemo(()=>referrals.filter((r)=>`${r.id} ${r.inviter} ${r.invited} ${r.qualifyingTrip}`.toLowerCase().includes(query.toLowerCase())&&(filter==="All statuses"||r.status===filter||r.fraud===filter)),[filter,query]); return <main className="admin-main"><AdminPageHeader title="Referrals" subtitle="Inviter, invited account, qualifying trip, reward and fraud state." /><AdminPanel className="overflow-hidden"><Toolbar query={query} onQuery={setQuery} filters={["All statuses","Pending","Qualified","Blocked","Clear","Review"]} activeFilter={filter} onFilter={setFilter} placeholder="Inviter, invited user, qualifying trip" count={rows.length}/><DataTable rows={rows} hrefFor={() => "/referrals"} columns={[{key:"id",label:"Referral",render:(r)=><strong>{r.id}</strong>},{key:"inviter",label:"Inviter",render:(r)=>r.inviter},{key:"invited",label:"Invited",render:(r)=>r.invited},{key:"trip",label:"Qualifying trip",render:(r)=>r.qualifyingTrip},{key:"status",label:"Status",render:(r)=><Status value={r.status}/>},{key:"reward",label:"Reward",render:(r)=>r.reward},{key:"fraud",label:"Fraud",render:(r)=><Status value={r.fraud}/>},{key:"action",label:"Action",render:(r)=><QuickActionModal label="Details" title="Referral detail"><p>{r.inviter} invited {r.invited}</p><p>Reward state: {r.reward}</p></QuickActionModal>}]} /></AdminPanel></main>; }

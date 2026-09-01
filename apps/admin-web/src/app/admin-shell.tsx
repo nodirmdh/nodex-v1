@@ -1,128 +1,108 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  BarChart3,
   Bell,
   Car,
-  CreditCard,
+  ChevronLeft,
+  Gift,
   Headphones,
   LayoutDashboard,
-  MessageSquare,
-  Package,
+  Megaphone,
+  Network,
   Route,
   Search,
   Settings,
-  ShieldCheck,
-  Star,
+  ShieldAlert,
   Ticket,
-  UserCheck,
+  UserRound,
   Users,
 } from "lucide-react";
+import { globalSearchItems } from "./admin-data";
 
 type NavItem = { label: string; href: string; icon: ReactNode };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
-  {
-    label: "Overview",
-    items: [{ label: "Dashboard", href: "/", icon: <LayoutDashboard size={15} /> }],
-  },
+  { label: "Control", items: [{ label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
   {
     label: "Operations",
     items: [
-      { label: "Drivers", href: "/drivers", icon: <Users size={15} /> },
-      { label: "Vehicles", href: "/vehicles", icon: <Car size={15} /> },
-      { label: "Routes", href: "/routes", icon: <Route size={15} /> },
-      { label: "Trips", href: "/trips", icon: <Ticket size={15} /> },
-      { label: "Seat Requests", href: "/bookings", icon: <UserCheck size={15} /> },
-      { label: "Matching", href: "/matching", icon: <Star size={15} /> },
-      { label: "Parcels", href: "/parcels", icon: <Package size={15} /> },
+      { label: "Клиенты", href: "/users", icon: <UserRound size={16} /> },
+      { label: "Водители", href: "/drivers", icon: <Users size={16} /> },
+      { label: "Поездки", href: "/trips", icon: <Route size={16} /> },
+      { label: "Бронирования", href: "/bookings", icon: <Ticket size={16} /> },
+      { label: "Поддержка", href: "/support", icon: <Headphones size={16} /> },
     ],
   },
   {
-    label: "Communication",
+    label: "Growth & Trust",
     items: [
-      { label: "Messages", href: "/communications", icon: <MessageSquare size={15} /> },
-      { label: "Support", href: "/support", icon: <Headphones size={15} /> },
+      { label: "Matching", href: "/matching", icon: <Network size={16} /> },
+      { label: "Rewards", href: "/rewards", icon: <Gift size={16} /> },
+      { label: "Anti-Fraud", href: "/fraud", icon: <ShieldAlert size={16} /> },
+      { label: "Referrals", href: "/referrals", icon: <Car size={16} /> },
+      { label: "Promotions", href: "/promotions", icon: <Megaphone size={16} /> },
     ],
   },
-  {
-    label: "Trust & Safety",
-    items: [
-      { label: "Verification", href: "/verification", icon: <ShieldCheck size={15} /> },
-      { label: "Reviews", href: "/trust-safety?view=reviews", icon: <Star size={15} /> },
-      { label: "Safety", href: "/trust-safety?view=safety", icon: <ShieldCheck size={15} /> },
-    ],
-  },
-  {
-    label: "Business",
-    items: [
-      {
-        label: "Subscriptions",
-        href: "/finance?view=subscriptions",
-        icon: <CreditCard size={15} />,
-      },
-      { label: "Finance", href: "/finance?view=finance", icon: <CreditCard size={15} /> },
-      { label: "Analytics", href: "/analytics", icon: <BarChart3 size={15} /> },
-    ],
-  },
-  {
-    label: "System",
-    items: [{ label: "Settings", href: "/design-system", icon: <Settings size={15} /> }],
-  },
+  { label: "System", items: [{ label: "Settings", href: "/settings", icon: <Settings size={16} /> }] },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState("");
   const [currentSearch, setCurrentSearch] = useState("");
 
   useEffect(() => {
     setCurrentSearch(window.location.search);
+    setQuery("");
   }, [pathname]);
+
+  const results = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    return globalSearchItems
+      .filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(needle))
+      .slice(0, 7);
+  }, [query]);
 
   const isActive = (href: string) => {
     const [hrefPath = href, hrefSearch = ""] = href.split("?");
-    if (hrefSearch) {
-      return pathname === hrefPath && currentSearch === `?${hrefSearch}`;
-    }
-    return hrefPath === "/" ? pathname === "/" : pathname === hrefPath;
+    if (hrefSearch) return pathname === hrefPath && currentSearch === `?${hrefSearch}`;
+    if (hrefPath === "/dashboard") return pathname === "/" || pathname === "/dashboard";
+    return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
   };
 
   return (
-    <div className="admin-shell min-h-screen bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]">
+    <div className={`admin-shell min-h-screen bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))] ${collapsed ? "admin-shell-collapsed" : ""}`}>
       <aside className="admin-sidebar border-r border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.96)] px-3 py-4">
-        <div className="mb-4 px-2">
-          <div className="text-xs font-black uppercase tracking-[0.16em] text-[rgb(var(--primary))]">
-            Nodex
-          </div>
-          <div className="text-xl font-black leading-tight">Nodex Admin</div>
-          <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-            Operations console
-          </div>
+        <div className="mb-4 flex items-center justify-between gap-2 px-2">
+          <Link className="min-w-0 text-[rgb(var(--foreground))] no-underline" href="/dashboard">
+            <div className="text-xs font-black uppercase text-[rgb(var(--primary))]">ENVO</div>
+            {!collapsed ? <><div className="text-xl font-black leading-tight">Control Center</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Operations console</div></> : null}
+          </Link>
+          <button aria-label="Collapse sidebar" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(var(--border))]" onClick={() => setCollapsed((value) => !value)} type="button">
+            <ChevronLeft className={collapsed ? "rotate-180" : ""} size={15} />
+          </button>
         </div>
         <nav className="space-y-4" aria-label="Admin navigation">
           {groups.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.12em] text-[rgb(var(--text-muted))]">
-                {group.label}
-              </div>
+              {!collapsed ? <div className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.12em] text-[rgb(var(--text-muted))]">{group.label}</div> : null}
               <div className="grid gap-0.5">
                 {group.items.map((item) => (
                   <Link
                     key={`${group.label}-${item.label}`}
-                    className={[
-                      "grid min-h-9 grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] px-2 text-sm font-semibold no-underline",
-                      isActive(item.href)
-                        ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
-                        : "text-[rgb(var(--text-muted))] hover:bg-[rgb(var(--surface-muted))] hover:text-[rgb(var(--foreground))]",
-                    ].join(" ")}
+                    title={item.label}
+                    className={`grid min-h-9 items-center gap-2 rounded-[10px] px-2 text-sm font-semibold no-underline ${collapsed ? "grid-cols-1 place-items-center" : "grid-cols-[20px_1fr]"} ${isActive(item.href) ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "text-[rgb(var(--text-muted))] hover:bg-[rgb(var(--surface-muted))] hover:text-[rgb(var(--foreground))]"}`}
                     href={item.href}
                   >
                     {item.icon}
-                    <span className="truncate">{item.label}</span>
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
                   </Link>
                 ))}
               </div>
@@ -131,39 +111,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
       <div className="min-w-0">
-        <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.9)] px-5 backdrop-blur-xl">
+        <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.92)] px-5 backdrop-blur-xl">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-              Operations /{" "}
-              {pathname === "/" ? "Dashboard" : pathname.split("/").filter(Boolean).join(" / ")}
-            </div>
-            <div className="truncate text-sm font-black">Modern mobility operations console</div>
+            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Admin / {pathname === "/" ? "dashboard" : pathname.split("/").filter(Boolean).join(" / ")}</div>
+            <div className="truncate text-sm font-black">ENVO operations control center</div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="hidden min-h-9 w-[320px] grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
+          <div className="relative flex items-center gap-2">
+            <label className="hidden min-h-9 w-[360px] grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
               <Search size={15} />
-              <input
-                className="min-w-0 border-0 bg-transparent text-sm outline-none"
-                placeholder="Search driver, phone, plate"
-              />
+              <input className="min-w-0 border-0 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Search user, driver, plate, trip, booking, ticket" value={query} />
             </label>
-            <button
-              aria-label="Notifications"
-              className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
-              type="button"
-            >
-              <Bell size={16} />
-            </button>
-            <button
-              aria-label="Open command palette"
-              className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
-              type="button"
-            >
-              ⌘K
-            </button>
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">
-              NA
-            </div>
+            {results.length > 0 ? (
+              <div className="absolute right-14 top-11 z-40 w-[420px] overflow-hidden rounded-[12px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-lg)]">
+                {results.map((item) => (
+                  <button key={item.href} className="block w-full border-b border-[rgb(var(--border))] px-3 py-2 text-left hover:bg-[rgb(var(--surface-muted))]" onClick={() => router.push(item.href)} type="button">
+                    <span className="block text-sm font-black">{item.label}</span>
+                    <span className="block text-xs text-[rgb(var(--text-muted))]">{item.detail}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button aria-label="Notifications" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><Bell size={16} /></button>
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">NA</div>
           </div>
         </header>
         {children}
@@ -172,52 +141,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function AdminPageHeader({
-  title,
-  subtitle,
-  actions,
-}: {
-  title: string;
-  subtitle: string;
-  actions?: ReactNode;
-}) {
+export function AdminPageHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 className="m-0 text-[30px] font-black leading-tight">{title}</h1>
         <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">{subtitle}</p>
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
   );
 }
 
-export function AdminPanel({
-  children,
-  className = "",
-  label,
-}: {
-  children: ReactNode;
-  className?: string;
-  label?: string;
-}) {
-  return (
-    <section
-      aria-label={label}
-      className={`rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-xs)] ${className}`}
-    >
-      {children}
-    </section>
-  );
+export function AdminPanel({ children, className = "", label }: { children: ReactNode; className?: string; label?: string }) {
+  return <section aria-label={label} className={`rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] min-w-0 shadow-[var(--shadow-xs)] ${className}`}>{children}</section>;
 }
 
-export function AdminStatusBadge({
-  children,
-  tone = "neutral",
-}: {
-  children: ReactNode;
-  tone?: "neutral" | "success" | "warning" | "danger" | "info";
-}) {
+export function AdminStatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "success" | "warning" | "danger" | "info" }) {
   const classes = {
     neutral: "bg-[rgb(var(--surface-muted))] text-[rgb(var(--text-muted))]",
     success: "bg-[rgb(var(--success-soft))] text-[rgb(var(--success))]",
@@ -225,11 +165,5 @@ export function AdminStatusBadge({
     danger: "bg-[rgb(var(--destructive-soft))] text-[rgb(var(--destructive))]",
     info: "bg-[rgb(var(--info-soft))] text-[rgb(var(--info))]",
   };
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center rounded-full px-2 text-xs font-black ${classes[tone]}`}
-    >
-      {children}
-    </span>
-  );
+  return <span className={`inline-flex min-h-6 items-center rounded-full px-2 text-xs font-black ${classes[tone]}`}>{children}</span>;
 }

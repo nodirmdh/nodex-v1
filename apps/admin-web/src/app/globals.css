@@ -3,13 +3,50 @@
 
 .admin-shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
   min-height: 100dvh;
 }
 
-@media (max-width: 1024px) {
+.admin-shell-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.admin-main {
+  padding: 20px;
+}
+
+.admin-grid-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 16px;
+}
+
+.admin-detail-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1180px) {
   .admin-shell {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .admin-shell .admin-sidebar span,
+  .admin-shell .admin-sidebar [class*="uppercase"]:not(a div) {
+    display: none;
+  }
+
+  .admin-grid-detail,
+  .admin-detail-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -18,8 +55,13 @@
     display: none;
   }
 
-  .admin-shell {
+  .admin-shell,
+  .admin-shell-collapsed {
     grid-template-columns: 1fr;
+  }
+
+  .admin-main {
+    padding: 14px;
   }
 
   body:has(.design-system-v2) .admin-sidebar,
@@ -29,5 +71,10 @@
 
   body:has(.design-system-v2) .admin-shell {
     display: block;
+  }
+}
+@media (max-width: 1180px) {
+  .admin-main table {
+    min-width: 720px !important;
   }
 }
