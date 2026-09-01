@@ -377,6 +377,94 @@ export const searchEventSchema = z.object({
   filters: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const waitlistEntryCreateSchema = z
+  .object({
+    originCityId: z.string().trim().min(1),
+    destinationCityId: z.string().trim().min(1),
+    requestedDate: z.coerce.date(),
+    preferredDepartureAtUtc: z.coerce.date().optional(),
+    timeWindowHours: z.coerce.number().int().min(1).max(24).optional(),
+    passengerCount: z.coerce.number().int().min(1).max(16).default(1),
+    wholeCar: queryBoolean.default(false),
+    expiresAt: z.coerce.date().optional(),
+  })
+  .refine((value) => value.originCityId !== value.destinationCityId, {
+    path: ["destinationCityId"],
+    message: "Origin and destination must differ",
+  });
+
+export type WaitlistMatchTripContext = {
+  originCityId: string | null;
+  destinationCityId: string | null;
+  status: string;
+  availableSeatCount: number;
+  passengerSeatCapacity: number;
+  wholeCarPriceMinor?: bigint | number | string | null;
+  departureAtUtc: Date;
+  cancelledAt?: Date | null;
+  blockedAt?: Date | null;
+};
+
+export type WaitlistMatchEntryContext = {
+  originCityId: string;
+  destinationCityId: string;
+  requestedDate: Date;
+  passengerCount: number;
+  wholeCar: boolean;
+  preferredDepartureAtUtc?: Date | null;
+  timeWindowHours?: number | null;
+  expiresAt: Date;
+  status: string;
+};
+
+export function canMatchWaitlistEntryToTrip(
+  trip: WaitlistMatchTripContext,
+  entry: WaitlistMatchEntryContext,
+  options: { now?: Date; defaultTimeWindowHours?: number } = {},
+) {
+  const now = options.now ?? new Date();
+  const windowHours = entry.timeWindowHours ?? options.defaultTimeWindowHours ?? 3;
+  const tripDate = trip.departureAtUtc.toISOString().slice(0, 10);
+  const requestedDate = entry.requestedDate.toISOString().slice(0, 10);
+  if (!trip.originCityId || !trip.destinationCityId) return false;
+  if (
+    trip.originCityId !== entry.originCityId ||
+    trip.destinationCityId !== entry.destinationCityId
+  ) {
+    return false;
+  }
+  if (tripDate !== requestedDate) return false;
+  if (!["PUBLISHED", "BOOKING_OPEN"].includes(trip.status)) return false;
+  if (trip.cancelledAt || trip.blockedAt) return false;
+  if (trip.departureAtUtc <= now) return false;
+  if (entry.status !== "ACTIVE" || entry.expiresAt <= now) return false;
+  if (entry.preferredDepartureAtUtc) {
+    const deltaMs = Math.abs(
+      trip.departureAtUtc.getTime() - entry.preferredDepartureAtUtc.getTime(),
+    );
+    if (deltaMs > windowHours * 60 * 60 * 1000) return false;
+  }
+  if (entry.wholeCar) {
+    if (!trip.wholeCarPriceMinor) return false;
+    return trip.availableSeatCount === trip.passengerSeatCapacity;
+  }
+  return trip.availableSeatCount >= entry.passengerCount;
+}
+export const savedRouteCreateSchema = z
+  .object({
+    originCityId: z.string().trim().min(1),
+    destinationCityId: z.string().trim().min(1),
+    preferredDepartureWindow: z.enum(["morning", "afternoon", "evening", "night"]).optional(),
+  })
+  .refine((value) => value.originCityId !== value.destinationCityId, {
+    path: ["destinationCityId"],
+    message: "Origin and destination must differ",
+  });
+
+export const returnTripDraftSchema = z.object({
+  departureAtUtc: z.coerce.date(),
+});
+
 export const bookingTypes = ["SEAT", "MULTI_SEAT", "WHOLE_CAR"] as const;
 export const bookingPaymentMethods = ["CASH", "MANUAL_TRANSFER"] as const;
 export const ageCategories = ["ADULT", "CHILD", "INFANT"] as const;

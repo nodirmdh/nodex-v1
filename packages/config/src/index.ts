@@ -70,6 +70,8 @@ export const appEnvSchema = z.object({
   REWARD_MIN_MOVEMENT_METERS: z.coerce.number().int().nonnegative().default(500),
   REWARD_MEDIUM_REVIEW_THRESHOLD: z.coerce.number().int().nonnegative().default(2),
   REWARD_HIGH_REVIEW_THRESHOLD: z.coerce.number().int().nonnegative().default(3),
+  MATCHING_TIME_WINDOW_HOURS: z.coerce.number().int().positive().default(3),
+  WAITLIST_EXPIRATION_DAYS: z.coerce.number().int().positive().default(14),
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;
