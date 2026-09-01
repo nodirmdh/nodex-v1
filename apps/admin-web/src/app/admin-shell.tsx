@@ -38,6 +38,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { label: "Routes", href: "/routes", icon: <Route size={15} /> },
       { label: "Trips", href: "/trips", icon: <Ticket size={15} /> },
       { label: "Seat Requests", href: "/bookings", icon: <UserCheck size={15} /> },
+      { label: "Matching", href: "/matching", icon: <Star size={15} /> },
       { label: "Parcels", href: "/parcels", icon: <Package size={15} /> },
     ],
   },

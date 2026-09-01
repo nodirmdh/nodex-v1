@@ -110,6 +110,10 @@ import {
   tripSearchQuerySchema,
   tripShareCreateSchema,
   tripStopSchema,
+  canMatchWaitlistEntryToTrip,
+  waitlistEntryCreateSchema,
+  savedRouteCreateSchema,
+  returnTripDraftSchema,
   reviewEditSchema,
   reviewReportSchema,
   reviewSchema,
@@ -5720,6 +5724,145 @@ async function applyTripStops(
   }
 }
 
+function matchingDayRange(date: Date) {
+  const iso = date.toISOString().slice(0, 10);
+  return tashkentDayRange(iso);
+}
+
+function canTripServeWaitlist(
+  trip: Parameters<typeof canMatchWaitlistEntryToTrip>[0],
+  entry: Parameters<typeof canMatchWaitlistEntryToTrip>[1],
+) {
+  return canMatchWaitlistEntryToTrip(trip, entry, {
+    defaultTimeWindowHours: env.MATCHING_TIME_WINDOW_HOURS,
+  });
+}
+
+async function evaluateWaitlistMatchesForTrip(tx: Prisma.TransactionClient, tripId: string) {
+  const trip = await tx.trip.findUnique({ where: { id: tripId } });
+  if (!trip || !trip.originCityId || !trip.destinationCityId) return [];
+  if (!["PUBLISHED", "BOOKING_OPEN"].includes(trip.status)) return [];
+  const { start, end } = matchingDayRange(trip.departureAtUtc);
+  const entries = await tx.waitlistEntry.findMany({
+    where: {
+      originCityId: trip.originCityId,
+      destinationCityId: trip.destinationCityId,
+      status: "ACTIVE",
+      expiresAt: { gt: new Date() },
+      requestedDate: { gte: start, lt: end },
+      passengerCount: { lte: trip.passengerSeatCapacity },
+    },
+    include: { user: { include: { preferences: true } } },
+    take: 50,
+    orderBy: { createdAt: "asc" },
+  });
+  const created = [];
+  for (const entry of entries) {
+    if (!canTripServeWaitlist(trip, entry)) continue;
+    const match = await tx.waitlistMatch.upsert({
+      where: { waitlistId_tripId: { waitlistId: entry.id, tripId: trip.id } },
+      create: {
+        waitlistId: entry.id,
+        tripId: trip.id,
+        reason: entry.wholeCar ? "WHOLE_CAR_ROUTE_TIME_AVAILABLE" : "ROUTE_TIME_SEATS_AVAILABLE",
+        notifiedAt: new Date(),
+      },
+      update: {},
+    });
+    await tx.waitlistEntry.updateMany({
+      where: { id: entry.id, status: "ACTIVE" },
+      data: { status: "MATCHED", matchedAt: new Date() },
+    });
+    if (entry.user.preferences?.notificationsEnabled !== false) {
+      await ensureNotification(tx, {
+        recipientUserId: entry.userId,
+        type: "WAITLIST_MATCH_FOUND",
+        title: "Поездка найдена",
+        body: `${trip.originCity} → ${trip.destinationCity}: есть подходящий рейс`,
+        entityType: "WaitlistMatch",
+        entityId: match.id,
+        deepLink: `/trips/${trip.id}`,
+        deduplicationKey: `waitlist:${entry.id}:trip:${trip.id}`,
+        payloadJson: { waitlistId: entry.id, tripId: trip.id } as Prisma.InputJsonValue,
+      });
+    }
+    created.push(match);
+  }
+  return created;
+}
+
+async function notifyFavoriteDriversForTrip(tx: Prisma.TransactionClient, tripId: string) {
+  const trip = await tx.trip.findUnique({ where: { id: tripId } });
+  if (!trip || !trip.originCityId || !trip.destinationCityId) return 0;
+  const favorites = await tx.favoriteDriver.findMany({
+    where: { driverId: trip.driverProfileId, notificationsEnabled: true },
+    include: { client: { include: { preferences: true } } },
+    take: 100,
+  });
+  let count = 0;
+  for (const favorite of favorites) {
+    if (favorite.client.preferences?.notificationsEnabled === false) continue;
+    const recentInterest = await tx.savedRoute.findFirst({
+      where: {
+        userId: favorite.clientUserId,
+        originCityId: trip.originCityId,
+        destinationCityId: trip.destinationCityId,
+      },
+    });
+    if (!recentInterest) continue;
+    await ensureNotification(tx, {
+      recipientUserId: favorite.clientUserId,
+      type: "FAVORITE_DRIVER_ROUTE_AVAILABLE",
+      title: "Любимый водитель на маршруте",
+      body: `${trip.originCity} → ${trip.destinationCity}: водитель из избранного опубликовал рейс`,
+      entityType: "Trip",
+      entityId: trip.id,
+      deepLink: `/trips/${trip.id}`,
+      deduplicationKey: `favorite-driver:${favorite.clientUserId}:${trip.id}`,
+      payloadJson: { driverId: trip.driverProfileId, tripId: trip.id } as Prisma.InputJsonValue,
+    });
+    count += 1;
+  }
+  return count;
+}
+
+async function createReturnTripDraft(
+  tx: Prisma.TransactionClient,
+  originalTripId: string,
+  createdById: string,
+  departureAtUtc: Date,
+) {
+  const original = await tx.trip.findUniqueOrThrow({ where: { id: originalTripId } });
+  const draft = await tx.trip.create({
+    data: {
+      driverProfileId: original.driverProfileId,
+      vehicleId: original.vehicleId,
+      originCityId: original.destinationCityId,
+      destinationCityId: original.originCityId,
+      originCity: original.destinationCity,
+      destinationCity: original.originCity,
+      departureAtUtc,
+      timezone: original.timezone,
+      passengerSeatCapacity: original.passengerSeatCapacity,
+      availableSeatCount: original.passengerSeatCapacity,
+      pricePerSeatMinor: original.pricePerSeatMinor,
+      wholeCarPriceMinor: original.wholeCarPriceMinor,
+      parcelSupported: original.parcelSupported,
+      parcelPriceMinor: original.parcelPriceMinor,
+      currency: original.currency,
+      luggageRules: original.luggageRules,
+      comment: original.comment,
+      status: "DRAFT",
+    },
+  });
+  await tx.returnRouteRelation.create({
+    data: { originalTripId: original.id, returnTripId: draft.id, createdById },
+  });
+  await writeTripTimeline(tx, draft.id, "RETURN_TRIP_DRAFT_CREATED", {
+    originalTripId: original.id,
+  });
+  return draft;
+}
 async function registerTripSupplyRoutes(http: {
   get: (path: string, handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) => void;
   post: (
@@ -5727,6 +5870,10 @@ async function registerTripSupplyRoutes(http: {
     handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   ) => void;
   patch: (
+    path: string,
+    handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
+  ) => void;
+  delete: (
     path: string,
     handler: (req: AuthenticatedRequest, res: Response) => Promise<void>,
   ) => void;
@@ -6095,6 +6242,12 @@ async function registerTripSupplyRoutes(http: {
       await tx.outboxEvent.create({
         data: { type: "trip.published", payload: { tripId: saved.id } },
       });
+      const waitlistMatches = await evaluateWaitlistMatchesForTrip(tx, saved.id);
+      const favoriteNotifications = await notifyFavoriteDriversForTrip(tx, saved.id);
+      await writeTripTimeline(tx, saved.id, "MATCHING_EVALUATED", {
+        waitlistMatches: waitlistMatches.length,
+        favoriteNotifications,
+      });
       return tx.trip.findUniqueOrThrow({ where: { id: saved.id }, include: tripInclude });
     });
     res.json({ trip: serializeTrip(updated), validation });
@@ -6181,6 +6334,257 @@ async function registerTripSupplyRoutes(http: {
     res.json({ timeline: trip.timelineEvents, moderation: trip.moderationEvents });
   });
 
+  http.post("/api/v1/waitlist", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      const parsed = waitlistEntryCreateSchema.parse(req.body ?? {});
+      const expiresAt =
+        parsed.expiresAt ?? new Date(Date.now() + env.WAITLIST_EXPIRATION_DAYS * 86400000);
+      const entry = await prisma.waitlistEntry.create({
+        data: cleanObject({
+          userId: req.auth!.userId,
+          originCityId: parsed.originCityId,
+          destinationCityId: parsed.destinationCityId,
+          requestedDate: parsed.requestedDate,
+          preferredDepartureAtUtc: parsed.preferredDepartureAtUtc ?? null,
+          timeWindowHours: parsed.timeWindowHours ?? null,
+          passengerCount: parsed.passengerCount,
+          wholeCar: parsed.wholeCar === true,
+          expiresAt,
+        }) as Prisma.WaitlistEntryUncheckedCreateInput,
+      });
+      const matches = await prisma.$transaction(async (tx) => {
+        const trips = await tx.trip.findMany({
+          where: {
+            originCityId: entry.originCityId,
+            destinationCityId: entry.destinationCityId,
+            status: { in: ["PUBLISHED", "BOOKING_OPEN"] },
+            departureAtUtc: { gt: new Date() },
+            availableSeatCount: {
+              gte: entry.wholeCar ? entry.passengerCount : entry.passengerCount,
+            },
+          },
+          take: 20,
+          orderBy: { departureAtUtc: "asc" },
+        });
+        const created = [];
+        for (const trip of trips) {
+          if (!canTripServeWaitlist(trip, entry)) continue;
+          created.push(...(await evaluateWaitlistMatchesForTrip(tx, trip.id)));
+        }
+        return created;
+      });
+      res.status(201).json({ entry, matchesCreated: matches.length });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/waitlist/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const entries = await prisma.waitlistEntry.findMany({
+      where: { userId: req.auth!.userId },
+      include: { originCity: true, destinationCity: true, matches: { include: { trip: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ entries: serializeBigInt(entries) });
+  });
+
+  http.delete("/api/v1/waitlist/:entryId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    await prisma.waitlistEntry.updateMany({
+      where: { id: String(req.params.entryId), userId: req.auth!.userId },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
+    });
+    res.json({ ok: true });
+  });
+
+  http.get("/api/v1/matches/mine", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const matches = await prisma.waitlistMatch.findMany({
+      where: { waitlist: { userId: req.auth!.userId } },
+      include: { waitlist: true, trip: { include: publicTripInclude } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ matches: serializeBigInt(matches) });
+  });
+
+  http.post("/api/v1/matches/:matchId/acted", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const match = await prisma.waitlistMatch.updateMany({
+      where: { id: String(req.params.matchId), waitlist: { userId: req.auth!.userId } },
+      data: { actedAt: new Date() },
+    });
+    res.json({ ok: match.count === 1 });
+  });
+
+  http.get("/api/v1/favorite-drivers", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const favorites = await prisma.favoriteDriver.findMany({
+      where: { clientUserId: req.auth!.userId },
+      include: { driver: { include: { user: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ favorites: serializeBigInt(favorites) });
+  });
+
+  http.post("/api/v1/favorite-drivers/:driverId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const driver = await prisma.driverProfile.findUnique({
+      where: { id: String(req.params.driverId) },
+    });
+    if (!driver) {
+      res.status(404).json(errorBody("DRIVER_NOT_FOUND", "Driver not found", req));
+      return;
+    }
+    const favorite = await prisma.favoriteDriver.upsert({
+      where: { clientUserId_driverId: { clientUserId: req.auth!.userId, driverId: driver.id } },
+      create: { clientUserId: req.auth!.userId, driverId: driver.id },
+      update: { notificationsEnabled: req.body?.notificationsEnabled !== false },
+    });
+    res.status(201).json({ favorite });
+  });
+
+  http.delete("/api/v1/favorite-drivers/:driverId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    await prisma.favoriteDriver.deleteMany({
+      where: { clientUserId: req.auth!.userId, driverId: String(req.params.driverId) },
+    });
+    res.json({ ok: true });
+  });
+
+  http.get("/api/v1/saved-routes", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    const routes = await prisma.savedRoute.findMany({
+      where: { userId: req.auth!.userId },
+      include: { originCity: true, destinationCity: true },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ routes });
+  });
+
+  http.post("/api/v1/saved-routes", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    try {
+      const parsed = savedRouteCreateSchema.parse(req.body ?? {});
+      const route = await prisma.savedRoute.upsert({
+        where: {
+          userId_originCityId_destinationCityId_preferredDepartureWindow: {
+            userId: req.auth!.userId,
+            originCityId: parsed.originCityId,
+            destinationCityId: parsed.destinationCityId,
+            preferredDepartureWindow: parsed.preferredDepartureWindow ?? "any",
+          },
+        },
+        create: {
+          ...parsed,
+          userId: req.auth!.userId,
+          preferredDepartureWindow: parsed.preferredDepartureWindow ?? "any",
+        },
+        update: {},
+      });
+      res.status(201).json({ route });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.delete("/api/v1/saved-routes/:routeId", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT"]))) return;
+    await prisma.savedRoute.deleteMany({
+      where: { id: String(req.params.routeId), userId: req.auth!.userId },
+    });
+    res.json({ ok: true });
+  });
+
+  http.get("/api/v1/trips/:tripId/fill-matches", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip || !["PUBLISHED", "BOOKING_OPEN"].includes(trip.status)) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Active trip not found", req));
+      return;
+    }
+    const matches = await prisma.waitlistMatch.findMany({
+      where: { tripId: trip.id, dismissedAt: null },
+      include: { waitlist: { include: { originCity: true, destinationCity: true } } },
+      take: 20,
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({
+      summary: { count: matches.length, availableSeatCount: trip.availableSeatCount },
+      matches: serializeBigInt(matches),
+    });
+  });
+
+  http.get("/api/v1/trips/:tripId/return-draft", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    if (!trip) {
+      res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+      return;
+    }
+    res.json({
+      draft: {
+        originCityId: trip.destinationCityId,
+        destinationCityId: trip.originCityId,
+        originCity: trip.destinationCity,
+        destinationCity: trip.originCity,
+        vehicleId: trip.vehicleId,
+        driverProfileId: trip.driverProfileId,
+      },
+    });
+  });
+
+  http.post("/api/v1/trips/:tripId/return-draft", async (req, res) => {
+    if (!(await authenticate(req, res, ["DRIVER"]))) return;
+    try {
+      const parsed = returnTripDraftSchema.parse(req.body ?? {});
+      const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+      if (!trip) {
+        res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
+        return;
+      }
+      const created = await prisma.$transaction((tx) =>
+        createReturnTripDraft(tx, trip.id, req.auth!.userId, parsed.departureAtUtc),
+      );
+      res.status(201).json({ trip: serializeBigInt(created) });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
+
+  http.get("/api/v1/admin/matching/waitlist", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const entries = await prisma.waitlistEntry.findMany({
+      include: { user: true, originCity: true, destinationCity: true, matches: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    res.json({ entries: serializeBigInt(entries) });
+  });
+
+  http.get("/api/v1/admin/matching/matches", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const matches = await prisma.waitlistMatch.findMany({
+      include: { waitlist: { include: { user: true } }, trip: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    res.json({ matches: serializeBigInt(matches) });
+  });
+
+  http.get("/api/v1/admin/matching/retention-summary", async (req, res) => {
+    if (!(await authenticate(req, res, ["ADMIN"]))) return;
+    const [waitlistActive, waitlistMatched, favorites, savedRoutes] = await Promise.all([
+      prisma.waitlistEntry.count({ where: { status: "ACTIVE" } }),
+      prisma.waitlistEntry.count({ where: { status: "MATCHED" } }),
+      prisma.favoriteDriver.count(),
+      prisma.savedRoute.count(),
+    ]);
+    res.json({ waitlistActive, waitlistMatched, favorites, savedRoutes });
+  });
   http.get("/api/v1/admin/regions", async (req, res) => {
     if (!(await authenticate(req, res, ["ADMIN"]))) return;
     res.json({
@@ -10107,6 +10511,18 @@ async function registerBookingRoutes(http: {
         });
         await writeBookingAudit(tx, "BOOKING_CONFIRMED", saved.id, actor, { seatKeys });
         await enqueueBookingEvent(tx, "booking.confirmed", saved.id, { tripId: hold.tripId });
+        await tx.waitlistMatch.updateMany({
+          where: { tripId: hold.tripId, waitlist: { userId: req.auth!.userId } },
+          data: { actedAt: new Date() },
+        });
+        await tx.waitlistEntry.updateMany({
+          where: {
+            userId: req.auth!.userId,
+            status: "MATCHED",
+            matches: { some: { tripId: hold.tripId } },
+          },
+          data: { status: "BOOKED" },
+        });
         return saved;
       });
       res.json({ booking: serializeBooking(booking) });

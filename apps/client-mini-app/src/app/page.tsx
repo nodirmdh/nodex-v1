@@ -415,6 +415,47 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="mt-4 grid gap-3">
+          <div className="rounded-[24px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="m-0 text-base font-black">Не нашли подходящую поездку?</h2>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                  Добавьте запрос в лист ожидания, и Nodex сообщит, когда появится рейс.
+                </p>
+              </div>
+              <Icon name="bell" className="h-5 w-5 text-[rgb(var(--primary))]" />
+            </div>
+            <Link
+              href={`${searchHref}&waitlist=1`}
+              className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-[16px] bg-[rgb(var(--surface-tint))] text-sm font-black text-[rgb(var(--primary))] no-underline"
+            >
+              Сообщить, когда появится поездка
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/search?from=Nukus&to=Urgench&repeat=last"
+              className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]"
+            >
+              <Icon name="swap" className="h-5 w-5 text-[rgb(var(--primary))]" />
+              <span className="mt-2 block text-sm font-black">Повторить поездку</span>
+              <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">
+                Nukus → Urgench
+              </span>
+            </Link>
+            <Link
+              href="/profile"
+              className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]"
+            >
+              <Icon name="star" className="h-5 w-5 text-[rgb(var(--gold))]" />
+              <span className="mt-2 block text-sm font-black">Мои маршруты</span>
+              <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">
+                2 сохранённых
+              </span>
+            </Link>
+          </div>
+        </section>
         <section className="mt-5">
           <div className="mb-3 flex items-end justify-between">
             <div>
