@@ -151,7 +151,7 @@ export default function DriverTripsPage() {
 
       <DriverCard className="mt-3 space-y-3" label="ENVO fill and return shortcuts">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
+          <Link className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href="/passengers-demo?sheet=accept">
             <div className="flex items-center justify-between gap-2">
               <h2 className="m-0 text-base font-black">ENVO Fill</h2>
               <DriverPill tone="info">2 requests</DriverPill>
@@ -159,8 +159,8 @@ export default function DriverTripsPage() {
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
               Есть пассажиры на ваш маршрут. Проверьте подходящие запросы без лишних данных клиента.
             </p>
-          </div>
-          <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
+          </Link>
+          <Link className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href="/create-trip-demo?return=1">
             <div className="flex items-center justify-between gap-2">
               <h2 className="m-0 text-base font-black">ENVO Return</h2>
               <DriverIconView name="route" className="h-5 w-5 text-[rgb(var(--primary))]" />
@@ -168,10 +168,9 @@ export default function DriverTripsPage() {
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
               Быстро подготовьте обратный рейс. Публикация только после вашего подтверждения.
             </p>
-          </div>
+          </Link>
         </div>
-      </DriverCard>
-      <section aria-label="Driver trip list" className="mt-3 space-y-3">
+      </DriverCard>      <section aria-label="Driver trip list" className="mt-3 space-y-3">
         {visibleTrips.map((trip) => (
           <DriverTripCard key={trip.id} trip={trip} />
         ))}

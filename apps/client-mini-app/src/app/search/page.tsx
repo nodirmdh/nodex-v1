@@ -130,6 +130,8 @@ const filterChips = [
 export default function SearchPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sort, setSort] = useState("Рекомендуемые");
+  const [timeFilter, setTimeFilter] = useState("Любое");
+  const [comfortFilters, setComfortFilters] = useState<string[]>(["Проверенный водитель"]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -137,12 +139,19 @@ export default function SearchPage() {
   }, []);
 
   const sortedTrips = useMemo(() => {
-    const list = [...trips];
+    let list = [...trips];
+    if (timeFilter === "Утро") list = list.filter((trip) => Number(trip.departure.slice(0, 2)) < 12);
+    if (timeFilter === "День") list = list.filter((trip) => Number(trip.departure.slice(0, 2)) >= 12 && Number(trip.departure.slice(0, 2)) < 17);
+    if (timeFilter === "Вечер") list = list.filter((trip) => Number(trip.departure.slice(0, 2)) >= 17);
+    if (comfortFilters.includes("Рейтинг 4.8+")) list = list.filter((trip) => Number(trip.rating) >= 4.8);
+    if (comfortFilters.includes("Багаж")) list = list.filter((trip) => trip.luggage);
+    if (comfortFilters.includes("Посылка")) list = list.filter((trip) => trip.parcel);
+    if (comfortFilters.includes("2+ места")) list = list.filter((trip) => trip.seats >= 2);
     if (sort === "Дешевле") return list.sort((a, b) => a.priceMinor - b.priceMinor);
     if (sort === "Раньше") return list.sort((a, b) => a.departure.localeCompare(b.departure));
     if (sort === "Лучший рейтинг") return list.sort((a, b) => Number(b.rating) - Number(a.rating));
     return list.sort((a, b) => Number(b.recommended) - Number(a.recommended));
-  }, [sort]);
+  }, [comfortFilters, sort, timeFilter]);
 
   return (
     <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
@@ -324,7 +333,7 @@ export default function SearchPage() {
                   Настройте только поддерживаемые параметры.
                 </p>
               </div>
-              <button className="text-sm font-extrabold text-[rgb(var(--primary))]">
+              <button className="text-sm font-extrabold text-[rgb(var(--primary))]" type="button" onClick={() => { setSort("Рекомендуемые"); setTimeFilter("Любое"); setComfortFilters(["Проверенный водитель"]); }}>
                 Сбросить
               </button>
             </div>
@@ -333,10 +342,12 @@ export default function SearchPage() {
               <div>
                 <h3 className="m-0 mb-2 text-sm font-extrabold">Время выезда</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  {["Утро", "День", "Вечер"].map((item) => (
+                  {["Любое", "Утро", "День", "Вечер"].map((item) => (
                     <button
                       key={item}
-                      className="min-h-11 rounded-full bg-[rgb(var(--canvas))] text-sm font-bold"
+                      className={["min-h-11 rounded-full px-3 text-sm font-bold", timeFilter === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]"].join(" ")}
+                      type="button"
+                      onClick={() => setTimeFilter(item)}
                     >
                       {item}
                     </button>
@@ -346,16 +357,16 @@ export default function SearchPage() {
               <div>
                 <h3 className="m-0 mb-2 text-sm font-extrabold">Водитель и комфорт</h3>
                 <div className="flex flex-wrap gap-2">
-                  {["Проверенный водитель", "Рейтинг 4.8+", "Багаж", "Посылка", "2+ места"].map(
-                    (item) => (
+                  {["Проверенный водитель", "Рейтинг 4.8+", "Багаж", "Посылка", "2+ места"].map((item) => (
                       <button
                         key={item}
-                        className="min-h-11 rounded-full bg-[rgb(var(--surface-tint))] px-4 text-sm font-bold text-[rgb(var(--primary))]"
+                        className={["min-h-11 rounded-full px-4 text-sm font-bold", comfortFilters.includes(item) ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]"].join(" ")}
+                        type="button"
+                        onClick={() => setComfortFilters((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])}
                       >
                         {item}
                       </button>
-                    ),
-                  )}
+                    ))}
                 </div>
               </div>
               <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-sm font-medium text-[rgb(var(--text-muted))]">
@@ -365,7 +376,7 @@ export default function SearchPage() {
             </div>
 
             <div className="mt-5 grid grid-cols-[0.8fr_1.2fr] gap-2">
-              <Button variant="secondary" onClick={() => setSheetOpen(false)}>
+              <Button variant="secondary" onClick={() => { setSort("Рекомендуемые"); setTimeFilter("Любое"); setComfortFilters(["Проверенный водитель"]); }}>
                 Сбросить
               </Button>
               <Button onClick={() => setSheetOpen(false)}>Применить фильтры</Button>

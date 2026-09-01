@@ -445,7 +445,7 @@ export default function HomePage() {
               </span>
             </Link>
             <Link
-              href="/profile"
+              href="/search?from=Nukus&to=Urgench&saved=1"
               className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]"
             >
               <Icon name="star" className="h-5 w-5 text-[rgb(var(--gold))]" />
@@ -455,6 +455,23 @@ export default function HomePage() {
               </span>
             </Link>
           </div>
+        </section>
+        <section className="mt-3 grid grid-cols-3 gap-2">
+          <Link href="/support" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
+            <Icon name="message" className="h-5 w-5 text-[rgb(var(--primary))]" />
+            <span className="mt-2 block text-sm font-black">Поддержка</span>
+            <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">Открытые обращения</span>
+          </Link>
+          <Link href="/reviews" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
+            <Icon name="star" className="h-5 w-5 text-[rgb(var(--gold))]" />
+            <span className="mt-2 block text-sm font-black">Любимые водители</span>
+            <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">Отзывы и избранное</span>
+          </Link>
+          <Link href="/rewards" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
+            <Icon name="star" className="h-5 w-5 text-[rgb(var(--primary))]" />
+            <span className="mt-2 block text-sm font-black">Rewards</span>
+            <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">7 билетов</span>
+          </Link>
         </section>
         <section className="mt-5">
           <div className="mb-3 flex items-end justify-between">

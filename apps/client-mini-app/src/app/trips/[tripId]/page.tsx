@@ -142,12 +142,13 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
               {trip.origin} to {trip.destination}
             </h1>
           </div>
-          <button
+          <Link
             aria-label="Поделиться поездкой"
             className="grid h-11 w-11 place-items-center rounded-full bg-[rgb(var(--surface)/0.92)] text-[rgb(var(--foreground))] shadow-[var(--shadow-xs)]"
+            href={`/safety/sos?tripId=${tripId}&share=1`}
           >
             <Icon name="share" />
-          </button>
+          </Link>
         </header>
 
         <section className="mt-5 rounded-[32px] bg-[rgb(var(--surface))] p-5 shadow-[var(--shadow-lg)]">
