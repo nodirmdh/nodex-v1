@@ -270,12 +270,32 @@ function RideCard({ ride }: { ride: (typeof rides)[number] }) {
   );
 }
 
+function PartnerPromoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3 sm:place-items-center" role="dialog" aria-modal="true">
+      <section className="w-full max-w-[390px] rounded-[26px] bg-[rgb(var(--surface))] p-4 text-[rgb(var(--foreground))] shadow-[var(--shadow-floating)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.1em] text-[rgb(var(--primary))]">Cafe Aral</div>
+            <h2 className="m-0 mt-1 text-xl font-black">Кофе после поездки</h2>
+          </div>
+          <button className="grid h-9 w-9 place-items-center rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>x</button>
+        </div>
+        <div className="mt-3 rounded-[20px] bg-[rgb(var(--surface-tint))] p-4 text-sm font-semibold text-[rgb(var(--primary))]">Действует до 18 июня для завершённых поездок Nukus to Urgench.</div>
+        <p className="m-0 mt-3 text-sm font-semibold text-[rgb(var(--text-muted))]">Промо показывает partner name, headline, CTA and validity in local demo state. Без оплаты в приложении.</p>
+        <button className="mt-4 min-h-11 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]" type="button" onClick={onClose}>Получить бонус</button>
+      </section>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [from, setFrom] = useState("Nukus");
   const [to, setTo] = useState("Urgench");
   const [date, setDate] = useState("tomorrow");
   const [passengers, setPassengers] = useState("2");
   const [openPicker, setOpenPicker] = useState<PickerKey | null>(null);
+  const [promoOpen, setPromoOpen] = useState(false);
 
   const searchHref = useMemo(
     () =>
@@ -396,6 +416,19 @@ export default function HomePage() {
             </div>
             <Icon name="message" className="h-5 w-5 shrink-0 opacity-85" />
           </div>
+        </section>
+
+        <section className="mt-4 rounded-[24px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]">
+          <button className="w-full border-0 bg-transparent p-0 text-left text-[rgb(var(--foreground))]" type="button" onClick={() => setPromoOpen(true)}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.1em] text-[rgb(var(--primary))]">Partner promo</div>
+                <div className="mt-1 text-lg font-black">Cafe Aral: кофе после поездки</div>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">Покажите завершённую поездку ENVO и получите спокойный бонус до 18 июня.</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-[rgb(var(--surface-tint))] px-3 py-1.5 text-xs font-black text-[rgb(var(--primary))]">Открыть</span>
+            </div>
+          </button>
         </section>
 
         <section className="mt-4 rounded-[24px] bg-[rgb(var(--foreground))] p-4 text-[rgb(var(--background))] shadow-[var(--shadow-md)]">
@@ -522,6 +555,7 @@ export default function HomePage() {
         </section>
       </div>
 
+      {promoOpen ? <PartnerPromoModal onClose={() => setPromoOpen(false)} /> : null}
       <ClientBottomNav active="home" />
     </main>
   );
