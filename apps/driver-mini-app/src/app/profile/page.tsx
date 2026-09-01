@@ -35,6 +35,10 @@ const groups: ProfileGroup[] = [
   },
 ];
 
+function ReliabilityStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[14px] bg-[rgb(var(--canvas))] p-3"><div className="text-base font-black">{value}</div><div className="text-xs font-bold text-[rgb(var(--text-muted))]">{label}</div></div>;
+}
+
 export default function DriverProfile() {
   return (
     <DriverShell active="profile">

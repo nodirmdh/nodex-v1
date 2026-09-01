@@ -24,6 +24,11 @@ export default function TripOperationDemo() {
   const [state, setState] = useState<TripState>("boarding");
   const [finishSheet, setFinishSheet] = useState(false);
   const [startPin, setStartPin] = useState("");
+  const [delayOpen, setDelayOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reportedDelay, setReportedDelay] = useState("On time");
+  const [cancelReason, setCancelReason] = useState("Technical issue");
+  const [cancelled, setCancelled] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -39,11 +44,11 @@ export default function TripOperationDemo() {
   return (
     <DriverShell active="trips">
       <DriverHeader
-        title={isActive ? "In progress" : isCompleted ? "Completed" : "Trip detail"}
+        title={cancelled ? "Cancelled" : isActive ? "In progress" : isCompleted ? "Completed" : "Trip detail"}
         subtitle="Nukus → Urgench · Chevrolet Cobalt"
         status={
           <DriverPill tone={isCompleted ? "success" : isActive ? "warning" : "info"}>
-            {isCompleted ? "Completed" : isActive ? "In progress" : "Boarding"}
+            {cancelled ? "Cancelled" : isCompleted ? "Completed" : isActive ? `In progress · ${reportedDelay}` : "Boarding"}
           </DriverPill>
         }
       />
@@ -79,7 +84,9 @@ export default function TripOperationDemo() {
           <Metric label="Boarded" value={`${boarded}/3`} active={isActive} />
           <Metric label="Pending" value={isCompleted ? "0" : "1"} active={isActive} />
         </div>
-        {isActive ? (
+        {cancelled ? (
+          <p className="m-0 text-sm font-semibold text-[rgb(var(--destructive))]">Trip cancelled in demo state. Reliability event is visible for support/admin review.</p>
+        ) : isActive ? (
           <p className="m-0 text-sm font-semibold opacity-80">
             Trip is underway. Keep passenger contact and parcel handoff visible until arrival.
           </p>
@@ -151,6 +158,13 @@ export default function TripOperationDemo() {
           )}
         </DriverCard>
       )}
+
+      {!isCompleted && !cancelled ? (
+        <DriverCard className="mt-3 space-y-3" label="Reliability actions">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-black">Reliability actions</h2><p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">Report delay or cancel with visible reliability impact.</p></div><DriverPill tone={reportedDelay === "On time" ? "success" : "warning"}>{reportedDelay}</DriverPill></div>
+          <div className="grid grid-cols-2 gap-2"><button className="min-h-11 rounded-full border-0 bg-[rgb(var(--canvas))] px-3 text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => setDelayOpen(true)}>Сообщить о задержке</button><button className="min-h-11 rounded-full border-0 bg-[rgb(var(--destructive-soft))] px-3 text-sm font-black text-[rgb(var(--destructive))]" type="button" onClick={() => setCancelOpen(true)}>Отменить поездку</button></div>
+        </DriverCard>
+      ) : null}
 
       <DriverCard className="mt-3 space-y-3" label="Seat occupancy">
         <div className="flex items-center justify-between gap-3">
@@ -239,8 +253,20 @@ export default function TripOperationDemo() {
           </div>
         ))}
       </DriverCard>
+      {delayOpen ? <DelaySheet onClose={() => setDelayOpen(false)} onSave={(value) => { setReportedDelay(value); setDelayOpen(false); setState("active"); }} /> : null}
+      {cancelOpen ? <CancelSheet reason={cancelReason} onReason={setCancelReason} onClose={() => setCancelOpen(false)} onConfirm={() => { setCancelled(true); setCancelOpen(false); }} /> : null}
     </DriverShell>
   );
+}
+
+function DelaySheet({ onClose, onSave }: { onClose: () => void; onSave: (value: string) => void }) {
+  const [minutes, setMinutes] = useState("10 минут");
+  const [reason, setReason] = useState("пробки");
+  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Сообщить о задержке</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>x</button></div><div className="mt-3 grid grid-cols-3 gap-2">{["5 минут", "10 минут", "15 минут", "30+ минут", "своё время"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${minutes === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setMinutes(item)}>{item}</button>)}</div><div className="mt-3 grid grid-cols-2 gap-2">{["пробки", "пассажир задерживается", "техническая причина", "другое"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${reason === item ? "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onSave(`${minutes} · ${reason}`)}>Сохранить ETA</button></section></div>;
+}
+
+function CancelSheet({ reason, onReason, onClose, onConfirm }: { reason: string; onReason: (value: string) => void; onClose: () => void; onConfirm: () => void }) {
+  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Отмена поездки</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>x</button></div><p className="m-0 mt-2 rounded-[18px] bg-[rgb(var(--destructive-soft))] p-3 text-sm font-semibold text-[rgb(var(--destructive))]">Отмена за 25 минут до выезда снизит показатель надёжности.</p><div className="mt-3 grid gap-2">{["Technical issue", "Traffic", "Vehicle unavailable", "Passenger issue", "Other"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-3 text-left text-sm font-black ${reason === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]"}`} type="button" onClick={() => onReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--destructive-soft))] px-4 text-sm font-black text-[rgb(var(--destructive))]" type="button" onClick={onConfirm}>Confirm cancellation</button></section></div>;
 }
 
 function FinishSheet({ onFinish }: { onFinish: () => void }) {

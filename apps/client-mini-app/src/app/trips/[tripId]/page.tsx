@@ -46,6 +46,16 @@ function Icon({ name, className = "" }: { name: IconName; className?: string }) 
   );
 }
 
+function ReliabilityMetric({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+  return (
+    <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
+      <Icon name={icon} className="h-5 w-5 text-[rgb(var(--primary))]" />
+      <div className="mt-2 text-base font-black">{value}</div>
+      <div className="text-xs font-bold text-[rgb(var(--text-muted))]">{label}</div>
+    </div>
+  );
+}
+
 const tripDetails = {
   "phase5-nukus-urgench-morning": {
     origin: "Nukus",
@@ -59,6 +69,10 @@ const tripDetails = {
     rating: "4.9",
     completedTrips: "268 поездок",
     response: "Быстро отвечает",
+    reliability: "Высокая",
+    punctuality: "94%",
+    cancellations: "редко",
+    protection: "ENVO Protected",
     надёжность: 96,
     vehicle: "Chevrolet Cobalt",
     color: "Белый",
@@ -82,6 +96,10 @@ const tripDetails = {
     rating: "4.8",
     completedTrips: "142 поездки",
     response: "Надёжный",
+    reliability: "Хорошая",
+    punctuality: "91%",
+    cancellations: "низкие",
+    protection: "ENVO Protected",
     надёжность: 91,
     vehicle: "Chevrolet Tracker",
     color: "Серебристый",
@@ -105,6 +123,10 @@ const tripDetails = {
     rating: "4.7",
     completedTrips: "94 поездки",
     response: "Проверен",
+    reliability: "Высокая",
+    punctuality: "93%",
+    cancellations: "редко",
+    protection: "ENVO Protected",
     надёжность: 94,
     vehicle: "BYD Chazor",
     color: "Синий",
@@ -250,7 +272,7 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="m-0 truncate text-lg font-extrabold">{trip.driver}</h2>
-                <Badge tone="success">Проверен</Badge>
+                <Badge tone="success">Проверен</Badge><Badge tone="accent">{trip.protection}</Badge>
               </div>
               <div className="mt-1 flex items-center gap-2 text-sm font-bold text-[rgb(var(--text-muted))]">
                 <Icon name="star" className="h-4 w-4 text-[rgb(var(--gold))]" />
