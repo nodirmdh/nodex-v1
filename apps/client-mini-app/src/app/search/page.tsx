@@ -28,7 +28,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   ),
   clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
   filter: <path d="M4 7h16M7 12h10M10 17h4" />,
-  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1 ч-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
+  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
   message: <path d="M5 18v-4.5A7.5 7.5 0 1 1 9.5 20H6.8A1.8 1.8 0 0 1 5 18Z" />,
   navigation: <path d="m6 12 12-6-5 12-2-5-5-1Z" />,
   star: <path d="m12 4 2.2 4.7 5.1.6-3.8 3.5 1 5-4.5-2.5-4.5 2.5 1-5-3.8-3.5 5.1-.6L12 4Z" />,

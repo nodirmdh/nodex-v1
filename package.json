@@ -48,13 +48,19 @@
     "audit:all": "pnpm audit --audit-level high",
     "audit:production": "pnpm audit --prod --audit-level high",
     "audit:dependencies": "pnpm audit",
-    "licenses:check": "pnpm dlx license-checker-rseidelsohn --production --summary"
+    "licenses:check": "pnpm dlx license-checker-rseidelsohn --production --summary",
+    "cf:build:client": "pnpm --filter @nodex/client-mini-app build:vinext",
+    "cf:build:driver": "pnpm --filter @nodex/driver-mini-app build:vinext",
+    "cf:build:admin": "pnpm --filter @nodex/admin-web build:vinext",
+    "cf:build": "pnpm cf:build:client && pnpm cf:build:driver && pnpm cf:build:admin"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@cloudflare/vite-plugin": "^1.54.0",
     "@next/bundle-analyzer": "^16.2.12",
     "@playwright/test": "1.62.0",
     "@tailwindcss/postcss": "4.3.3",
+    "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.10.2",
@@ -62,6 +68,8 @@
     "@types/react-dom": "19.2.3",
     "@typescript-eslint/eslint-plugin": "8.64.0",
     "@typescript-eslint/parser": "8.64.0",
+    "@vitejs/plugin-react": "6.1.0",
+    "@vitejs/plugin-rsc": "^0.5.34",
     "cross-env": "^10.1.0",
     "eslint": "9.39.1",
     "eslint-plugin-jsx-a11y": "6.10.2",
@@ -74,6 +82,8 @@
     "storybook": "10.5.5",
     "turbo": "2.10.7",
     "typescript": "5.9.3",
-    "vitest": "4.1.10"
+    "vite": "8.1.5",
+    "vitest": "4.1.10",
+    "wrangler": "^4.126.0"
   }
 }
