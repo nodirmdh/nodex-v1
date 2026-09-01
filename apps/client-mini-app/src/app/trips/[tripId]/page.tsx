@@ -211,6 +211,37 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
         </section>
 
         <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-lg font-extrabold">Безопасность поездки</h2>
+              <p className="m-0 text-xs font-bold text-[rgb(var(--text-muted))]">
+                Быстрые действия с контекстом этого рейса.
+              </p>
+            </div>
+            <Icon name="shield" className="h-5 w-5 text-[rgb(var(--primary))]" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              {
+                label: "Связаться с поддержкой",
+                href: `/messages/support-ticket?tripId=${tripId}`,
+              },
+              { label: "Поделиться поездкой", href: `/safety/sos?tripId=${tripId}&share=1` },
+              { label: "Информация о поездке", href: `/trips/${tripId}` },
+              { label: "Водитель и авто", href: `/trips/${tripId}#driver` },
+              { label: "Сообщить о проблеме", href: `/support?tripId=${tripId}&safety=report` },
+            ].map((action) => (
+              <Link
+                key={action.label}
+                className="inline-flex min-h-11 items-center justify-center rounded-[18px] bg-[rgb(var(--canvas))] px-3 text-center text-xs font-black text-[rgb(var(--primary))] no-underline"
+                href={action.href}
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </section>
+        <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
           <div className="flex items-center gap-3">
             <div className="grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-lg font-black text-[rgb(var(--primary))]">
               {trip.driver[0]}

@@ -4,7 +4,11 @@ import { Card, ClientHeader, ClientShell, StatusPill } from "../client-ui";
 const categories = [
   { label: "Проблема с поездкой", href: "/messages/support-ticket?topic=trip" },
   { label: "Проблема с водителем", href: "/messages/support-ticket?topic=driver" },
+  { label: "Водитель опаздывает", href: "/messages/support-ticket?topic=driver-late" },
+  { label: "Водитель не приехал", href: "/messages/support-ticket?topic=driver-no-show" },
   { label: "Потерянная вещь", href: "/messages/support-ticket?topic=lost-item" },
+  { label: "Проблема с пассажиром", href: "/messages/support-ticket?topic=passenger" },
+  { label: "Проблема с оплатой", href: "/messages/support-ticket?topic=payment" },
   { label: "Проблема с посылкой", href: "/parcels" },
   { label: "Безопасность", href: "/safety/sos" },
   { label: "Другое", href: "/messages/support-ticket?topic=other" },

@@ -3,6 +3,9 @@ import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui"
 const categories = [
   "Trip problem",
   "Passenger issue",
+  "Client no-show",
+  "Unsafe situation",
+  "Lost item",
   "Vehicle issue",
   "Verification",
   "Subscription",

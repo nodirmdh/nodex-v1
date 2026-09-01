@@ -1025,6 +1025,16 @@ export const supportTicketStatuses = [
   "REJECTED",
 ] as const;
 export const supportPriorities = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+export const supportRequesterRoles = ["CLIENT", "DRIVER"] as const;
+export const supportAttachmentMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "application/pdf",
+  "text/plain",
+] as const;
+export const supportAttachmentMaxSizeBytes = 20 * 1024 * 1024;
 
 export const defaultChatLimits = {
   maxTextLength: 2000,
@@ -1095,10 +1105,22 @@ export const supportTicketCreateSchema = z.object({
   bookingId: z.string().trim().min(1).optional().nullable(),
   tripId: z.string().trim().min(1).optional().nullable(),
   parcelOrderId: z.string().trim().min(1).optional().nullable(),
+  requesterRole: z.enum(supportRequesterRoles).optional(),
 });
 
 export const supportTicketMessageSchema = z.object({
   text: z.string().trim().min(1).max(4000),
+  replyToMessageId: z.string().trim().min(1).optional().nullable(),
+});
+
+export const supportAttachmentMetadataSchema = z.object({
+  messageId: z.string().trim().min(1).optional().nullable(),
+  fileObjectId: z.string().trim().min(1).optional().nullable(),
+  storageKey: z.string().trim().min(3).max(500).optional().nullable(),
+  originalFileName: z.string().trim().min(1).max(240),
+  mimeType: z.enum(supportAttachmentMimeTypes),
+  sizeBytes: z.coerce.number().int().positive().max(supportAttachmentMaxSizeBytes),
+  checksum: z.string().trim().min(8).max(160),
 });
 
 export const supportTicketStatusSchema = z.object({

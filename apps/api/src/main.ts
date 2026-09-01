@@ -90,6 +90,7 @@ import {
   reconciliationRunSchema,
   refundRequestSchema,
   supportAssignmentSchema,
+  supportAttachmentMetadataSchema,
   supportTicketCreateSchema,
   supportTicketMessageSchema,
   supportTicketStatusSchema,
@@ -4968,6 +4969,7 @@ function serializeSupportTicket(
     tripId: ticket.tripId,
     parcelOrderId: ticket.parcelOrderId,
     driverId: ticket.driverId,
+    requesterRole: ticket.requesterRole,
     requester: publicUser(ticket.requester),
     assignedTo: ticket.assignedTo ? publicUser(ticket.assignedTo) : null,
     firstResponseAt: ticket.firstResponseAt,
@@ -4986,6 +4988,9 @@ function serializeSupportTicket(
       id: message.id,
       sender: publicUser(message.sender),
       text: message.deletedAt ? null : message.text,
+      status: message.status,
+      readAt: message.readAt,
+      replyToMessageId: message.replyToMessageId,
       createdAt: message.createdAt,
       editedAt: message.editedAt,
       deletedAt: message.deletedAt,
@@ -8085,6 +8090,8 @@ async function registerCommunicationRoutes(http: {
             subject: parsed.subject,
             description: parsed.description,
             priority: parsed.priority,
+            requesterRole:
+              parsed.requesterRole ?? (req.auth!.roles.includes("DRIVER") ? "DRIVER" : "CLIENT"),
             bookingId: parsed.bookingId ?? null,
             tripId: parsed.tripId ?? null,
             parcelOrderId: parsed.parcelOrderId ?? null,
@@ -8166,8 +8173,30 @@ async function registerCommunicationRoutes(http: {
             statusCode: 404,
             code: "SUPPORT_TICKET_NOT_FOUND",
           });
+        if (["RESOLVED", "CLOSED", "REJECTED"].includes(current.status)) {
+          throw Object.assign(new Error("Support ticket is closed"), {
+            statusCode: 409,
+            code: "SUPPORT_TICKET_CLOSED",
+          });
+        }
+        if (parsed.replyToMessageId) {
+          const replyTo = await tx.ticketMessage.findFirst({
+            where: { id: parsed.replyToMessageId, ticketId: current.id, deletedAt: null },
+          });
+          if (!replyTo) {
+            throw Object.assign(new Error("Reply target is not available"), {
+              statusCode: 404,
+              code: "SUPPORT_REPLY_NOT_FOUND",
+            });
+          }
+        }
         await tx.ticketMessage.create({
-          data: { ticketId: current.id, senderUserId: req.auth!.userId, text: parsed.text },
+          data: {
+            ticketId: current.id,
+            senderUserId: req.auth!.userId,
+            text: parsed.text,
+            replyToMessageId: parsed.replyToMessageId ?? null,
+          },
         });
         const transition =
           current.status === "WAITING_FOR_USER"
@@ -8211,6 +8240,90 @@ async function registerCommunicationRoutes(http: {
     }
   });
 
+  http.post("/api/v1/support/tickets/:ticketId/attachments", async (req, res) => {
+    if (!(await authenticate(req, res, ["CLIENT", "DRIVER"]))) return;
+    try {
+      const parsed = supportAttachmentMetadataSchema.parse(req.body ?? {});
+      const attachment = await prisma.$transaction(async (tx) => {
+        const current = await userCanAccessSupportTicket(
+          tx,
+          req.auth!.userId,
+          String(req.params.ticketId ?? ""),
+        );
+        if (!current) {
+          throw Object.assign(new Error("Support ticket not found"), {
+            statusCode: 404,
+            code: "SUPPORT_TICKET_NOT_FOUND",
+          });
+        }
+        if (["RESOLVED", "CLOSED", "REJECTED"].includes(current.status)) {
+          throw Object.assign(new Error("Support ticket is closed"), {
+            statusCode: 409,
+            code: "SUPPORT_TICKET_CLOSED",
+          });
+        }
+        if (parsed.messageId) {
+          const message = await tx.ticketMessage.findFirst({
+            where: { id: parsed.messageId, ticketId: current.id, deletedAt: null },
+          });
+          if (!message) {
+            throw Object.assign(new Error("Ticket message not found"), {
+              statusCode: 404,
+              code: "SUPPORT_MESSAGE_NOT_FOUND",
+            });
+          }
+        }
+        const fileObject = parsed.fileObjectId
+          ? await tx.fileObject.findFirst({ where: { id: parsed.fileObjectId } })
+          : parsed.storageKey
+            ? await tx.fileObject.upsert({
+                where: { key: parsed.storageKey },
+                create: {
+                  bucket: "support-attachments",
+                  key: parsed.storageKey,
+                  contentType: parsed.mimeType,
+                  sizeBytes: parsed.sizeBytes,
+                  scanStatus: "APPROVED",
+                },
+                update: {
+                  contentType: parsed.mimeType,
+                  sizeBytes: parsed.sizeBytes,
+                  scanStatus: "APPROVED",
+                },
+              })
+            : null;
+        if (parsed.fileObjectId && !fileObject) {
+          throw Object.assign(new Error("File object not found"), {
+            statusCode: 404,
+            code: "SUPPORT_FILE_NOT_FOUND",
+          });
+        }
+        const created = await tx.ticketAttachment.create({
+          data: {
+            ticketId: current.id,
+            messageId: parsed.messageId ?? null,
+            fileObjectId: fileObject?.id ?? null,
+            originalFileName: parsed.originalFileName,
+            mimeType: parsed.mimeType,
+            sizeBytes: parsed.sizeBytes,
+            checksum: parsed.checksum,
+          },
+        });
+        await tx.communicationTimelineEvent.create({
+          data: {
+            ticketId: current.id,
+            actorUserId: req.auth!.userId,
+            type: "SUPPORT_ATTACHMENT_ADDED",
+            payload: { mimeType: parsed.mimeType, sizeBytes: parsed.sizeBytes },
+          },
+        });
+        return created;
+      });
+      res.status(201).json({ attachment });
+    } catch (error) {
+      handleError(res, req, error);
+    }
+  });
   http.get("/api/v1/admin/support/tickets", async (req, res) => {
     if (!(await authenticate(req, res, ["ADMIN", "SUPPORT"]))) return;
     const tickets = await prisma.supportTicket.findMany({
@@ -8249,8 +8362,24 @@ async function registerCommunicationRoutes(http: {
             statusCode: 404,
             code: "SUPPORT_TICKET_NOT_FOUND",
           });
+        if (parsed.replyToMessageId) {
+          const replyTo = await tx.ticketMessage.findFirst({
+            where: { id: parsed.replyToMessageId, ticketId: current.id, deletedAt: null },
+          });
+          if (!replyTo) {
+            throw Object.assign(new Error("Reply target is not available"), {
+              statusCode: 404,
+              code: "SUPPORT_REPLY_NOT_FOUND",
+            });
+          }
+        }
         await tx.ticketMessage.create({
-          data: { ticketId: current.id, senderUserId: req.auth!.userId, text: parsed.text },
+          data: {
+            ticketId: current.id,
+            senderUserId: req.auth!.userId,
+            text: parsed.text,
+            replyToMessageId: parsed.replyToMessageId ?? null,
+          },
         });
         await tx.supportTicket.update({
           where: { id: current.id },
