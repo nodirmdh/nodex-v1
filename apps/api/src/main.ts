@@ -4954,6 +4954,22 @@ type SupportTicketWithInclude = Prisma.SupportTicketGetPayload<{
   include: typeof supportTicketInclude;
 }>;
 
+function serializeTicketAttachment(attachment: {
+  id: string;
+  originalFileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: string;
+}) {
+  return {
+    id: attachment.id,
+    originalFileName: attachment.originalFileName,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    status: attachment.status,
+  };
+}
+
 function serializeSupportTicket(
   ticket: SupportTicketWithInclude,
   options: { includeInternal?: boolean } = {},
@@ -4994,13 +5010,7 @@ function serializeSupportTicket(
       createdAt: message.createdAt,
       editedAt: message.editedAt,
       deletedAt: message.deletedAt,
-      attachments: message.attachments.map((attachment) => ({
-        id: attachment.id,
-        originalFileName: attachment.originalFileName,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        status: attachment.status,
-      })),
+      attachments: message.attachments.map(serializeTicketAttachment),
     })),
     internalNotes: options.includeInternal
       ? ticket.internalNotes.map((note) => ({
@@ -8319,7 +8329,7 @@ async function registerCommunicationRoutes(http: {
         });
         return created;
       });
-      res.status(201).json({ attachment });
+      res.status(201).json({ attachment: serializeTicketAttachment(attachment) });
     } catch (error) {
       handleError(res, req, error);
     }
