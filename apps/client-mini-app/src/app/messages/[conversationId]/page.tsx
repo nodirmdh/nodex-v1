@@ -101,6 +101,7 @@ export default function ClientChatPage() {
             Отправить
           </button>
         </div>
+        {attachment ? <div className="px-3 pb-1 text-xs font-black text-[rgb(var(--primary))]">Прикреплено: {attachment}</div> : null}
       </form>
     </ClientShell>
   );
