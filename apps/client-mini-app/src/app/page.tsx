@@ -403,6 +403,20 @@ export default function HomePage() {
           </Link>
         </section>
 
+        <section className="mt-3 rounded-[24px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-base font-black">Отправить посылку</h2>
+              <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+                Отдельный demo-flow: маршрут, получатель, водитель и статус доставки.
+              </p>
+            </div>
+            <Icon name="car" className="h-5 w-5 text-[rgb(var(--primary))]" />
+          </div>
+          <Link href="/parcels" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline">
+            Отправить посылку
+          </Link>
+        </section>
         <section className="mt-4 rounded-[24px] bg-[linear-gradient(135deg,rgb(var(--primary)),rgb(var(--foreground)))] p-4 text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -489,27 +503,14 @@ export default function HomePage() {
             </Link>
           </div>
         </section>
-                <section className="mt-3 rounded-[24px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="m-0 text-base font-black">Отправить посылку</h2>
-              <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-                Отдельный demo-flow: маршрут, получатель, водитель и статус доставки.
-              </p>
-            </div>
-            <Icon name="car" className="h-5 w-5 text-[rgb(var(--primary))]" />
-          </div>
-          <Link href="/parcels" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline">
-            Отправить посылку
-          </Link>
-        </section>
+
 <section className="mt-3 grid grid-cols-3 gap-2">
           <Link href="/support" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
             <Icon name="message" className="h-5 w-5 text-[rgb(var(--primary))]" />
             <span className="mt-2 block text-sm font-black">Поддержка</span>
             <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">Открытые обращения</span>
           </Link>
-          <Link href="/reviews" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
+          <Link href="/favorite-drivers" className="rounded-[22px] bg-[rgb(var(--surface))] p-3 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]">
             <Icon name="star" className="h-5 w-5 text-[rgb(var(--gold))]" />
             <span className="mt-2 block text-sm font-black">Любимые водители</span>
             <span className="mt-1 block text-xs font-bold text-[rgb(var(--text-muted))]">Отзывы и избранное</span>

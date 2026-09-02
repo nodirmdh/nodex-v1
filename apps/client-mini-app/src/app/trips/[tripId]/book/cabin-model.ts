@@ -31,7 +31,7 @@ export const tripCabin: TripCabin = {
   color: "Белый",
   plate: "95 A 214 QA",
   capacity: "4 пассажирских места",
-  tariff: "Комфорт",
+  tariff: "Старт",
   route: "Nukus → Urgench",
   departure: "08:30",
   departureAtUtc: "2026-09-03T03:30:00.000Z",
@@ -67,14 +67,14 @@ export const cabinSeats: CabinSeat[] = [
     label: "Rear middle",
     row: "second",
     position: "center",
-    status: "unavailable",
+    status: "available",
   },
   {
     key: "ROW_1_RIGHT",
     label: "Rear right",
     row: "second",
     position: "right",
-    status: "occupied",
+    status: "available",
   },
 ];
 
@@ -92,7 +92,7 @@ export const sevenSeatPreview: CabinSeat[] = [
     label: "Third row middle",
     row: "third",
     position: "center",
-    status: "unavailable",
+    status: "available",
   },
   {
     key: "ROW_2_RIGHT",

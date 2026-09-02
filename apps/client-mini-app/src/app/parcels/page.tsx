@@ -40,7 +40,8 @@ export default function ClientParcelsPage() {
   const [kind, setKind] = useState("Документы");
   const [description, setDescription] = useState("Папка с документами");
   const [receiver, setReceiver] = useState("Bekzod Ergashev");
-  const [receiverContact, setReceiverContact] = useState("ENVO contact request");
+  const [receiverContact, setReceiverContact] = useState("+998 90 123 45 67");
+  const [parcelPhoto, setParcelPhoto] = useState("Документы в синей папке.jpg");
   const [comment, setComment] = useState("Передать только получателю по коду.");
 
   const ready = origin.trim() && destination.trim() && receiver.trim() && description.trim();
@@ -91,7 +92,15 @@ export default function ClientParcelsPage() {
           <Field label="Описание" value={description} onChange={setDescription} />
           <div className="grid grid-cols-2 gap-2 text-sm">
             <Field label="Получатель" value={receiver} onChange={setReceiver} />
-            <Field label="Контакт получателя" value={receiverContact} onChange={setReceiverContact} />
+            <Field label="Номер получателя" value={receiverContact} onChange={setReceiverContact} />
+          </div>          <div className="rounded-[18px] bg-[rgb(var(--surface-muted))] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-black">Фото посылки для водителя</div>
+                <div className="mt-1 text-xs font-semibold text-slate-500">{parcelPhoto || "Фото ещё не прикреплено"}</div>
+              </div>
+              <button className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-white px-3 text-xs font-black text-[rgb(var(--primary))]" type="button" onClick={() => setParcelPhoto("Документы в синей папке.jpg")}>Прикрепить фото</button>
+            </div>
           </div>
           <label className="grid gap-1 text-sm"><span className="font-medium">Комментарий</span><textarea className="min-h-20 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3 py-2" value={comment} onChange={(event) => setComment(event.target.value)} /></label>
           <div className="rounded-[18px] bg-[rgb(var(--warning-soft))] p-3 text-xs font-semibold text-[rgb(var(--warning))]">Не отправляйте запрещённые, опасные или неизвестные предметы. В demo-flow водитель видит только безопасное описание.</div>
@@ -100,7 +109,9 @@ export default function ClientParcelsPage() {
 
         {status !== "draft" ? <Panel className="space-y-3" aria-label="Поиск водителя для посылки"><h2 className="m-0 text-lg font-black">Ищем водителя по маршруту</h2><Timeline items={timeline} />{status === "searching" ? <Button type="button" onClick={() => setStatus("found")}>Показать найденного водителя</Button> : null}{status === "found" || status === "confirmed" ? <div className="rounded-[22px] bg-[rgb(var(--surface-muted))] p-3"><div className="flex items-start justify-between gap-3"><div><h3 className="m-0 text-base font-black">{driver.name}</h3><p className="m-0 text-sm text-slate-500">{driver.vehicle} · {driver.route}</p></div><Badge tone="success">{driver.rating}</Badge></div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><Info label="Выезд" value={driver.departure} /><Info label="Надёжность" value={driver.reliability} /><Info label="Место" value={driver.capacity} /><Info label="Demo price" value={formatUzs(driver.priceMinor)} /></div><div className="mt-3 grid grid-cols-2 gap-2"><Button type="button" onClick={() => setStatus("confirmed")}>Выбрать водителя</Button><Link className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--surface))] px-3 text-sm font-bold text-[rgb(var(--primary))] no-underline" href="/trips/phase5-nukus-urgench-morning">Посмотреть поездку</Link></div></div> : null}</Panel> : null}
 
-        {status === "confirmed" ? <Panel className="space-y-3" aria-label="Подтверждение посылки"><Badge tone="success">Водитель выбран</Badge><h2 className="m-0 text-lg font-black">Подтверждение отправки</h2><div className="grid gap-2 text-sm"><Info label="Маршрут" value={`${origin} → ${destination}`} /><Info label="Отправитель" value="Пользователь Nodex" /><Info label="Получатель" value={receiver} /><Info label="Размер" value={`${size} · ${kind}`} /><Info label="Описание" value={description} /><Info label="Водитель" value={`${driver.name} · ${driver.vehicle}`} /><Info label="Время" value={driver.departure} /><Info label="Demo price" value={formatUzs(driver.priceMinor)} /></div><Link className="inline-flex min-h-12 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline" href="/parcels/phase8-parcel-ready?status=assigned">Подтвердить отправку</Link></Panel> : null}
+        {status === "confirmed" ? <Panel className="space-y-3" aria-label="Подтверждение посылки"><Badge tone="success">Водитель выбран</Badge><h2 className="m-0 text-lg font-black">Подтверждение отправки</h2><div className="grid gap-2 text-sm"><Info label="Маршрут" value={`${origin} → ${destination}`} /><Info label="Отправитель" value="Пользователь Nodex" /><Info label="Получатель" value={receiver} />
+<Info label="Номер получателя" value={receiverContact} />
+<Info label="Фото для водителя" value={parcelPhoto || "Не прикреплено"} /><Info label="Размер" value={`${size} · ${kind}`} /><Info label="Описание" value={description} /><Info label="Водитель" value={`${driver.name} · ${driver.vehicle}`} /><Info label="Время" value={driver.departure} /><Info label="Demo price" value={formatUzs(driver.priceMinor)} /></div><Link className="inline-flex min-h-12 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline" href="/parcels/phase8-parcel-ready?status=assigned">Подтвердить отправку</Link></Panel> : null}
 
         <section aria-label="История посылок" className="space-y-3"><h2 className="m-0 text-lg font-black">Мои посылки</h2>{history.map((parcel) => <Link key={parcel.id} className="block rounded-[var(--radius-lg)] bg-[rgb(var(--surface))] p-4 text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]" href={`/parcels/${parcel.id}`}><div className="flex items-start justify-between gap-3"><div><strong>{parcel.title}</strong><p className="m-0 mt-1 text-sm text-slate-500">{parcel.route}</p></div><Badge tone={parcel.tone}>{parcel.status}</Badge></div></Link>)}</section>
       </div>

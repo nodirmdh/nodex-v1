@@ -216,6 +216,20 @@ export default function BookingFlowPage() {
     setSelectedSeats([availableSeatKeys[0] ?? "FRONT_RIGHT"]);
   }
 
+
+  function applyStartPreset(kind: "rear3" | "start6") {
+    setUnavailableNotice("");
+    setBookingType("MULTI_SEAT");
+    if (kind === "rear3") {
+      setPreviewSevenSeat(false);
+      setPassengerCount(3);
+      setSelectedSeats(["ROW_1_LEFT", "ROW_1_CENTER", "ROW_1_RIGHT"]);
+      return;
+    }
+    setPreviewSevenSeat(true);
+    setPassengerCount(6);
+    setSelectedSeats(["FRONT_RIGHT", "ROW_1_LEFT", "ROW_1_RIGHT", "ROW_2_LEFT", "ROW_2_CENTER", "ROW_2_RIGHT"]);
+  }
   function requestSeatHold() {
     if (!requestReady) {
       setUnavailableNotice(
@@ -337,6 +351,14 @@ export default function BookingFlowPage() {
               </div>
             </div>
           ) : null}
+          <div className="mt-3 grid gap-2">
+            <button className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("rear3")}>
+              Тариф Старт · 3 места сзади
+            </button>
+            <button className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("start6")}>
+              Тариф Старт · 1 справа спереди, 2 по бокам середины и 3 сзади
+            </button>
+          </div>
           {bookingType === "WHOLE_CAR" ? (
             <p className="m-0 mt-3 rounded-[20px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-black text-[rgb(var(--primary))]">
               Вы бронируете все доступные места. Попутчиков не будет.

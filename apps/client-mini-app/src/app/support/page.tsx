@@ -47,7 +47,7 @@ export default function ClientSupportPage() {
   const [selectedId, setSelectedId] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentOpen, setAttachmentOpen] = useState(false);
-  const selected = useMemo(() => tickets.find((ticket) => ticket.id === selectedId) ?? tickets[0], [selectedId, tickets]);
+  const selected = useMemo(() => tickets.find((ticket) => ticket.id === selectedId), [selectedId, tickets]);
 
   function createTicket(category: string) {
     setActiveCategory(category);

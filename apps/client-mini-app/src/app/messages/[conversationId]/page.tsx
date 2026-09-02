@@ -16,6 +16,7 @@ const messages = [
 export default function ClientChatPage() {
   const [draft, setDraft] = useState("");
   const [sentСообщениеs, setSentСообщениеs] = useState<Array<{ text: string; time: string }>>([]);
+  const [attachment, setAttachment] = useState("");
   const visibleСообщениеs = [
     ...messages,
     ...sentСообщениеs.map((message) => ({ from: "client", ...message })),
@@ -81,10 +82,17 @@ export default function ClientChatPage() {
           <input
             className="min-h-11 min-w-0 flex-1 rounded-full border-0 bg-[rgb(var(--canvas))] px-4 text-sm font-semibold outline-none"
             id="chat-message"
-            placeholder="Сообщение driver"
+            placeholder="Напишите сообщение"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
+          <button
+            className="min-h-11 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm font-black text-[rgb(var(--primary))]"
+            type="button"
+            onClick={() => setAttachment("Фото точки посадки.jpg")}
+          >
+            Файл
+          </button>
           <button
             className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-5 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"

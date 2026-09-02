@@ -6,10 +6,10 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 
 | Area | Status | Reason |
 | --- | --- | --- |
-| Home | DONE | Search, quick links, saved/repeat, rewards, support, promo and recommended trips are represented. |
+| Home | DONE | Search, quick links, parcel entry, saved/repeat, favorite drivers, rewards, support, promo and recommended trips are represented. |
 | Search / results | DONE | Route context, filters, result cards, driver/trip links and parcel/baggage chips are interactive. |
 | Trip / driver detail | DONE | Driver, car, ETA, reliability, safety/support/share and booking CTA are represented. |
-| Tariffs: Start / Comfort / Premium | PARTIAL | Tariff UI exists in booking/search context, but full comparison is still demo-level. |
+| Tariffs: Start / Comfort / Premium | PARTIAL | Start booking presets are represented; full standalone tariff education is still demo-level. |
 | Seat map | DONE | Cabin selector supports selectable/unavailable seats and SUV preview. |
 | Multi-seat / group booking | DONE | Passenger count and multi-seat selection are implemented. |
 | Whole-car booking | DONE | Whole-car mode selects available passenger seats and updates price/CTA. |
@@ -28,7 +28,7 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 | Driver reliability profile | DONE | Trip detail shows reliability metrics and protection marker. |
 | Profile/settings | DONE | Profile and settings routes exist. |
 | Avoid-match / blacklist | DONE | Client/driver demo exclusion controls, confirmation sheets, local state and settings/admin visibility are represented. |
-| Parcel delivery | DONE | Separate frontend demo covers create, matching, confirmation, active status and history; backend/logistics remain out of scope. |
+| Parcel delivery | DONE | Separate frontend demo covers create, receiver phone, parcel photo, matching, confirmation, active status and history; backend/logistics remain out of scope. |
 
 ## Driver
 
