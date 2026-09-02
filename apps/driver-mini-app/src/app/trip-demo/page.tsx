@@ -26,8 +26,8 @@ export default function TripOperationDemo() {
   const [startPin, setStartPin] = useState("");
   const [delayOpen, setDelayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [reportedDelay, setReportedDelay] = useState("On time");
-  const [cancelReason, setCancelReason] = useState("Technical issue");
+  const [reportedDelay, setReportedDelay] = useState("По расписанию");
+  const [cancelReason, setCancelReason] = useState("Техническая проблема");
   const [cancelled, setCancelled] = useState(false);
 
   useEffect(() => {
@@ -160,8 +160,8 @@ export default function TripOperationDemo() {
       )}
 
       {!isCompleted && !cancelled ? (
-        <DriverCard className="mt-3 space-y-3" label="Reliability actions">
-          <div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-black">Reliability actions</h2><p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">Report delay or cancel with visible reliability impact.</p></div><DriverPill tone={reportedDelay === "On time" ? "success" : "warning"}>{reportedDelay}</DriverPill></div>
+        <DriverCard className="mt-3 space-y-3" label="Действия надёжности">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-black">Действия надёжности</h2><p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">Сообщите о задержке или отмене с видимым влиянием на надёжность.</p></div><DriverPill tone={reportedDelay === "По расписанию" ? "success" : "warning"}>{reportedDelay}</DriverPill></div>
           <div className="grid grid-cols-2 gap-2"><button className="min-h-11 rounded-full border-0 bg-[rgb(var(--canvas))] px-3 text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => setDelayOpen(true)}>Сообщить о задержке</button><button className="min-h-11 rounded-full border-0 bg-[rgb(var(--destructive-soft))] px-3 text-sm font-black text-[rgb(var(--destructive))]" type="button" onClick={() => setCancelOpen(true)}>Отменить поездку</button></div>
         </DriverCard>
       ) : null}

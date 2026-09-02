@@ -27,7 +27,7 @@ import { globalSearchItems } from "./admin-data";
 type NavItem = { label: string; href: string; icon: ReactNode };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
-  { label: "Control", items: [{ label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
+  { label: "Control", items: [{ label: "Панель", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
   {
     label: "Operations",
     items: [
@@ -41,15 +41,15 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Growth & Trust",
     items: [
-      { label: "Matching", href: "/matching", icon: <Network size={16} /> },
-      { label: "Rewards", href: "/rewards", icon: <Gift size={16} /> },
-      { label: "Anti-Fraud", href: "/fraud", icon: <ShieldAlert size={16} /> },
-      { label: "Referrals", href: "/referrals", icon: <Car size={16} /> },
-      { label: "Promotions", href: "/promotions", icon: <Megaphone size={16} /> },
-      { label: "Reliability", href: "/reliability", icon: <ShieldCheck size={16} /> },
+      { label: "Матчинг", href: "/matching", icon: <Network size={16} /> },
+      { label: "Награды", href: "/rewards", icon: <Gift size={16} /> },
+      { label: "Антифрод", href: "/fraud", icon: <ShieldAlert size={16} /> },
+      { label: "Рефералы", href: "/referrals", icon: <Car size={16} /> },
+      { label: "Промо", href: "/promotions", icon: <Megaphone size={16} /> },
+      { label: "Надёжность", href: "/reliability", icon: <ShieldCheck size={16} /> },
     ],
   },
-  { label: "System", items: [{ label: "Settings", href: "/settings", icon: <Settings size={16} /> }] },
+  { label: "System", items: [{ label: "Настройки", href: "/settings", icon: <Settings size={16} /> }] },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
