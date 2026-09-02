@@ -29,72 +29,72 @@ const trips: TripCard[] = [
     id: "upcoming-urgench",
     tab: "upcoming",
     route: "Nukus → Urgench",
-    departure: "Tomorrow, 08:30",
+    departure: "Завтра, 08:30",
     vehicle: "Chevrolet Cobalt · 95 A 214 QA",
     reserved: 3,
     seats: 4,
     pending: 1,
     boarded: 0,
-    status: "Upcoming",
+    status: "Запланирована",
     tone: "info",
-    cta: "View trip",
+    cta: "Открыть",
     href: "/trip-demo",
-    summary: "Review one pending request before departure.",
+    summary: "Проверьте одну ожидающую заявку перед выездом.",
   },
   {
     id: "upcoming-khiva",
     tab: "upcoming",
     route: "Nukus → Khiva",
-    departure: "Fri, 16:40",
+    departure: "Пт, 16:40",
     vehicle: "Chevrolet Tracker · 95 B 412 QA",
     reserved: 2,
     seats: 4,
     pending: 0,
     boarded: 0,
-    status: "Published",
+    status: "Опубликована",
     tone: "success",
-    cta: "View trip",
+    cta: "Открыть",
     href: "/trip-demo",
-    summary: "Ready for passengers and parcel handoff.",
+    summary: "Готово для пассажиров и передачи посылки.",
   },
   {
     id: "active-urgench",
     tab: "active",
     route: "Nukus → Urgench",
-    departure: "Today, 08:30",
+    departure: "Сегодня, 08:30",
     vehicle: "Chevrolet Cobalt · 95 A 214 QA",
     reserved: 3,
     seats: 4,
     pending: 0,
     boarded: 2,
-    status: "In progress",
+    status: "В пути",
     tone: "warning",
-    cta: "Operate",
+    cta: "Управлять",
     href: "/trip-demo?state=active",
-    summary: "2 of 3 passengers aboard. Finish trip when arrival is confirmed.",
+    summary: "2 из 3 пассажиров на борту. Завершите поездку после прибытия.",
   },
   {
     id: "completed-bukhara",
     tab: "completed",
     route: "Nukus → Bukhara",
-    departure: "Yesterday, 09:00",
+    departure: "Вчера, 09:00",
     vehicle: "Chevrolet Cobalt · 95 A 214 QA",
     reserved: 4,
     seats: 4,
     pending: 0,
     boarded: 4,
-    status: "Completed",
+    status: "Завершена",
     tone: "success",
-    cta: "Open history",
+    cta: "История",
     href: "/trip-demo?state=completed",
-    summary: "4 passengers carried. Route can be repeated from trip history.",
+    summary: "4 пассажира перевезены. Маршрут можно повторить из истории.",
   },
 ];
 
 const tabs: Array<{ key: TripTab; label: string }> = [
-  { key: "upcoming", label: "Upcoming" },
-  { key: "active", label: "Active" },
-  { key: "completed", label: "Completed" },
+  { key: "upcoming", label: "Будущие" },
+  { key: "active", label: "Активные" },
+  { key: "completed", label: "История" },
 ];
 
 export default function DriverTripsPage() {
@@ -110,17 +110,17 @@ export default function DriverTripsPage() {
   return (
     <DriverShell active="trips">
       <DriverHeader
-        title="Trips"
-        subtitle="Supply, boarding, and trip history"
-        status={<DriverPill tone="success">Verified</DriverPill>}
+        title="Поездки"
+        subtitle="Маршруты, посадка и история"
+        status={<DriverPill tone="success">Проверен</DriverPill>}
       />
 
       <DriverCard className="mt-4 space-y-3" label="Driver trips overview">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="m-0 text-xl font-black">Trips</h1>
+            <h1 className="m-0 text-xl font-black">Поездки</h1>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              See what needs attention before every departure.
+              Что нужно проверить перед каждым выездом.
             </p>
           </div>
           <Link
@@ -176,20 +176,20 @@ export default function DriverTripsPage() {
         ))}
       </section>
 
-      <DriverCard className="mt-3 space-y-3" label="Create trip wizard">
+      <DriverCard className="mt-3 space-y-3" label="Создание поездки">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
             <DriverIconView name="route" />
           </span>
           <div>
-            <h2 className="m-0 text-lg font-black">Create trip wizard</h2>
+            <h2 className="m-0 text-lg font-black">Создание поездки</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Route, approved vehicle, stops, seats, parcels, validation.
+              Маршрут, проверенная машина, остановки, места, посылки и проверка данных.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
-          {["Route", "Vehicle", "Publish"].map((step, index) => (
+          {["Маршрут", "Машина", "Публикация"].map((step, index) => (
             <div key={step} className="rounded-[16px] bg-[rgb(var(--canvas))] p-2">
               <div className="text-xs font-black text-[rgb(var(--primary))]">{index + 1}</div>
               <div className="text-[11px] font-bold text-[rgb(var(--text-muted))]">{step}</div>
@@ -200,7 +200,7 @@ export default function DriverTripsPage() {
           className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
           href="/create-trip-demo"
         >
-          Continue create trip
+          Продолжить создание
         </Link>
       </DriverCard>
     </DriverShell>
@@ -231,9 +231,9 @@ function DriverTripCard({ trip }: { trip: TripCard }) {
       <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
         <div className="truncate text-sm font-black">{trip.vehicle}</div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-          <Metric label="Reserved" value={`${trip.reserved}/${trip.seats}`} />
-          <Metric label="Pending" value={String(trip.pending)} />
-          <Metric label="Available" value={String(available)} />
+          <Metric label="Занято" value={`${trip.reserved}/${trip.seats}`} />
+          <Metric label="Ожидают" value={String(trip.pending)} />
+          <Metric label="Свободно" value={String(available)} />
         </div>
       </div>
 

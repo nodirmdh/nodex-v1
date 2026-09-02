@@ -276,7 +276,7 @@ export default function SearchPage() {
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Badge tone={trip.seats === 1 ? "warning" : "info"}>
-                    {trip.seats} seat{trip.seats === 1 ? "" : "s"} left
+                    {trip.seats} {trip.seats === 1 ? "место" : "места"} осталось
                   </Badge>
                   {trip.luggage ? <Badge tone="accent">Багаж</Badge> : null}
                   {trip.parcel ? <Badge tone="info">Посылка</Badge> : null}
@@ -370,8 +370,7 @@ export default function SearchPage() {
                 </div>
               </div>
               <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-sm font-medium text-[rgb(var(--text-muted))]">
-                Price range, vehicle type and front-seat filters are prepared for UI, but not
-                applied here unless supported by the current search data.
+                Диапазон цены, тип машины и переднее место показаны как демо-фильтры и применяются только там, где это поддержано текущими данными поиска.
               </div>
             </div>
 

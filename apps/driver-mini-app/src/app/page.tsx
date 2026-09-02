@@ -9,39 +9,39 @@ type SubscriptionState = "active" | "expiring" | "expired";
 
 const subscriptionCopy = {
   active: {
-    title: "Subscription active",
-    status: "Active",
+    title: "Подписка активна",
+    status: "Активна",
     tone: "success" as const,
-    days: "18 days remaining",
-    body: "You can publish trips and accept new passenger requests.",
-    cta: "Manage",
+    days: "Осталось 18 дней",
+    body: "Можно публиковать поездки и принимать новые заявки пассажиров.",
+    cta: "Управлять",
     createEnabled: true,
   },
   expiring: {
-    title: "Subscription expiring soon",
-    status: "3 days left",
+    title: "Подписка скоро закончится",
+    status: "3 дня",
     tone: "warning" as const,
-    days: "Renews soon",
-    body: "Renew before expiry to keep publishing trips without interruption.",
-    cta: "Renew",
+    days: "Нужно продлить",
+    body: "Продлите подписку заранее, чтобы публиковать поездки без паузы.",
+    cta: "Продлить",
     createEnabled: true,
   },
   expired: {
-    title: "Subscription inactive",
-    status: "Inactive",
+    title: "Подписка неактивна",
+    status: "Неактивна",
     tone: "danger" as const,
-    days: "Access limited",
-    body: "Activate subscription to publish new trips and accept new requests.",
-    cta: "Activate",
+    days: "Доступ ограничен",
+    body: "Активируйте подписку, чтобы публиковать поездки и принимать заявки.",
+    cta: "Активировать",
     createEnabled: false,
   },
 };
 
 const statItems = [
-  ["Today", "1 trip"],
-  ["Passengers", "2 confirmed"],
-  ["Requests", "3 new"],
-  ["Messages", "2 unread"],
+  ["Сегодня", "1 поездка"],
+  ["Пассажиры", "2 подтверждены"],
+  ["Заявки", "3 новые"],
+  ["Сообщения", "2 непрочитаны"],
 ];
 
 export default function DriverHome() {
@@ -57,9 +57,9 @@ export default function DriverHome() {
   return (
     <DriverShell active="home">
       <DriverHeader
-        title="Good morning"
-        subtitle="Azizbek · Ready to drive"
-        status={<DriverPill tone="success">Verified</DriverPill>}
+        title="Доброе утро"
+        subtitle="Azizbek · готов к поездкам"
+        status={<DriverPill tone="success">Проверен</DriverPill>}
       />
 
       <DriverCard className="mt-4 space-y-3" label="Driver subscription status">
@@ -77,7 +77,7 @@ export default function DriverHome() {
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[18px] bg-[rgb(var(--canvas))] p-3">
           <div>
-            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Plan access</div>
+            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Доступ по плану</div>
             <div className="text-sm font-black">{copy.days}</div>
           </div>
           <Link
@@ -95,16 +95,16 @@ export default function DriverHome() {
             <h2 className="m-0 text-lg font-black">Nukus → Urgench</h2>
             <p className="m-0 mt-1 flex items-center gap-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
               <DriverIconView name="clock" className="h-4 w-4" />
-              Tomorrow, 08:30
+              Завтра, 08:30
             </p>
           </div>
-          <DriverPill tone="info">Next trip</DriverPill>
+          <DriverPill tone="info">Ближайшая</DriverPill>
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
           <div className="min-w-0">
             <div className="truncate text-sm font-black">Chevrolet Cobalt · 95 A 214 QA</div>
             <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-              2 confirmed / 4 seats · 1 pending
+              2 подтверждены / 4 места · 1 ожидает
             </div>
           </div>
           <Link
@@ -122,18 +122,18 @@ export default function DriverHome() {
             ? "mt-3 space-y-3"
             : "mt-3 space-y-3 ring-1 ring-[rgb(var(--warning)/0.2)]"
         }
-        label="Create trip access"
+        label="Доступ к созданию поездки"
       >
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
             <DriverIconView name={copy.createEnabled ? "route" : "lock"} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="m-0 text-lg font-black">Create trip</h2>
+            <h2 className="m-0 text-lg font-black">Создать поездку</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
               {copy.createEnabled
-                ? "Publish a new route when your vehicle and plan are ready."
-                : "Blocked until subscription is active."}
+                ? "Опубликуйте маршрут, когда машина и подписка готовы."
+                : "Недоступно, пока подписка не активна."}
             </p>
           </div>
         </div>
@@ -142,38 +142,38 @@ export default function DriverHome() {
             className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline shadow-[var(--shadow-md)]"
             href="/trips"
           >
-            + Create trip
+            + Создать поездку
           </Link>
         ) : (
           <Link
             className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--warning-soft))] px-4 text-sm font-black text-[rgb(var(--warning))] no-underline"
             href="/subscription?state=expired"
           >
-            Activate subscription to create trips
+            Активировать подписку
           </Link>
         )}
       </DriverCard>
 
-      <DriverCard className="mt-3 space-y-3" label="New passenger requests">
+      <DriverCard className="mt-3 space-y-3" label="Новые заявки пассажиров">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="m-0 text-lg font-black">3 new seat requests</h2>
+            <h2 className="m-0 text-lg font-black">3 новые заявки на места</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Review before accepting passengers.
+              Проверьте заявки перед подтверждением пассажиров.
             </p>
           </div>
-          <DriverPill tone="warning">New</DriverPill>
+          <DriverPill tone="warning">Новые</DriverPill>
         </div>
         <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-sm font-black">Nodex Client</div>
               <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-                Front passenger · Nukus to Urgench
+                Переднее место · Nukus → Urgench
               </div>
             </div>
             <DriverPill tone={copy.createEnabled ? "accent" : "warning"}>
-              {copy.createEnabled ? formatUzs(8500000) : "Locked"}
+              {copy.createEnabled ? formatUzs(8500000) : "Закрыто"}
             </DriverPill>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function DriverHome() {
           ].join(" ")}
           href={copy.createEnabled ? "/passengers-demo" : "/subscription?state=expired"}
         >
-          {copy.createEnabled ? "Review requests" : "Activate to accept new requests"}
+          {copy.createEnabled ? "Проверить заявки" : "Активировать для заявок"}
         </Link>
       </DriverCard>
 
