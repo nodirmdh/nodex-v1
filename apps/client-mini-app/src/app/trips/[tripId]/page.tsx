@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge, VehicleImage, formatUzs } from "@nodex/ui";
+import { AvoidDriverPanel } from "./avoid-driver-panel";
 
 type IconName =
   | "back"
@@ -294,6 +295,8 @@ export default async function PublicTripPage({ params }: { params: Promise<{ tri
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">ответ водителя</div>
             </div>
           </div>
+          <AvoidDriverPanel driver={trip.driver} vehicle={trip.vehicle} plate={trip.plate} />
+
         </section>
 
         <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">

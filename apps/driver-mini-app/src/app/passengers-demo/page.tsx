@@ -91,6 +91,9 @@ export default function PassengersDemo() {
   const [rejectedRequests, setRejectedRequests] = useState<string[]>([]);
   const [confirmedBoarding, setConfirmedBoarding] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("requests");
+  const [avoidPassenger, setAvoidPassenger] = useState<typeof passengers[number] | null>(null);
+  const [avoidReason, setAvoidReason] = useState("грубое общение");
+  const [avoidedPassengerIds, setAvoidedPassengerIds] = useState<string[]>([]);
   const boardedCount = passengers.filter((passenger) => passenger.status === "Boarded").length;
   const noShowCount = passengers.filter((passenger) => passenger.status === "No-show").length;
   const pendingCount = passengers.filter((passenger) => passenger.status === "Confirmed").length;
@@ -291,10 +294,35 @@ export default function PassengersDemo() {
       {viewMode === "passengers" && (
         <section aria-label="Driver booking list" className="mt-3 space-y-3">
           {passengers.map((passenger) => (
-            <PassengerRow key={passenger.id} passenger={passenger} />
+            <PassengerRow key={passenger.id} passenger={passenger} avoided={avoidedPassengerIds.includes(passenger.id)} onAvoid={() => setAvoidPassenger(passenger)} />
           ))}
         </section>
       )}
+
+      {avoidPassenger ? (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-black/35 px-3 pb-3" role="dialog" aria-modal="true" aria-label="Не брать пассажира">
+          <div className="w-full max-w-[430px] rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]">
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[rgb(var(--border-strong))]" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="m-0 text-lg font-black">Не брать пассажира?</h3>
+                <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">{avoidPassenger.name} · {avoidPassenger.seat}</p>
+              </div>
+              <button aria-label="Закрыть" className="grid h-9 w-9 place-items-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] text-sm font-black" onClick={() => setAvoidPassenger(null)} type="button">×</button>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {["грубое общение", "опоздание", "не понравилась поездка", "другое"].map((reason) => (
+                <button key={reason} className={`min-h-10 rounded-[16px] border px-3 text-left text-sm font-black ${avoidReason === reason ? "border-[rgb(var(--primary))] bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]" : "border-[rgb(var(--border))] bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]"}`} onClick={() => setAvoidReason(reason)} type="button">
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <button className="mt-3 min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]" onClick={() => { setAvoidedPassengerIds((current) => current.includes(avoidPassenger.id) ? current : [...current, avoidPassenger.id]); setAvoidPassenger(null); }} type="button">
+              Подтвердить
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <DriverCard className="mt-3 space-y-3" label="Trip operations">
         <div className="flex items-center justify-between gap-3">
@@ -344,6 +372,8 @@ function AcceptSheet({ onConfirm }: { onConfirm: () => void }) {
 
 function PassengerRow({
   passenger,
+  avoided,
+  onAvoid,
 }: {
   passenger: {
     initials: string;
@@ -354,6 +384,8 @@ function PassengerRow({
     note: string;
     totalMinor: number;
   };
+  avoided: boolean;
+  onAvoid: () => void;
 }) {
   return (
     <DriverCard className="space-y-3" label={`Passenger ${passenger.name}`}>
@@ -375,7 +407,8 @@ function PassengerRow({
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      {avoided ? <div className="rounded-[16px] bg-[rgb(var(--warning-soft))] p-3 text-xs font-black text-[rgb(var(--warning))]">Этот пассажир больше не будет предлагаться вам.</div> : null}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Link
           className="inline-flex min-h-10 items-center justify-center rounded-full border-0 bg-[rgb(var(--canvas))] text-xs font-black text-[rgb(var(--primary))] no-underline"
           href="/messages/parcel-sender"
@@ -394,6 +427,13 @@ function PassengerRow({
         >
           No-show
         </Link>
+        <button
+          className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-xs font-black text-[rgb(var(--text-muted))]"
+          onClick={onAvoid}
+          type="button"
+        >
+          Не брать
+        </button>
       </div>
     </DriverCard>
   );

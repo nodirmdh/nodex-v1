@@ -27,7 +27,7 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 | Favorite drivers / saved routes / repeat trip | DONE | Home/reviews/search entries cover these flows. |
 | Driver reliability profile | DONE | Trip detail shows reliability metrics and protection marker. |
 | Profile/settings | DONE | Profile and settings routes exist. |
-| Avoid-match / blacklist | PARTIAL | Represented only where safety/favorite-driver controls imply trust preferences. |
+| Avoid-match / blacklist | DONE | Client/driver demo exclusion controls, confirmation sheets, local state and settings/admin visibility are represented. |
 | Parcel delivery | DONE | Separate frontend demo covers create, matching, confirmation, active status and history; backend/logistics remain out of scope. |
 
 ## Driver
@@ -71,6 +71,6 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 ## Top Product Gaps
 
 - Full parcel delivery end-to-end product remains partial: UI representation exists, but not a complete product system.
-- Avoid-match/blacklist controls are only lightly represented through trust/safety/favorite-driver surfaces.
+- Backend persistence, policy review queues and production analytics remain outside this frontend/demo pass.
 - Admin production-grade filters, pagination and audit history are foundations, not complete operational systems.
 - Tariff comparison is understandable in context, but not yet a standalone pricing education flow.

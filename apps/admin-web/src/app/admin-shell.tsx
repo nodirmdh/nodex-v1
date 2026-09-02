@@ -18,6 +18,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  ShieldMinus,
   Ticket,
   UserRound,
   Users,
@@ -27,9 +28,9 @@ import { globalSearchItems } from "./admin-data";
 type NavItem = { label: string; href: string; icon: ReactNode };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
-  { label: "Control", items: [{ label: "Панель", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
+  { label: "Контроль", items: [{ label: "Панель", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
   {
-    label: "Operations",
+    label: "Операции",
     items: [
       { label: "Клиенты", href: "/users", icon: <UserRound size={16} /> },
       { label: "Водители", href: "/drivers", icon: <Users size={16} /> },
@@ -39,7 +40,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
-    label: "Growth & Trust",
+    label: "Рост и доверие",
     items: [
       { label: "Матчинг", href: "/matching", icon: <Network size={16} /> },
       { label: "Награды", href: "/rewards", icon: <Gift size={16} /> },
@@ -47,9 +48,10 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { label: "Рефералы", href: "/referrals", icon: <Car size={16} /> },
       { label: "Промо", href: "/promotions", icon: <Megaphone size={16} /> },
       { label: "Надёжность", href: "/reliability", icon: <ShieldCheck size={16} /> },
+      { label: "Не предлагать", href: "/avoid-match", icon: <ShieldMinus size={16} /> },
     ],
   },
-  { label: "System", items: [{ label: "Настройки", href: "/settings", icon: <Settings size={16} /> }] },
+  { label: "Система", items: [{ label: "Настройки", href: "/settings", icon: <Settings size={16} /> }] },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -85,9 +87,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="mb-4 flex items-center justify-between gap-2 px-2">
           <Link className="min-w-0 text-[rgb(var(--foreground))] no-underline" href="/dashboard">
             <div className="text-xs font-black uppercase text-[rgb(var(--primary))]">ENVO</div>
-            {!collapsed ? <><div className="text-xl font-black leading-tight">Control Center</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Operations console</div></> : null}
+            {!collapsed ? <><div className="text-xl font-black leading-tight">Центр управления</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Операционная консоль</div></> : null}
           </Link>
-          <button aria-label="Collapse sidebar" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(var(--border))]" onClick={() => setCollapsed((value) => !value)} type="button">
+          <button aria-label="Свернуть меню" className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(var(--border))]" onClick={() => setCollapsed((value) => !value)} type="button">
             <ChevronLeft className={collapsed ? "rotate-180" : ""} size={15} />
           </button>
         </div>
@@ -116,12 +118,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.92)] px-5 backdrop-blur-xl">
           <div className="min-w-0">
             <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Admin / {pathname === "/" ? "dashboard" : pathname.split("/").filter(Boolean).join(" / ")}</div>
-            <div className="truncate text-sm font-black">ENVO operations control center</div>
+            <div className="truncate text-sm font-black">Операционный центр ENVO</div>
           </div>
           <div className="relative flex items-center gap-2">
             <label className="hidden min-h-9 w-[360px] grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
               <Search size={15} />
-              <input className="min-w-0 border-0 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Search user, driver, plate, trip, booking, ticket" value={query} />
+              <input className="min-w-0 border-0 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск клиента, водителя, номера, рейса, заявки" value={query} />
             </label>
             {results.length > 0 ? (
               <div className="absolute right-14 top-11 z-40 w-[420px] overflow-hidden rounded-[12px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-lg)]">
@@ -133,7 +135,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 ))}
               </div>
             ) : null}
-            <button aria-label="Notifications" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><Bell size={16} /></button>
+            <button aria-label="Уведомления" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><Bell size={16} /></button>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">NA</div>
           </div>
         </header>

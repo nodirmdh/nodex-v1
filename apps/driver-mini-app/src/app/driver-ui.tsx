@@ -91,7 +91,7 @@ export function DriverHeader({
       </div>
       {status}
       <Link
-        aria-label="Notifications"
+        aria-label="Уведомления"
         className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface)/0.94)] text-[rgb(var(--primary))] shadow-[var(--shadow-xs)]"
         href="/notifications"
       >
@@ -103,11 +103,11 @@ export function DriverHeader({
 
 export function DriverBottomNav({ active }: { active: DriverNavKey }) {
   const items: Array<{ key: DriverNavKey; label: string; href: string; icon: DriverIcon }> = [
-    { key: "home", label: "Home", href: "/", icon: "home" },
-    { key: "trips", label: "Trips", href: "/trips", icon: "route" },
-    { key: "requests", label: "Requests", href: "/passengers-demo", icon: "ticket" },
-    { key: "messages", label: "Messages", href: "/messages", icon: "chat" },
-    { key: "profile", label: "Profile", href: "/profile", icon: "profile" },
+    { key: "home", label: "Главная", href: "/", icon: "home" },
+    { key: "trips", label: "Поездки", href: "/trips", icon: "route" },
+    { key: "requests", label: "Заявки", href: "/passengers-demo", icon: "ticket" },
+    { key: "messages", label: "Сообщения", href: "/messages", icon: "chat" },
+    { key: "profile", label: "Профиль", href: "/profile", icon: "profile" },
   ];
 
   return (
