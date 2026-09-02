@@ -7,16 +7,16 @@ import { DriverCard, DriverHeader, DriverIconView, DriverPill, DriverShell } fro
 type TripState = "boarding" | "active" | "completed";
 
 const passengers = [
-  { name: "A. Karimov", initials: "AK", seat: "Front passenger", status: "Boarded" },
-  { name: "M. Seitov", initials: "MS", seat: "Rear left", status: "Confirmed" },
-  { name: "D. Allamuratov", initials: "DA", seat: "Rear right", status: "No-show" },
+  { name: "A. Karimov", initials: "AK", seat: "Переднее passenger", status: "На борту" },
+  { name: "M. Seitov", initials: "MS", seat: "Заднее левое", status: "Подтверждён" },
+  { name: "D. Allamuratov", initials: "DA", seat: "Заднее правое", status: "Не пришёл" },
 ];
 
 const parcels = [
   {
-    title: "Small parcel",
+    title: "Маленькая посылка",
     detail: "Nukus Central Station → Urgench Bus Station",
-    status: "Accepted",
+    status: "Принято",
   },
 ];
 
@@ -48,7 +48,7 @@ export default function TripOperationDemo() {
         subtitle="Nukus → Urgench · Chevrolet Cobalt"
         status={
           <DriverPill tone={isCompleted ? "success" : isActive ? "warning" : "info"}>
-            {cancelled ? "Cancelled" : isCompleted ? "Completed" : isActive ? `In progress · ${reportedDelay}` : "Boarding"}
+            {cancelled ? "Cancelled" : isCompleted ? "Completed" : isActive ? `In progress · ${reportedDelay}` : "Посадка"}
           </DriverPill>
         }
       />
@@ -69,7 +69,7 @@ export default function TripOperationDemo() {
                 isActive ? "text-[rgb(var(--primary))]" : "text-[rgb(var(--text-muted))]",
               ].join(" ")}
             >
-              Today, 08:30 · 95 A 214 QA
+              Сегодня, 08:30 · 95 A 214 QA
             </p>
           </div>
           <DriverIconView name={isActive ? "car" : "route"} className="h-6 w-6" />
@@ -80,9 +80,9 @@ export default function TripOperationDemo() {
             isActive ? "bg-[rgb(var(--surface-tint))]" : "bg-[rgb(var(--canvas))]",
           ].join(" ")}
         >
-          <Metric label="Reserved" value="3/4" active={isActive} />
-          <Metric label="Boarded" value={`${boarded}/3`} active={isActive} />
-          <Metric label="Pending" value={isCompleted ? "0" : "1"} active={isActive} />
+          <Metric label="Занято" value="3/4" active={isActive} />
+          <Metric label="На борту" value={`${boarded}/3`} active={isActive} />
+          <Metric label="Ожидает" value={isCompleted ? "0" : "1"} active={isActive} />
         </div>
         {cancelled ? (
           <p className="m-0 text-sm font-semibold text-[rgb(var(--destructive))]">Trip cancelled in demo state. Reliability event is visible for support/admin review.</p>
@@ -96,7 +96,7 @@ export default function TripOperationDemo() {
           </p>
         ) : (
           <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-            Confirm boarding before starting. Existing confirmed passengers remain accessible.
+            Проверьте посадку перед стартом. Подтверждённые пассажиры остаются доступны.
           </p>
         )}
       </DriverCard>
@@ -106,16 +106,16 @@ export default function TripOperationDemo() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="m-0 text-lg font-black">
-                {isActive ? "Finish when arrived" : "Start trip to Urgench?"}
+                {isActive ? "Finish when arrived" : "Начать поездку в Urgench?"}
               </h2>
               <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
                 {isActive
                   ? "Confirm passengers and parcels before completing."
-                  : "2 of 3 boarded · 1 passenger unresolved."}
+                  : "2 из 3 пассажиров на борту · 1 пассажир не решён."}
               </p>
             </div>
             <DriverPill tone={isActive ? "warning" : "info"}>
-              {isActive ? "Arrival" : "Ready"}
+              {isActive ? "Arrival" : "Готово"}
             </DriverPill>
           </div>
           {!isActive ? (
@@ -124,7 +124,7 @@ export default function TripOperationDemo() {
                 className="text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]"
                 htmlFor="trip-start-pin"
               >
-                Passenger start PIN
+                PIN пассажира
               </label>
               <input
                 id="trip-start-pin"
@@ -136,7 +136,7 @@ export default function TripOperationDemo() {
                 value={startPin}
               />
               <p className="m-0 text-xs font-semibold text-[rgb(var(--text-muted))]">
-                Start is enabled after the passenger PIN is verified by the API.
+                Старт включится после проверки PIN пассажира в демо-сценарии.
               </p>
             </div>
           ) : null}
@@ -146,7 +146,7 @@ export default function TripOperationDemo() {
             onClick={() => (isActive ? setFinishSheet(true) : setState("active"))}
             type="button"
           >
-            {isActive ? "Finish trip" : "Verify PIN and start trip"}
+            {isActive ? "Finish trip" : "Проверить PIN и начать"}
           </button>
           {finishSheet && (
             <FinishSheet
@@ -166,32 +166,32 @@ export default function TripOperationDemo() {
         </DriverCard>
       ) : null}
 
-      <DriverCard className="mt-3 space-y-3" label="Seat occupancy">
+      <DriverCard className="mt-3 space-y-3" label="Занятость мест">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="m-0 text-lg font-black">Seat occupancy</h2>
+            <h2 className="m-0 text-lg font-black">Занятость мест</h2>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              4 passenger seats · 3 reserved · 1 available
+              4 пассажирских места · 3 занято · 1 свободно
             </p>
           </div>
           <DriverPill tone="accent">75%</DriverPill>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {[
-            ["Front", "Boarded"],
-            ["Rear L", isCompleted ? "Boarded" : "Confirmed"],
-            ["Rear R", "No-show"],
-            ["Rear C", "Available"],
+            ["Переднее", "На борту"],
+            ["Заднее левое", isCompleted ? "На борту" : "Подтверждён"],
+            ["Заднее правое", "Не пришёл"],
+            ["Заднее центр", "Свободно"],
           ].map(([seat, status]) => (
             <div
               key={seat}
               className={[
                 "rounded-[16px] p-2 text-center text-[10px] font-black",
-                status === "Boarded"
+                status === "На борту"
                   ? "bg-[rgb(var(--success-soft))] text-[rgb(var(--success))]"
-                  : status === "No-show"
+                  : status === "Не пришёл"
                     ? "bg-[rgb(var(--destructive-soft))] text-[rgb(var(--destructive))]"
-                    : status === "Confirmed"
+                    : status === "Подтверждён"
                       ? "bg-[rgb(var(--info-soft))] text-[rgb(var(--info))]"
                       : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]",
               ].join(" ")}
@@ -203,14 +203,14 @@ export default function TripOperationDemo() {
         </div>
       </DriverCard>
 
-      <DriverCard className="mt-3 space-y-3" label="Passenger operations">
+      <DriverCard className="mt-3 space-y-3" label="Пассажиры">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-lg font-black">Passengers</h2>
+          <h2 className="m-0 text-lg font-black">Пассажиры</h2>
           <Link
             className="text-sm font-black text-[rgb(var(--primary))] no-underline"
             href="/passengers-demo?view=passengers"
           >
-            Manage
+            Управлять
           </Link>
         </div>
         {passengers.map((passenger) => (
@@ -229,17 +229,17 @@ export default function TripOperationDemo() {
             </div>
             <PassengerStatusPill
               status={
-                isCompleted && passenger.status === "Confirmed" ? "Boarded" : passenger.status
+                isCompleted && passenger.status === "Подтверждён" ? "На борту" : passenger.status
               }
             />
           </div>
         ))}
       </DriverCard>
 
-      <DriverCard className="mt-3 space-y-3" label="Parcel context">
+      <DriverCard className="mt-3 space-y-3" label="Посылки">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-lg font-black">Parcels</h2>
-          <DriverPill tone="info">1 item</DriverPill>
+          <h2 className="m-0 text-lg font-black">Посылки</h2>
+          <DriverPill tone="info">1 посылка</DriverPill>
         </div>
         {parcels.map((parcel) => (
           <div key={parcel.title} className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
@@ -262,11 +262,11 @@ export default function TripOperationDemo() {
 function DelaySheet({ onClose, onSave }: { onClose: () => void; onSave: (value: string) => void }) {
   const [minutes, setMinutes] = useState("10 минут");
   const [reason, setReason] = useState("пробки");
-  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Сообщить о задержке</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>x</button></div><div className="mt-3 grid grid-cols-3 gap-2">{["5 минут", "10 минут", "15 минут", "30+ минут", "своё время"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${minutes === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setMinutes(item)}>{item}</button>)}</div><div className="mt-3 grid grid-cols-2 gap-2">{["пробки", "пассажир задерживается", "техническая причина", "другое"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${reason === item ? "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onSave(`${minutes} · ${reason}`)}>Сохранить ETA</button></section></div>;
+  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Сообщить о задержке</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>×</button></div><div className="mt-3 grid grid-cols-3 gap-2">{["5 минут", "10 минут", "15 минут", "30+ минут", "своё время"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${minutes === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setMinutes(item)}>{item}</button>)}</div><div className="mt-3 grid grid-cols-2 gap-2">{["пробки", "пассажир задерживается", "техническая причина", "другое"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-2 text-xs font-black ${reason === item ? "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"}`} type="button" onClick={() => setReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onSave(`${minutes} · ${reason}`)}>Сохранить ETA</button></section></div>;
 }
 
 function CancelSheet({ reason, onReason, onClose, onConfirm }: { reason: string; onReason: (value: string) => void; onClose: () => void; onConfirm: () => void }) {
-  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Отмена поездки</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>x</button></div><p className="m-0 mt-2 rounded-[18px] bg-[rgb(var(--destructive-soft))] p-3 text-sm font-semibold text-[rgb(var(--destructive))]">Отмена за 25 минут до выезда снизит показатель надёжности.</p><div className="mt-3 grid gap-2">{["Technical issue", "Traffic", "Vehicle unavailable", "Passenger issue", "Other"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-3 text-left text-sm font-black ${reason === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]"}`} type="button" onClick={() => onReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--destructive-soft))] px-4 text-sm font-black text-[rgb(var(--destructive))]" type="button" onClick={onConfirm}>Confirm cancellation</button></section></div>;
+  return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-[26px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-black">Отмена поездки</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))] text-lg font-black" type="button" onClick={onClose}>×</button></div><p className="m-0 mt-2 rounded-[18px] bg-[rgb(var(--destructive-soft))] p-3 text-sm font-semibold text-[rgb(var(--destructive))]">Отмена за 25 минут до выезда снизит показатель надёжности.</p><div className="mt-3 grid gap-2">{["Technical issue", "Traffic", "Vehicle unavailable", "Passenger issue", "Other"].map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-3 text-left text-sm font-black ${reason === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]"}`} type="button" onClick={() => onReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--destructive-soft))] px-4 text-sm font-black text-[rgb(var(--destructive))]" type="button" onClick={onConfirm}>Confirm cancellation</button></section></div>;
 }
 
 function FinishSheet({ onFinish }: { onFinish: () => void }) {
@@ -289,7 +289,7 @@ function FinishSheet({ onFinish }: { onFinish: () => void }) {
 
 function PassengerStatusPill({ status }: { status: string }) {
   return (
-    <DriverPill tone={status === "Boarded" ? "success" : status === "No-show" ? "danger" : "info"}>
+    <DriverPill tone={status === "На борту" ? "success" : status === "Не пришёл" ? "danger" : "info"}>
       {status}
     </DriverPill>
   );
