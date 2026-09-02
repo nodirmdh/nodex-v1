@@ -1,130 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline } from "@nodex/ui";
+import { AppHeader, Badge, BottomNav, Button, Panel, Timeline, formatUzs } from "@nodex/ui";
 
-const parcels = [
-  {
-    id: "phase8-parcel-accepted",
-    title: "Small electronics",
-    route: "Nukus to Khiva",
-    sender: "A. Karimov",
-    recipient: "M. Seitov",
-    status: "ACCEPTED",
-  },
-  {
-    id: "phase8-parcel-transit",
-    title: "Documents envelope",
-    route: "Nukus to Urgench",
-    sender: "D. Allamuratov",
-    recipient: "R. Matyakubov",
-    status: "IN_TRANSIT",
-  },
-];
+type ParcelState = "new" | "accepted" | "picked" | "transit" | "delivered" | "declined";
 
-function tone(status: string) {
-  if (status === "DELIVERED") return "success";
-  if (status === "ACCEPTED") return "warning";
-  if (status === "IN_TRANSIT" || status === "READY_FOR_PICKUP") return "info";
-  return "neutral";
-}
+const request = {
+  pickup: "Nukus, вокзал",
+  destination: "Urgench, автостанция",
+  size: "Маленькая",
+  description: "Папка с документами",
+  sender: "Gulnora Ergasheva",
+  receiver: "Bekzod Ergashev",
+  priceMinor: 3200000,
+  note: "Передать только получателю по коду. Телефон скрыт, связь через ENVO.",
+};
+
+const history = [
+  ["Конверт с документами", "Доставлена", "success"],
+  ["Мелкая электроника", "В пути", "info"],
+  ["Пакет с одеждой", "Отменена", "danger"],
+] as const;
 
 export default function DriverParcelsPage() {
-  const [code, setCode] = useState("");
-  const selected = parcels[0]!;
+  const [state, setState] = useState<ParcelState>("new");
+  const active = state !== "new" && state !== "declined";
+  const statusLabel = state === "new" ? "Новая заявка" : state === "accepted" ? "Принята" : state === "picked" ? "Забрана" : state === "transit" ? "В пути" : state === "delivered" ? "Передана" : "Отклонена";
 
   return (
     <main className="nodex-app mobile-shell">
-      <AppHeader title="Parcel operations" subtitle="Handover, transit, pickup, and issues" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3" aria-label="Driver parcel dashboard">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-xl font-black">Trip parcels</h1>
-              <p className="m-0 text-sm text-slate-500">Only approved trip parcels are shown.</p>
-            </div>
-            <Badge tone="info">{parcels.length} active</Badge>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">Accepted</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">Transit</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>0</strong>
-              <span className="block text-xs text-slate-500">Issues</span>
-            </div>
-          </div>
+      <AppHeader title="Посылки" subtitle="Заявки по маршруту без смешивания с пассажирскими местами" />
+      <div className="space-y-4 px-4 pb-24">
+        <Panel className="space-y-3" aria-label="Заявка на посылку по маршруту">
+          <div className="flex items-start justify-between gap-3"><div><h1 className="m-0 text-xl font-black">Есть посылка по маршруту</h1><p className="m-0 text-sm text-slate-500">Nukus → Urgench · сегодня 18:30</p></div><Badge tone={state === "declined" ? "danger" : active ? "success" : "info"}>{statusLabel}</Badge></div>
+          <div className="grid grid-cols-2 gap-2 text-sm"><Info label="Забрать" value={request.pickup} /><Info label="Доставить" value={request.destination} /><Info label="Размер" value={request.size} /><Info label="Вознаграждение" value={formatUzs(request.priceMinor)} /></div>
+          <div className="rounded-[18px] bg-[rgb(var(--surface-muted))] p-3 text-sm"><strong>{request.description}</strong><p className="m-0 mt-1 text-slate-500">Отправитель: {request.sender} · Получатель: {request.receiver}</p><p className="m-0 mt-1 text-slate-500">{request.note}</p></div>
+          {state === "new" ? <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => setState("accepted")}>Принять</Button><Button type="button" variant="secondary" onClick={() => setState("declined")}>Отклонить</Button></div> : null}
+          {state === "declined" ? <Button type="button" variant="secondary" onClick={() => setState("new")}>Вернуть заявку в демо</Button> : null}
         </Panel>
 
-        <section aria-label="Driver parcel list" className="space-y-3">
-          {parcels.map((parcel) => (
-            <Panel key={parcel.id} className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="m-0 text-base font-bold">{parcel.title}</h2>
-                  <p className="m-0 text-sm text-slate-500">
-                    {parcel.route} - {parcel.sender} to {parcel.recipient}
-                  </p>
-                </div>
-                <Badge tone={tone(parcel.status)}>{parcel.status}</Badge>
-              </div>
-            </Panel>
-          ))}
-        </section>
+        {active ? <Panel className="space-y-3" aria-label="Активная посылка"><div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-black">Активная посылка</h2><p className="m-0 text-sm text-slate-500">Посылка не занимает пассажирское место, хранится отдельно.</p></div><Badge tone="info">Багажник</Badge></div><div className="grid grid-cols-3 gap-2"><Button type="button" variant={state === "picked" ? "primary" : "secondary"} onClick={() => setState("picked")}>Забрал посылку</Button><Button type="button" variant={state === "transit" ? "primary" : "secondary"} onClick={() => setState("transit")}>В пути</Button><Button type="button" variant={state === "delivered" ? "primary" : "secondary"} onClick={() => setState("delivered")}>Передал</Button></div><Timeline items={[{ label: "Принята водителем", time: "готово", active: true }, { label: "Забрана у отправителя", time: state === "picked" || state === "transit" || state === "delivered" ? "готово" : "ожидает", active: state === "picked" || state === "transit" || state === "delivered" }, { label: "В пути", time: state === "transit" || state === "delivered" ? "сейчас" : "ожидает", active: state === "transit" || state === "delivered" }, { label: "Передана получателю", time: state === "delivered" ? "готово" : "ожидает", active: state === "delivered" }]} /></Panel> : null}
 
-        <Panel className="space-y-3" aria-label="Parcel code verification">
-          <h2 className="m-0 text-base font-bold">Verify selected parcel</h2>
-          <p className="m-0 text-sm text-slate-500">{selected.title}</p>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Numeric code</span>
-            <input
-              className="min-h-12 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3 text-center text-xl font-bold tracking-[0.2em]"
-              inputMode="numeric"
-              maxLength={6}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-              placeholder="000000"
-              value={code}
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button disabled={code.length < 4} type="button">
-              Confirm handover
-            </Button>
-            <Button type="button" variant="secondary">
-              Ready for pickup
-            </Button>
-            <Button type="button" variant="secondary">
-              Confirm delivery
-            </Button>
-            <Button type="button" variant="secondary">
-              Report issue
-            </Button>
-          </div>
-        </Panel>
-
-        <Panel aria-label="Driver parcel timeline">
-          <Timeline
-            items={[
-              { label: "Accepted", time: "Driver", active: true },
-              { label: "Handover code required", time: "Sender", active: true },
-              { label: "Pickup code required", time: "Recipient" },
-            ]}
-          />
-        </Panel>
+        <section className="space-y-3" aria-label="История посылок водителя"><h2 className="m-0 text-lg font-black">История посылок</h2>{history.map(([title, status, tone]) => <Panel key={title}><div className="flex items-center justify-between gap-3"><div><strong>{title}</strong><p className="m-0 text-sm text-slate-500">Nukus → Urgench</p></div><Badge tone={tone}>{status}</Badge></div></Panel>)}</section>
       </div>
-      <BottomNav
-        items={[
-          { label: "Trips" },
-          { label: "Parcels", active: true },
-          { label: "Vehicles" },
-          { label: "Profile" },
-        ]}
-      />
+      <BottomNav items={[{ label: "Поездки" }, { label: "Посылки", active: true }, { label: "Машины" }, { label: "Профиль" }]} />
     </main>
   );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[16px] bg-[rgb(var(--surface-muted))] p-3"><span className="block text-xs text-slate-500">{label}</span><strong>{value}</strong></div>;
 }

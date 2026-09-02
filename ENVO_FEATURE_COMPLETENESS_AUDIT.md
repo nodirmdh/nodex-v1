@@ -28,7 +28,7 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 | Driver reliability profile | DONE | Trip detail shows reliability metrics and protection marker. |
 | Profile/settings | DONE | Profile and settings routes exist. |
 | Avoid-match / blacklist | PARTIAL | Represented only where safety/favorite-driver controls imply trust preferences. |
-| Parcel delivery | PARTIAL | Parcel routes and result chips exist, but full end-to-end parcel request is demo-level. |
+| Parcel delivery | DONE | Separate frontend demo covers create, matching, confirmation, active status and history; backend/logistics remain out of scope. |
 
 ## Driver
 
@@ -47,7 +47,7 @@ Scope: frontend and deterministic demo state only. Backend, Payments, Render/API
 | Notifications/settings | DONE | Routes exist where represented. |
 | Vehicle info | DONE | Vehicle profile and route cards include vehicle state. |
 | Route history | PARTIAL | History appears in trips/profile, but rich historical analytics remain product-level. |
-| Parcel handling | PARTIAL | Parcel indicator/details exist, but full parcel operations are demo-level. |
+| Parcel handling | DONE | Driver demo covers parcel request, accept/decline, active trip actions and history; backend/logistics remain out of scope. |
 
 ## Admin
 

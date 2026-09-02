@@ -29,6 +29,7 @@ export default function TripOperationDemo() {
   const [reportedDelay, setReportedDelay] = useState("По расписанию");
   const [cancelReason, setCancelReason] = useState("Техническая проблема");
   const [cancelled, setCancelled] = useState(false);
+  const [parcelState, setParcelState] = useState('Принята');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -238,17 +239,20 @@ export default function TripOperationDemo() {
 
       <DriverCard className="mt-3 space-y-3" label="Посылки">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-lg font-black">Посылки</h2>
-          <DriverPill tone="info">1 посылка</DriverPill>
+          <div>
+            <h2 className="m-0 text-lg font-black">Есть посылка по маршруту</h2>
+            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">Отдельно от пассажирских мест · багажник</p>
+          </div>
+          <DriverPill tone="info">{parcelState}</DriverPill>
         </div>
         {parcels.map((parcel) => (
           <div key={parcel.title} className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
             <div className="text-sm font-black">{parcel.title}</div>
-            <div className="mt-1 text-xs font-semibold text-[rgb(var(--text-muted))]">
-              {parcel.detail}
-            </div>
-            <div className="mt-2 text-xs font-black text-[rgb(var(--primary))]">
-              {parcel.status}
+            <div className="mt-1 text-xs font-semibold text-[rgb(var(--text-muted))]">{parcel.detail}</div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {["Забрал посылку", "В пути", "Передал получателю"].map((action) => (
+                <button key={action} className={`min-h-10 rounded-full border-0 px-2 text-[11px] font-black ${parcelState === action ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--surface))] text-[rgb(var(--primary))]"}`} type="button" onClick={() => setParcelState(action)}>{action}</button>
+              ))}
             </div>
           </div>
         ))}
