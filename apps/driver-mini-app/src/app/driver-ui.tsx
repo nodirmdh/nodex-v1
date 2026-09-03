@@ -61,7 +61,7 @@ export function DriverIconView({ name, className = "" }: { name: DriverIcon; cla
 export function DriverShell({ active, children }: { active: DriverNavKey; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
-      <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_26%,rgb(var(--canvas))_100%)] px-4 pb-24 pt-3">
+      <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_26%,rgb(var(--canvas))_100%)] px-5 pb-24 pt-4">
         {children}
       </div>
       <DriverBottomNav active={active} />
@@ -81,10 +81,10 @@ export function DriverHeader({
   return (
     <header className="flex min-h-[58px] items-center gap-3">
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
-          Nodex Driver
+        <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
+          ENVO Driver
         </p>
-        <h1 className="m-0 truncate text-2xl font-black leading-none">{title}</h1>
+        <h1 className="m-0 truncate text-2xl font-semibold leading-tight">{title}</h1>
         <p className="m-0 mt-1 truncate text-sm font-semibold text-[rgb(var(--text-muted))]">
           {subtitle}
         </p>
@@ -111,15 +111,15 @@ export function DriverBottomNav({ active }: { active: DriverNavKey }) {
   ];
 
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-[var(--z-nav)] mx-auto max-w-[404px] rounded-full bg-[rgb(var(--surface)/0.95)] p-1 shadow-[var(--shadow-floating)] backdrop-blur-xl">
+    <nav className="fixed inset-x-0 bottom-0 z-[var(--z-nav)] mx-auto max-w-[430px] border-t border-[rgb(var(--border)/0.55)] bg-[rgb(var(--surface)/0.98)] px-3 pb-[calc(0.45rem+var(--safe-bottom))] pt-2 backdrop-blur-xl">
       <div className="grid grid-cols-5 gap-0.5">
         {items.map((item) => (
           <Link
             key={item.key}
             className={[
-              "grid min-h-[48px] place-items-center rounded-full px-1 text-[9px] font-bold no-underline",
+              "grid min-h-[52px] place-items-center rounded-[18px] px-1 text-[9px] font-medium no-underline",
               active === item.key
-                ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-sm)]"
+                ? "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]"
                 : "text-[rgb(var(--text-muted))]",
             ].join(" ")}
             href={item.href}
@@ -145,7 +145,7 @@ export function DriverCard({
   return (
     <section
       aria-label={label}
-      className={`rounded-[22px] bg-[rgb(var(--surface))] p-3 shadow-[var(--shadow-md)] ${className}`}
+      className={`rounded-[22px] bg-[rgb(var(--surface))] p-3 shadow-[var(--shadow-sm)] ${className}`}
     >
       {children}
     </section>
@@ -170,7 +170,7 @@ export function DriverPill({
 
   return (
     <span
-      className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-black ${classes[tone]}`}
+      className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-semibold ${classes[tone]}`}
     >
       {children}
     </span>
