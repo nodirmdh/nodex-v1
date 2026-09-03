@@ -25,7 +25,7 @@ import {
 } from "./cabin-model";
 
 type IconName = "back" | "car" | "clock" | "map" | "shield" | "sliders" | "users";
-type SheetName = "preferences" | "baggage" | "schedule" | "pickup" | null;
+type SheetName = "preferences" | "baggage" | "pickup" | null;
 
 const iconPaths: Record<IconName, ReactNode> = {
   back: <path d="m15 6-6 6 6 6" />,
@@ -94,17 +94,17 @@ function departureForSchedule(option: BookingScheduleOption, customValue: string
 
 export default function BookingFlowPage() {
   const [bookingType, setBookingType] = useState<BookingType>("SEAT");
-  const [selectedSeats, setSelectedSeats] = useState<string[]>(["FRONT_RIGHT"]);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [step, setStep] = useState<"hold" | "passengers" | "confirmed">("hold");
   const [passengerCount, setPassengerCount] = useState(1);
   const [previewSevenSeat, setPreviewSevenSeat] = useState(false);
   const [unavailableNotice, setUnavailableNotice] = useState("");
   const [activeSheet, setActiveSheet] = useState<SheetName>(null);
-  const [preferenceTypes, setPreferenceTypes] = useState<BookingPreferenceType[]>(["NO_SMOKING"]);
+  const [preferenceTypes, setPreferenceTypes] = useState<BookingPreferenceType[]>([]);
   const [driverComment, setDriverComment] = useState("");
   const [baggageType, setBaggageType] = useState<BookingBaggageChoice>("NONE");
-  const [baggageQuantity, setBaggageQuantity] = useState(1);
-  const [scheduleOption, setScheduleOption] = useState<BookingScheduleOption>("TOMORROW");
+  const [baggageQuantity, setBaggageQuantity] = useState(0);
+  const [scheduleOption] = useState<BookingScheduleOption>("TOMORROW");
   const [customDeparture, setCustomDeparture] = useState("2026-09-03T08:30");
   const [pickupLocation, setPickupLocation] = useState<BookingPickupLocation>({
     latitude: null,
@@ -209,11 +209,11 @@ export default function BookingFlowPage() {
     }
     if (next === "MULTI_SEAT") {
       setPassengerCount(2);
-      setSelectedSeats(availableSeatKeys.slice(0, 2));
+      setSelectedSeats([]);
       return;
     }
     setPassengerCount(1);
-    setSelectedSeats([availableSeatKeys[0] ?? "FRONT_RIGHT"]);
+    setSelectedSeats([]);
   }
 
 
@@ -223,7 +223,7 @@ export default function BookingFlowPage() {
     if (kind === "rear3") {
       setPreviewSevenSeat(false);
       setPassengerCount(3);
-      setSelectedSeats(["ROW_1_LEFT", "ROW_1_CENTER", "ROW_1_RIGHT"]);
+      setSelectedSeats([]);
       return;
     }
     setPreviewSevenSeat(true);
@@ -380,7 +380,7 @@ export default function BookingFlowPage() {
           />
         </div>
 
-        <section className="sticky bottom-[76px] mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)] backdrop-blur">
+        <section className="mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="m-0 text-lg font-semibold">Выбрано</h2>
@@ -422,7 +422,7 @@ export default function BookingFlowPage() {
                 baggageType === "NONE" ? baggageSummary : `${baggageSummary} · ${baggageQuantity}`,
                 "car",
               ],
-              ["schedule", "Когда", scheduleSummary, "clock"],
+
               ["pickup", "Посадка", pickupLocation.label || "Добавить ориентир", "map"],
             ].map(([sheet, title, value, icon]) => (
               <button
@@ -449,7 +449,7 @@ export default function BookingFlowPage() {
               type="button"
               onClick={requestSeatHold}
             >
-              {primaryAction}
+              {requestReady ? primaryAction : "Сначала выберите место"}
             </Button>
           ) : null}
         </section>
@@ -538,13 +538,7 @@ export default function BookingFlowPage() {
           <div className="w-full max-w-[430px] rounded-[30px] bg-[rgb(var(--surface))] p-4 shadow-[0_24px_70px_rgb(var(--foreground)/0.24)]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="m-0 text-lg font-semibold">
-                {activeSheet === "preferences"
-                  ? "Пожелания к поездке"
-                  : activeSheet === "baggage"
-                    ? "Багаж"
-                    : activeSheet === "schedule"
-                      ? "Когда поехать"
-                      : "Точка посадки"}
+                {activeSheet === "preferences" ? "Пожелания к поездке" : activeSheet === "baggage" ? "Багаж" : "Точка посадки"}
               </h2>
               <button
                 className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--canvas))] text-lg font-semibold"
@@ -617,41 +611,6 @@ export default function BookingFlowPage() {
                 ) : null}
               </div>
             ) : null}
-
-            {activeSheet === "schedule" ? (
-              <div className="grid gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {scheduleOptions.map((option) => (
-                    <button
-                      key={option.option}
-                      aria-pressed={scheduleOption === option.option}
-                      className={[
-                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
-                        scheduleOption === option.option
-                          ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
-                          : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
-                      ].join(" ")}
-                      type="button"
-                      onClick={() => setScheduleOption(option.option)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                {scheduleOption === "CUSTOM" ? (
-                  <input
-                    className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold"
-                    type="datetime-local"
-                    value={customDeparture}
-                    onChange={(event) => setCustomDeparture(event.target.value)}
-                  />
-                ) : null}
-                <p className="m-0 text-xs font-semibold text-[rgb(var(--text-muted))]">
-                  Используем время отправления выбранного рейса, без отдельной scheduler-системы.
-                </p>
-              </div>
-            ) : null}
-
             {activeSheet === "pickup" ? (
               <div className="grid gap-2">
                 <input

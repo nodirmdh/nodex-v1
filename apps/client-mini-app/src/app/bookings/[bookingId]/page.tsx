@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { formatUzs } from "@nodex/ui";
 import { Avatar, Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
+import { CabinSelector } from "../../trips/[tripId]/book/cabin-selector";
+import {
+  type BookingType,
+  cabinSeats,
+  selectableSeatKeys,
+  seatLabelForKey,
+  tripCabin,
+} from "../../trips/[tripId]/book/cabin-model";
 
 type DelayState = "ON_TIME" | "SLIGHT_DELAY" | "DELAYED" | "CRITICAL_DELAY";
 type ProtectionStage = "idle" | "searching" | "found" | "accepted" | "none";
@@ -16,14 +25,34 @@ const delayCopy = {
 };
 
 const reasons = ["изменились планы", "водитель задерживается", "нашёл другой транспорт", "ошибка при бронировании", "другое"];
+const seatLabelRu: Record<string, string> = {
+  "Front passenger": "Переднее пассажирское",
+  "Rear left": "Заднее левое",
+  "Rear middle": "Заднее среднее",
+  "Rear right": "Заднее правое",
+};
+
+function displaySeatLabel(seatKey: string) {
+  const label = seatLabelForKey(cabinSeats, seatKey);
+  return seatLabelRu[label] ?? label;
+}
 
 export default function BookingDetailPage() {
+  const params = useParams<{ bookingId?: string }>();
+  const bookingId = params.bookingId ?? "phase6-booking-hold";
   const [delayState, setDelayState] = useState<DelayState>("ON_TIME");
   const [protection, setProtection] = useState<ProtectionStage>("idle");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState(reasons[0]!);
   const copy = useMemo(() => delayCopy[delayState], [delayState]);
   const problem = delayState === "CRITICAL_DELAY" || protection !== "idle";
+  const availableSeatKeys = useMemo(() => selectableSeatKeys(cabinSeats), []);
+  const bookingType: BookingType = bookingId.includes("whole") ? "WHOLE_CAR" : bookingId.includes("multi") ? "MULTI_SEAT" : "SEAT";
+  const visualSeats = bookingType === "WHOLE_CAR" ? availableSeatKeys : bookingType === "MULTI_SEAT" ? ["ROW_1_LEFT", "ROW_1_CENTER", "ROW_1_RIGHT"] : ["FRONT_RIGHT"];
+  const visualSummary = bookingType === "WHOLE_CAR" ? "Вся машина" : visualSeats.map(displaySeatLabel).join(", ");
+  const visualCabinSeats = cabinSeats.map((seat) =>
+    seat.status === "driver" || visualSeats.includes(seat.key) ? seat : { ...seat, status: "unavailable" as const },
+  );
 
   return (
     <ClientShell active="trips">
@@ -37,6 +66,11 @@ export default function BookingDetailPage() {
         <div className="flex items-center gap-3"><Avatar name="Azizbek Karimov" /><div className="min-w-0 flex-1"><h1 className="m-0 truncate text-lg font-semibold">Azizbek Karimov</h1><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">Chevrolet Cobalt · 95 A 214 QA</p></div><StatusPill tone={copy.tone}>{copy.eta}</StatusPill></div>
         <div className="mt-4 rounded-[18px] bg-[rgb(var(--canvas))] p-3"><p className="m-0 text-sm text-[rgb(var(--text-muted))]">Текущий статус</p><h2 className="m-0 mt-1 text-xl font-semibold">{copy.label}</h2></div>
         <div className="mt-3 grid grid-cols-2 gap-2"><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] px-3 text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/messages/driver-azizbek">Написать</Link><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--foreground))] no-underline" href="/safety?tripId=phase6-booking-confirmed">Безопасность</Link></div>
+      </Card>
+
+      <Card className="mt-4" compact>
+        <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-semibold">Ваше место</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{visualSummary}</p></div><StatusPill tone="success">Забронировано</StatusPill></div>
+        <CabinSelector bookingType={bookingType} onSeatToggle={() => {}} passengerCount={visualSeats.length} priceMinor={tripCabin.priceMinor} seats={visualCabinSeats} selectedSeats={visualSeats} tariff={tripCabin.tariff} template={tripCabin.template} vehicleModel={tripCabin.model} />
       </Card>
 
       {!problem ? <button className="mt-4 flex min-h-12 w-full items-center justify-between rounded-[18px] border-0 bg-[rgb(var(--surface))] px-4 text-left shadow-[var(--shadow-sm)]" type="button" onClick={() => setDelayState("CRITICAL_DELAY")}><span><span className="block text-sm font-semibold">ENVO Protection</span><span className="block text-xs text-[rgb(var(--text-muted))]">Поездка защищена</span></span><span className="text-[rgb(var(--primary))]">Подробнее</span></button> : null}
