@@ -280,7 +280,7 @@ export default function BookingFlowPage() {
             <Icon name="back" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="m-0 text-xl font-black">Выберите место</h1>
+            <h1 className="m-0 text-xl font-semibold">Выберите места</h1>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
               {tripCabin.model} · {tripCabin.departure}
             </p>
@@ -291,18 +291,18 @@ export default function BookingFlowPage() {
         <section className="mt-5 rounded-[30px] bg-[rgb(var(--surface)/0.96)] p-4 shadow-[0_18px_46px_rgb(var(--foreground)/0.1)] backdrop-blur">
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div>
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.1em] text-[rgb(var(--primary))]">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-[rgb(var(--primary))]">
                 <Icon name="car" className="h-4 w-4" />
                 {tripCabin.color} · {tripCabin.capacity}
               </div>
-              <div className="mt-1 text-xl font-black">{tripCabin.model}</div>
+              <div className="mt-1 text-xl font-semibold">{tripCabin.model}</div>
               <div className="text-sm font-semibold text-[rgb(var(--text-muted))]">
                 {tripCabin.route}
               </div>
             </div>
             <div className="text-right">
               <Badge tone="info">{tripCabin.plate}</Badge>
-              <div className="mt-2 flex items-center justify-end gap-1 text-xs font-black text-[rgb(var(--text-muted))]">
+              <div className="mt-2 flex items-center justify-end gap-1 text-xs font-semibold text-[rgb(var(--text-muted))]">
                 <Icon name="shield" className="h-4 w-4 text-[rgb(var(--primary))]" />
                 Проверено
               </div>
@@ -315,7 +315,7 @@ export default function BookingFlowPage() {
                 key={type}
                 aria-pressed={bookingType === type}
                 className={[
-                  "min-h-11 rounded-full px-2 text-sm font-black transition",
+                  "min-h-11 rounded-full px-2 text-sm font-semibold transition",
                   bookingType === type
                     ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]"
                     : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]",
@@ -323,24 +323,24 @@ export default function BookingFlowPage() {
                 type="button"
                 onClick={() => changeType(type)}
               >
-                {type === "SEAT" ? "Одно место" : type === "MULTI_SEAT" ? "Группа" : "Вся машина"}
+                {type === "SEAT" ? "1 место" : type === "MULTI_SEAT" ? "Несколько" : "Вся машина"}
               </button>
             ))}
           </div>
           {bookingType === "MULTI_SEAT" ? (
             <div className="mt-3 flex items-center justify-between rounded-[20px] bg-[rgb(var(--canvas))] p-2">
-              <span className="pl-2 text-sm font-black">Пассажиров</span>
+              <span className="pl-2 text-sm font-semibold">Пассажиров</span>
               <div className="flex items-center gap-2">
                 <button
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--surface))] text-lg font-black"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--surface))] text-lg font-semibold"
                   type="button"
                   onClick={() => setPassengerCount((value) => Math.max(2, value - 1))}
                 >
                   -
                 </button>
-                <span className="w-6 text-center text-sm font-black">{passengerCount}</span>
+                <span className="w-6 text-center text-sm font-semibold">{passengerCount}</span>
                 <button
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-lg font-black text-[rgb(var(--primary-foreground))]"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-lg font-semibold text-[rgb(var(--primary-foreground))]"
                   type="button"
                   onClick={() =>
                     setPassengerCount((value) => Math.min(availableSeatKeys.length, value + 1))
@@ -351,16 +351,15 @@ export default function BookingFlowPage() {
               </div>
             </div>
           ) : null}
-          <div className="mt-3 grid gap-2">
-            <button className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("rear3")}>
-              Тариф Старт · 3 места сзади
-            </button>
-            <button className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("start6")}>
-              Тариф Старт · 1 справа спереди, 2 по бокам середины и 3 сзади
-            </button>
+          <div className="mt-4">
+            <div className="mb-2 text-sm font-medium text-[rgb(var(--text-muted))]">Быстрый выбор</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("rear3")}>3 сзади</button>
+              <button className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("start6")}>6 мест</button>
+            </div>
           </div>
           {bookingType === "WHOLE_CAR" ? (
-            <p className="m-0 mt-3 rounded-[20px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-black text-[rgb(var(--primary))]">
+            <p className="m-0 mt-3 rounded-[20px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">
               Вы бронируете все доступные места. Попутчиков не будет.
             </p>
           ) : null}
@@ -381,10 +380,10 @@ export default function BookingFlowPage() {
           />
         </div>
 
-        <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
+        <section className="sticky bottom-[76px] mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)] backdrop-blur">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <h2 className="m-0 text-lg font-black">Выбрано</h2>
+              <h2 className="m-0 text-lg font-semibold">Выбрано</h2>
               <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
                 {bookingType === "WHOLE_CAR"
                   ? `${availableSeatKeys.length} доступных пассажирских мест`
@@ -392,13 +391,13 @@ export default function BookingFlowPage() {
               </p>
             </div>
             <Badge tone={requestReady ? "success" : "warning"}>
-              {requestReady ? "Готово" : "Выберите место"}
+              {requestReady ? "Готово" : "Выберите места"}
             </Badge>
           </div>
 
           <div className="grid grid-cols-[1fr_auto] gap-3 rounded-[26px] bg-[linear-gradient(135deg,rgb(var(--canvas)),rgb(var(--surface-tint)))] p-3 shadow-[inset_0_0_0_1px_rgb(var(--surface)/0.8)]">
             <div>
-              <div className="text-base font-black">{selectedSummary}</div>
+              <div className="text-base font-semibold">{selectedSummary}</div>
               <div className="mt-1 flex items-center gap-1 text-xs font-bold text-[rgb(var(--text-muted))]">
                 <Icon name="clock" className="h-4 w-4" />
                 {scheduleSummary} · {tripCabin.departure}
@@ -408,13 +407,13 @@ export default function BookingFlowPage() {
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
                 {bookingType === "WHOLE_CAR" ? "Вся машина" : "Цена за место"}
               </div>
-              <div className="text-xl font-black text-[rgb(var(--foreground))]">
+              <div className="text-xl font-semibold text-[rgb(var(--foreground))]">
                 {formatUzs(totalMinor)}
               </div>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid gap-2">
             {[
               ["preferences", "Пожелания", preferencesSummary, "sliders"],
               [
@@ -428,15 +427,15 @@ export default function BookingFlowPage() {
             ].map(([sheet, title, value, icon]) => (
               <button
                 key={sheet}
-                className="min-h-[74px] rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-left shadow-[inset_0_0_0_1px_rgb(var(--border))]"
+                className="flex min-h-[58px] w-full items-center justify-between rounded-[16px] bg-[rgb(var(--canvas))] p-3 text-left shadow-[inset_0_0_0_1px_rgb(var(--border))]"
                 type="button"
                 onClick={() => setActiveSheet(sheet as SheetName)}
               >
-                <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.08em] text-[rgb(var(--primary))]">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--primary))]">
                   <Icon name={icon as IconName} className="h-4 w-4" />
                   {title}
                 </span>
-                <span className="mt-1 block text-sm font-black text-[rgb(var(--foreground))]">
+                <span className="mt-1 block text-sm font-semibold text-[rgb(var(--foreground))]">
                   {value}
                 </span>
               </button>
@@ -458,13 +457,13 @@ export default function BookingFlowPage() {
         {step !== "hold" ? (
           <section
             aria-label={step === "confirmed" ? "Подтверждение заявки" : "Данные пассажира"}
-            className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]"
+            className="sticky bottom-[76px] mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)] backdrop-blur"
           >
             {step === "passengers" ? (
               <>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="m-0 text-lg font-black">Данные пассажира</h2>
+                    <h2 className="m-0 text-lg font-semibold">Данные пассажира</h2>
                     <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
                       Основной заказчик — текущий клиент. Другим пассажирам Telegram не нужен.
                     </p>
@@ -492,7 +491,7 @@ export default function BookingFlowPage() {
                 </div>
 
                 <div className="mt-3 rounded-[22px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold">
-                  <div className="font-black">Данные заявки</div>
+                  <div className="font-semibold">Данные заявки</div>
                   <div className="mt-1 text-[rgb(var(--text-muted))]">
                     {baggageType === "NONE"
                       ? baggageSummary
@@ -510,7 +509,7 @@ export default function BookingFlowPage() {
             ) : (
               <>
                 <Badge tone="success">Заявка отправлена</Badge>
-                <h2 className="m-0 mt-3 text-lg font-black">Заявка на место создана</h2>
+                <h2 className="m-0 mt-3 text-lg font-semibold">Заявка на место создана</h2>
                 <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
                   {selectedSummary} добавлено к заявке. Водитель подтвердит поездку и увидит ваши
                   пожелания.
@@ -538,7 +537,7 @@ export default function BookingFlowPage() {
         >
           <div className="w-full max-w-[430px] rounded-[30px] bg-[rgb(var(--surface))] p-4 shadow-[0_24px_70px_rgb(var(--foreground)/0.24)]">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="m-0 text-lg font-black">
+              <h2 className="m-0 text-lg font-semibold">
                 {activeSheet === "preferences"
                   ? "Пожелания к поездке"
                   : activeSheet === "baggage"
@@ -548,7 +547,7 @@ export default function BookingFlowPage() {
                       : "Точка посадки"}
               </h2>
               <button
-                className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--canvas))] text-lg font-black"
+                className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--canvas))] text-lg font-semibold"
                 type="button"
                 onClick={() => setActiveSheet(null)}
               >
@@ -564,7 +563,7 @@ export default function BookingFlowPage() {
                       key={option.type}
                       aria-pressed={preferenceTypes.includes(option.type)}
                       className={[
-                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
+                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
                         preferenceTypes.includes(option.type)
                           ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                           : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
@@ -592,7 +591,7 @@ export default function BookingFlowPage() {
                     key={option.type}
                     aria-pressed={baggageType === option.type}
                     className={[
-                      "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
+                      "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
                       baggageType === option.type
                         ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                         : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
@@ -605,9 +604,9 @@ export default function BookingFlowPage() {
                 ))}
                 {baggageType !== "NONE" ? (
                   <div className="mt-2 flex items-center justify-between rounded-[18px] bg-[rgb(var(--surface-tint))] p-2">
-                    <span className="pl-2 text-sm font-black">Количество</span>
+                    <span className="pl-2 text-sm font-semibold">Количество</span>
                     <input
-                      className="h-10 w-20 rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-center font-black"
+                      className="h-10 w-20 rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-center font-semibold"
                       min={1}
                       max={20}
                       type="number"
@@ -627,7 +626,7 @@ export default function BookingFlowPage() {
                       key={option.option}
                       aria-pressed={scheduleOption === option.option}
                       className={[
-                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
+                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
                         scheduleOption === option.option
                           ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                           : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
@@ -641,7 +640,7 @@ export default function BookingFlowPage() {
                 </div>
                 {scheduleOption === "CUSTOM" ? (
                   <input
-                    className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-black"
+                    className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold"
                     type="datetime-local"
                     value={customDeparture}
                     onChange={(event) => setCustomDeparture(event.target.value)}

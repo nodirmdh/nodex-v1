@@ -63,7 +63,7 @@ export function Icon({ name, className = "" }: { name: ClientIcon; className?: s
 export function ClientShell({ active, children }: { active: ClientNavKey; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
-      <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_28%,rgb(var(--canvas))_100%)] px-4 pb-24 pt-3">
+      <div className="mx-auto min-h-screen max-w-[430px] bg-[linear-gradient(180deg,rgb(var(--surface-tint))_0%,rgb(var(--background))_22%,rgb(var(--canvas))_100%)] px-5 pb-24 pt-4">
         {children}
       </div>
       <ClientBottomNav active={active} />
@@ -105,13 +105,13 @@ export function ClientHeader({
         <h1
           className={
             secondary
-              ? "m-0 truncate text-[24px] font-black leading-none"
-              : "m-0 truncate text-3xl font-black leading-none"
+              ? "m-0 truncate text-[23px] font-semibold leading-tight"
+              : "m-0 truncate text-[30px] font-semibold leading-tight"
           }
         >
           {title}
         </h1>
-        <p className="m-0 mt-1 truncate text-sm font-semibold text-[rgb(var(--text-muted))]">
+        <p className="m-0 mt-1 truncate text-sm font-medium text-[rgb(var(--text-muted))]">
           {subtitle}
         </p>
       </div>
@@ -137,15 +137,15 @@ export function ClientBottomNav({ active }: { active: ClientNavKey }) {
   ];
 
   return (
-    <nav className="fixed inset-x-4 bottom-4 z-[var(--z-nav)] mx-auto max-w-[398px] rounded-full bg-[rgb(var(--surface)/0.96)] p-1.5 shadow-[var(--shadow-floating)] backdrop-blur-xl">
+    <nav className="fixed inset-x-0 bottom-0 z-[var(--z-nav)] mx-auto max-w-[430px] border-t border-[rgb(var(--border)/0.55)] bg-[rgb(var(--surface)/0.98)] px-3 pb-[calc(0.45rem+var(--safe-bottom))] pt-2 backdrop-blur-xl">
       <div className="grid grid-cols-4 gap-1">
         {items.map((item) => (
           <Link
             key={item.key}
             className={[
-              "grid min-h-[56px] place-items-center rounded-full px-2 text-[11px] font-black no-underline transition",
+              "grid min-h-[52px] place-items-center rounded-[18px] px-2 text-[11px] font-semibold no-underline transition",
               active === item.key
-                ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-sm)]"
+                ? "bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]"
                 : "text-[rgb(var(--text-muted))]",
             ].join(" ")}
             href={item.href}
@@ -173,7 +173,7 @@ export function Card({
   return (
     <section
       aria-label={label}
-      className={`rounded-[24px] bg-[rgb(var(--surface))] ${compact ? "p-3" : "p-4"} shadow-[var(--shadow-md)] ${className}`}
+      className={`rounded-[22px] bg-[rgb(var(--surface))] ${compact ? "p-3" : "p-4"} shadow-[var(--shadow-sm)] ${className}`}
     >
       {children}
     </section>
@@ -199,7 +199,7 @@ export function StatusPill({
   };
   return (
     <span
-      className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-black ${subtle ? "opacity-85" : ""} ${classes[tone]}`}
+      className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-semibold ${subtle ? "opacity-85" : ""} ${classes[tone]}`}
     >
       {children}
     </span>
@@ -245,8 +245,8 @@ export function SettingsRow({
         <Icon name={icon} className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black">{title}</span>
-        <span className="block truncate text-xs font-semibold text-[rgb(var(--text-muted))]">
+        <span className="block truncate text-sm font-semibold">{title}</span>
+        <span className="block truncate text-xs font-medium text-[rgb(var(--text-muted))]">
           {subtitle}
         </span>
       </span>
