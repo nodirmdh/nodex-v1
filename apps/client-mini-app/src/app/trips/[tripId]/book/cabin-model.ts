@@ -117,3 +117,13 @@ export function cabinTemplateForModel(model: string, capacity: number): CabinTem
   if (/tracker|suv/i.test(model)) return "SUV_5";
   return "SEDAN_5";
 }
+export function seatPriceMinor(basePriceMinor: number, seat: CabinSeat | undefined) {
+  if (!seat || seat.status === "driver") return basePriceMinor;
+  if (seat.position === "center") return Math.round(basePriceMinor * 0.8);
+  if (seat.row === "front" && seat.position === "right") return Math.round(basePriceMinor * 1.2);
+  return basePriceMinor;
+}
+
+export function selectedSeatsTotalMinor(basePriceMinor: number, seats: CabinSeat[], selectedSeatKeys: string[]) {
+  return selectedSeatKeys.reduce((total, seatKey) => total + seatPriceMinor(basePriceMinor, seats.find((seat) => seat.key === seatKey)), 0);
+}

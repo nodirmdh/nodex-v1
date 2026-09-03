@@ -30,7 +30,7 @@ const conversations: Record<string, Conversation> = {
     subtitle: "Nukus → Urgench · завтра 08:30",
     badge: "Чат поездки",
     contextTitle: "Поездка Nukus → Urgench",
-    contextMeta: "Место забронировано · водитель уточняет посадку",
+    contextMeta: "Запрос места отправлен · чат доступен до подтверждения",
     status: "Активно",
     attachments: ["image", "file"],
     messages: [
@@ -45,7 +45,7 @@ const conversations: Record<string, Conversation> = {
     title: "Поддержка ENVO",
     subtitle: "Один чат для всех обращений",
     badge: "Поддержка",
-    contextTitle: "SUP-1042 · Координация посадки",
+    contextTitle: "Координация посадки",
     contextMeta: "Проблема с поездкой · в работе · ответ с контекстом поездки",
     status: "В работе",
     attachments: ["image", "video", "file"],

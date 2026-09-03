@@ -14,7 +14,7 @@ const conversations = [
   {
     id: "support-envo",
     participant: "Поддержка ENVO",
-    context: "SUP-1042 · координация посадки · в работе",
+    context: "Координация посадки · в работе",
     lastMessage: "Мы добавили вашу заметку к заявке.",
     timestamp: "1 ч",
     unread: false,

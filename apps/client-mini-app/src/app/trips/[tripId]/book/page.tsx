@@ -20,6 +20,7 @@ import {
   cabinSeats,
   selectableSeatKeys,
   seatLabelForKey,
+  selectedSeatsTotalMinor,
   sevenSeatPreview,
   tripCabin,
 } from "./cabin-model";
@@ -131,7 +132,7 @@ export default function BookingFlowPage() {
   const totalMinor =
     bookingType === "WHOLE_CAR"
       ? tripCabin.wholeCarPriceMinor
-      : tripCabin.priceMinor * Math.max(1, effectiveSeats.length);
+      : selectedSeatsTotalMinor(tripCabin.priceMinor, visibleSeats, effectiveSeats);
   const selectedSummary =
     bookingType === "WHOLE_CAR"
       ? "Вся машина"
@@ -405,7 +406,7 @@ export default function BookingFlowPage() {
             </div>
             <div className="text-right">
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
-                {bookingType === "WHOLE_CAR" ? "Вся машина" : "Цена за место"}
+                {bookingType === "WHOLE_CAR" ? "Вся машина" : "Итого по местам"}
               </div>
               <div className="text-xl font-semibold text-[rgb(var(--foreground))]">
                 {formatUzs(totalMinor)}
@@ -517,12 +518,10 @@ export default function BookingFlowPage() {
                 <code className="mt-3 block overflow-hidden rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[10px] text-[rgb(var(--text-muted))]">
                   {JSON.stringify(bookingCorePayload.hold)}
                 </code>
-                <Link
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline"
-                  href="/bookings"
-                >
-                  Открыть мои поездки
-                </Link>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-3 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline" href="/bookings">Открыть заявки</Link>
+                  <Link className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--canvas))] px-3 text-sm font-bold text-[rgb(var(--primary))] no-underline" href="/messages/driver-azizbek">Чат с водителем</Link>
+                </div>
               </>
             )}
           </section>

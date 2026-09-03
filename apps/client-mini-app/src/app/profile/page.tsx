@@ -28,7 +28,7 @@ export default function ProfilePage() {
         <SettingsRow href="/favorite-drivers" icon="star" subtitle="Водители, которым вы доверяете" title="Любимые водители" />
         <SettingsRow href="/search?from=Nukus&to=Urgench&saved=1" icon="check" subtitle="Nukus → Urgench и другие маршруты" title="Сохранённые маршруты" />
         <SettingsRow href="/search?from=Nukus&to=Urgench&repeat=last" icon="clock" subtitle="Повторить последний маршрут" title="Повторить поездку" />
-        <SettingsRow href="/search?waitlist=1" icon="bell" subtitle="Сообщить, когда появится подходящий рейс" title="Лист ожидания" />
+        <SettingsRow href="/search?request=1" icon="bell" subtitle="Создать заявку, если нет подходящей поездки" title="Заявка на поездку" />
         <SettingsRow href="/profile/settings" icon="shield" subtitle="Водители, которых не предлагать" title="Не предлагать водителей" />
       </Group>
 

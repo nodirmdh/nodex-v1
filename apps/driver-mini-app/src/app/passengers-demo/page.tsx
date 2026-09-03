@@ -12,11 +12,11 @@ const requests = [
   {
     id: "request-front",
     initials: "NK",
-    name: "Nodex Client",
-    seat: "Переднее место",
+    name: "Клиент ENVO",
+    seat: "Переднее пассажирское · +20%",
     count: "1 пассажир",
     trip: "Nukus → Urgench, завтра 08:30",
-    totalMinor: 8500000,
+    totalMinor: 10200000,
     luggage: "Небольшой багаж",
     note: "Посадка у вокзала Nukus.",
     submitted: "4 мин назад",
@@ -50,10 +50,10 @@ const passengers: Array<{
     initials: "AK",
     name: "A. Karimov",
     status: "На борту",
-    seat: "Переднее место",
+    seat: "Переднее пассажирское · +20%",
     boarding: "PIN проверен",
-    note: "Небольшой багаж · cash with driver",
-    totalMinor: 8500000,
+    note: "Небольшой багаж · расчёт напрямую с водителем",
+    totalMinor: 10200000,
   },
   {
     id: "booking-2",
@@ -71,8 +71,8 @@ const passengers: Array<{
     name: "D. Allamuratov",
     status: "Не пришёл",
     seat: "Заднее правое",
-    boarding: "Marked at 08:20",
-    note: "Не пришёл recorded by driver",
+    boarding: "Отмечено в 08:20",
+    note: "Неявка отмечена водителем",
     totalMinor: 8500000,
   },
 ];
@@ -110,7 +110,7 @@ export default function ПассажирыDemo() {
     <DriverShell active="requests">
       <DriverHeader
         title={viewMode === "requests" ? "Заявки" : "Пассажиры"}
-        subtitle="Заявки, посадка и Fill"
+        subtitle="Заявки, посадка и ENVO Fill"
         status={
           <DriverPill tone={subscriptionExpired ? "warning" : "success"}>
             {subscriptionExpired ? "Ограничено" : "Активно"}
@@ -139,7 +139,7 @@ export default function ПассажирыDemo() {
       {subscriptionExpired && (
         <DriverCard
           className="mt-3 space-y-2 ring-1 ring-[rgb(var(--warning)/0.22)]"
-          label="Subscription request guard"
+          label="Ограничение заявок"
         >
           <div className="flex gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[rgb(var(--warning-soft))] text-[rgb(var(--warning))]">
@@ -261,7 +261,7 @@ export default function ПассажирыDemo() {
             <div>
               <h2 className="m-0 text-lg font-semibold">M. Seitov</h2>
               <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-                Заднее левое · waiting for boarding code
+                Заднее левое · ожидает PIN посадки
               </p>
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function ПассажирыDemo() {
         </div>
       ) : null}
 
-      <DriverCard className="mt-3 space-y-3" label="Trip operations">
+      <DriverCard className="mt-3 space-y-3" label="Операции поездки">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="m-0 text-lg font-semibold">Следующее действие</h2>
@@ -351,13 +351,13 @@ function AcceptSheet({ onConfirm }: { onConfirm: () => void }) {
         <div>
           <h3 className="m-0 text-lg font-semibold">Принять заявку?</h3>
           <p className="m-0 mt-1 text-sm font-semibold opacity-80">
-            Nodex Client · Переднее место · Nukus → Urgench
+            Клиент ENVO · Переднее пассажирское · Nukus → Urgench
           </p>
         </div>
         <DriverPill tone="accent">Занять место</DriverPill>
       </div>
       <p className="m-0 mt-3 text-sm font-semibold opacity-80">
-        После принятия место будет занято, контакт пассажира станет доступен.
+        После вашего подтверждения выбранное место станет занятым, а контакт пассажира будет доступен.
       </p>
       <button
         className="mt-3 min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]"
@@ -388,7 +388,7 @@ function PassengerRow({
   onAvoid: () => void;
 }) {
   return (
-    <DriverCard className="space-y-3" label={`Passenger ${passenger.name}`}>
+    <DriverCard className="space-y-3" label={`Пассажир ${passenger.name}`}>
       <div className="flex items-start gap-3">
         <Avatar initials={passenger.initials} />
         <div className="min-w-0 flex-1">

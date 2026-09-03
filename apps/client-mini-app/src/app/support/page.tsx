@@ -14,8 +14,8 @@ const topics = [
 ];
 
 const tickets = [
-  { id: "SUP-1042", title: "Координация посадки", meta: "Проблема с поездкой", status: "В работе" },
-  { id: "SUP-1038", title: "Вопрос по посылке", meta: "Посылка", status: "Открыто" },
+  { id: "pickup", title: "Координация посадки", meta: "Проблема с поездкой", status: "В работе" },
+  { id: "parcel", title: "Вопрос по посылке", meta: "Посылка", status: "Открыто" },
 ];
 
 export default function ClientSupportPage() {
@@ -68,11 +68,11 @@ export default function ClientSupportPage() {
         </div>
         <div className="mt-3 grid gap-2">
           {tickets.map((ticket) => (
-            <Link key={ticket.id} className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href={`/messages/support-envo?ticket=${ticket.id}`}>
+            <Link key={ticket.id} className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href={`/messages/support-envo?topic=${encodeURIComponent(ticket.title)}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-black">{ticket.title}</div>
-                  <div className="mt-1 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">{ticket.id} · {ticket.meta}</div>
+                  <div className="mt-1 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">{ticket.meta}</div>
                 </div>
                 <StatusPill tone="info">{ticket.status}</StatusPill>
               </div>

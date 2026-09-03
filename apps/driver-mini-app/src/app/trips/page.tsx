@@ -127,7 +127,7 @@ export default function DriverTripsPage() {
             className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
             href="/create-trip-demo"
           >
-            Create trip
+            Создать
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-1 rounded-full bg-[rgb(var(--canvas))] p-1">
@@ -154,19 +154,19 @@ export default function DriverTripsPage() {
           <Link className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href="/passengers-demo?sheet=accept">
             <div className="flex items-center justify-between gap-2">
               <h2 className="m-0 text-base font-black">ENVO Fill</h2>
-              <DriverPill tone="info">2 requests</DriverPill>
+              <DriverPill tone="info">3 клиента ждут</DriverPill>
             </div>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Есть пассажиры на ваш маршрут. Проверьте подходящие запросы без лишних данных клиента.
+              По вашему маршруту ждут 3 клиента. ENVO предлагает заявки, решение принимает водитель.
             </p>
           </Link>
           <Link className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href="/create-trip-demo?return=1">
             <div className="flex items-center justify-between gap-2">
               <h2 className="m-0 text-base font-black">ENVO Return</h2>
-              <DriverIconView name="route" className="h-5 w-5 text-[rgb(var(--primary))]" />
+              <DriverPill tone="accent">5 клиентов ждут</DriverPill>
             </div>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Быстро подготовьте обратный рейс. Публикация только после вашего подтверждения.
+              На обратном направлении Urgench → Nukus есть спрос: 3 заявки и 4 потенциальных места.
             </p>
           </Link>
         </div>

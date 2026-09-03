@@ -1,7 +1,7 @@
 "use client";
 
 import { cn, formatUzs } from "@nodex/ui";
-import type { BookingType, CabinSeat, CabinTemplate } from "./cabin-model";
+import { seatPriceMinor, type BookingType, type CabinSeat, type CabinTemplate } from "./cabin-model";
 import {
   SEAT_MAP_LAYOUTS,
   type SeatMapLayout,
@@ -191,6 +191,11 @@ function SeatNode({
     >
       <SeatIcon status={status} />
       {status === "reserved" ? <LockMark /> : null}
+      {layoutSeat.bookable && status !== "driver" ? (
+        <span className="absolute -bottom-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[rgb(var(--surface)/0.94)] px-1.5 py-0.5 text-[9px] font-black text-[rgb(var(--primary))] shadow-[var(--shadow-xs)]">
+          {formatUzs(priceMinor)}
+        </span>
+      ) : null}
       <span
         className={cn(
           "absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 text-[11px] font-black leading-none",
@@ -275,7 +280,7 @@ export function CabinSelector({
               disabled={disabled}
               layoutSeat={layoutSeat}
               onSeatToggle={onSeatToggle}
-              priceMinor={priceMinor}
+              priceMinor={seatPriceMinor(priceMinor, seat)}
               seat={seat}
               status={status}
             />
