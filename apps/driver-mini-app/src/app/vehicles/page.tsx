@@ -9,20 +9,20 @@ const vehicles = [
   {
     name: "Chevrolet Cobalt",
     plate: "95 A 214 QA",
-    color: "White",
-    seats: "4 passenger seats",
+    color: "Белый",
+    seats: "4 пассажирских места",
     layout: "Sedan",
-    status: "Approved",
+    status: "Одобрено",
     tone: "success" as const,
     primary: true,
   },
   {
     name: "Chevrolet Tracker",
     plate: "95 B 412 QA",
-    color: "Silver",
-    seats: "4 passenger seats",
+    color: "Серебристый",
+    seats: "4 пассажирских места",
     layout: "SUV",
-    status: "Under review",
+    status: "На проверке",
     tone: "warning" as const,
     primary: false,
   },
@@ -38,14 +38,14 @@ export default function DriverVehiclesPage() {
   return (
     <DriverShell active="profile">
       <DriverHeader
-        title="Vehicles"
-        subtitle="Cars and capacity"
-        status={<DriverPill tone="success">1 active</DriverPill>}
+        title="Автомобиль"
+        subtitle="Машины, места и документы"
+        status={<DriverPill tone="success">1 активен</DriverPill>}
       />
 
       {mode === "list" ? (
         <>
-          <DriverCard className="mt-4 space-y-3" label="Current vehicle">
+          <DriverCard className="mt-4 space-y-3" label="Текущий автомобиль">
             <div className="flex gap-3">
               <div className="grid h-24 w-28 shrink-0 place-items-center rounded-[22px] bg-[rgb(var(--canvas))] text-[rgb(var(--primary))]">
                 <DriverIconView name="car" className="h-8 w-8" />
@@ -58,11 +58,11 @@ export default function DriverVehiclesPage() {
                       {vehicles[0]!.plate} · {vehicles[0]!.color}
                     </p>
                   </div>
-                  <DriverPill tone="success">Approved</DriverPill>
+                  <DriverPill tone="success">Одобрено</DriverPill>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold">
-                  <Info label="Layout" value={vehicles[0]!.layout} />
-                  <Info label="Capacity" value={vehicles[0]!.seats} />
+                  <Info label="Кузов" value={vehicles[0]!.layout} />
+                  <Info label="Места" value={vehicles[0]!.seats} />
                 </div>
               </div>
             </div>
@@ -71,11 +71,11 @@ export default function DriverVehiclesPage() {
               onClick={() => setMode("edit")}
               type="button"
             >
-              Manage vehicle
+              Изменить автомобиль
             </button>
           </DriverCard>
 
-          <section aria-label="Driver vehicle list" className="mt-3 space-y-3">
+          <section aria-label="Список автомобилей водителя" className="mt-3 space-y-3">
             {vehicles.map((vehicle) => (
               <DriverCard key={vehicle.plate}>
                 <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export default function DriverVehiclesPage() {
             className="mt-3 min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"
           >
-            Add vehicle
+            Добавить автомобиль
           </button>
         </>
       ) : (
@@ -110,44 +110,44 @@ export default function DriverVehiclesPage() {
 
 function DriverVehicleEdit({ onBack }: { onBack: () => void }) {
   return (
-    <section aria-label="Vehicle edit form" className="mt-4 space-y-3">
+    <section aria-label="Форма автомобиля" className="mt-4 space-y-3">
       <DriverCard className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="m-0 text-xl font-black">Edit vehicle</h1>
+          <h1 className="m-0 text-xl font-black">Изменить автомобиль</h1>
           <button
             className="border-0 bg-transparent text-sm font-black text-[rgb(var(--primary))]"
             onClick={onBack}
             type="button"
           >
-            Done
+            Готово
           </button>
         </div>
         <FieldGroup
-          title="Vehicle"
+          title="Автомобиль"
           fields={[
-            ["Model", "Chevrolet Cobalt"],
-            ["Color", "White"],
+            ["Модель", "Chevrolet Cobalt"],
+            ["Цвет", "Белый"],
           ]}
         />
-        <FieldGroup title="Registration" fields={[["Plate", "95 A 214 QA"]]} />
+        <FieldGroup title="Регистрация" fields={[["Номер", "95 A 214 QA"]]} />
         <FieldGroup
-          title="Capacity"
+          title="Места"
           fields={[
-            ["Layout", "Sedan"],
-            ["Passenger seats", "4"],
+            ["Кузов", "Sedan"],
+            ["Пассажирские места", "4"],
           ]}
         />
-        <DriverCard className="bg-[rgb(var(--canvas))] shadow-none" label="Seat layout summary">
+        <DriverCard className="bg-[rgb(var(--canvas))] shadow-none" label="Схема салона">
           <div className="text-sm font-black">Sedan</div>
           <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-            4 passenger seats · front passenger + rear row
+            4 пассажирских места · переднее справа и задний ряд
           </div>
         </DriverCard>
         <button
           className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
           type="button"
         >
-          Save vehicle
+          Сохранить автомобиль
         </button>
       </DriverCard>
     </section>

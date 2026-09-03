@@ -1,5 +1,3 @@
-import type { ComponentType } from "react";
-
 export type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 export type AdminUser = {

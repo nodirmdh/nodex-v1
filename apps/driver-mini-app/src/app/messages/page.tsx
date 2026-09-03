@@ -5,34 +5,34 @@ const conversations = [
   {
     id: "azizbek-karimov",
     initials: "AK",
-    title: "Passenger chat",
+    title: "Чат с пассажиром",
     name: "Azizbek Karimov",
-    context: "Nukus → Urgench · Tomorrow 08:30",
-    seat: "Front passenger",
-    body: "I will be at the entrance.",
-    time: "2 min",
+    context: "Nukus → Urgench · завтра 08:30",
+    seat: "Переднее место",
+    body: "Буду у входа.",
+    time: "2 мин",
     unread: true,
   },
   {
     id: "parcel-sender",
     initials: "PS",
-    title: "Parcel sender",
-    name: "Parcel sender",
-    context: "Nukus → Urgench · Small parcel",
-    seat: "Handover at pickup",
-    body: "Please message after the parcel is handed over.",
-    time: "18 min",
+    title: "Отправитель посылки",
+    name: "Отправитель посылки",
+    context: "Nukus → Urgench · маленькая посылка",
+    seat: "Передача у точки посадки",
+    body: "Напишите после передачи посылки.",
+    time: "18 мин",
     unread: false,
   },
   {
     id: "support",
     initials: "NS",
-    title: "Support",
-    name: "Nodex Support",
-    context: "Vehicle verification",
-    seat: "Driver help",
-    body: "Your document review note is ready.",
-    time: "1 h",
+    title: "Поддержка",
+    name: "Nodex Поддержка",
+    context: "Проверка автомобиля",
+    seat: "Помощь водителю",
+    body: "Заметка по проверке документов готова.",
+    time: "1 ч",
     unread: false,
   },
 ];
@@ -41,12 +41,12 @@ export default function DriverMessagesPage() {
   return (
     <DriverShell active="messages">
       <DriverHeader
-        title="Messages"
-        subtitle="Passenger, parcel, and support chats"
-        status={<DriverPill tone="info">3 chats</DriverPill>}
+        title="Сообщения"
+        subtitle="Пассажиры, посылки и поддержка"
+        status={<DriverPill tone="info">3 чата</DriverPill>}
       />
 
-      <section aria-label="Driver inbox" className="mt-4 space-y-2.5">
+      <section aria-label="Входящие водителя" className="mt-4 space-y-2.5">
         {conversations.map((conversation) => (
           <Link
             key={conversation.id}

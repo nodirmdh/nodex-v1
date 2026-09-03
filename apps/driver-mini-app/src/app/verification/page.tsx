@@ -19,35 +19,35 @@ export default function DriverVerificationPage() {
   return (
     <DriverShell active="profile">
       <DriverHeader
-        title="Verification"
-        subtitle="Documents and status"
+        title="Документы"
+        subtitle="Проверка водителя и автомобиля"
         status={
           <DriverPill tone={approved ? "success" : pending ? "warning" : "danger"}>
-            {approved ? "Approved" : pending ? "Under review" : "Action required"}
+            {approved ? "Одобрено" : pending ? "На проверке" : "Нужно исправить"}
           </DriverPill>
         }
       />
 
-      <DriverCard className="mt-4 space-y-3" label="Driver verification status">
+      <DriverCard className="mt-4 space-y-3" label="Статус проверки">
         <h1 className="m-0 text-xl font-black">
-          {approved ? "Verification approved" : pending ? "Review in progress" : "Update documents"}
+          {approved ? "Документы одобрены" : pending ? "Идёт проверка" : "Обновите документы"}
         </h1>
         <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
           {approved
-            ? "Your profile is ready to publish trips and manage passenger requests."
+            ? "Профиль готов: можно публиковать маршруты и принимать заявки."
             : pending
-              ? "Submitted documents are being reviewed. You do not need to upload them again."
-              : "Some submitted details need correction before approval."}
+              ? "Документы отправлены на проверку, повторно загружать их не нужно."
+              : "Некоторые данные нужно исправить перед одобрением."}
         </p>
         <div className="grid gap-2">
-          {["Identity document", "Driver license", "Vehicle registration"].map((item) => (
+          {["Документ личности", "Водительское удостоверение", "Регистрация автомобиля"].map((item) => (
             <div
               key={item}
               className="flex items-center justify-between rounded-[16px] bg-[rgb(var(--canvas))] p-3"
             >
               <span className="text-sm font-black">{item}</span>
               <DriverPill tone={approved ? "success" : pending ? "warning" : "danger"}>
-                {approved ? "Approved" : pending ? "Submitted" : "Needs update"}
+                {approved ? "Одобрено" : pending ? "Отправлено" : "Исправить"}
               </DriverPill>
             </div>
           ))}
@@ -57,7 +57,7 @@ export default function DriverVerificationPage() {
             className="min-h-12 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
             type="button"
           >
-            Resubmit documents
+            Отправить заново
           </button>
         )}
       </DriverCard>

@@ -8,28 +8,28 @@ type SubscriptionState = "active" | "expiring" | "expired";
 
 const stateCopy = {
   active: {
-    title: "Subscription active",
-    status: "Active",
+    title: "Подписка активна",
+    status: "Активна",
     tone: "success" as const,
-    days: "18 days remaining",
-    cta: "Renew subscription",
-    help: "Publishing and new request acceptance are enabled.",
+    days: "Осталось 18 дней",
+    cta: "Продлить подписку",
+    help: "Публикация маршрутов и приём новых заявок доступны.",
   },
   expiring: {
-    title: "Expiring soon",
-    status: "3 days left",
+    title: "Скоро закончится",
+    status: "3 дня",
     tone: "warning" as const,
-    days: "Renew before 24 Aug",
-    cta: "Renew now",
-    help: "Operations continue. Renew to avoid access interruption.",
+    days: "Продлите до 24 августа",
+    cta: "Продлить сейчас",
+    help: "Работа продолжается. Продлите, чтобы не потерять доступ.",
   },
   expired: {
-    title: "Subscription expired",
-    status: "Inactive",
+    title: "Подписка закончилась",
+    status: "Неактивна",
     tone: "danger" as const,
-    days: "Access limited",
-    cta: "Activate subscription",
-    help: "Confirmed rides remain accessible. New publishing and new request acceptance are locked.",
+    days: "Доступ ограничен",
+    cta: "Активировать подписку",
+    help: "Подтверждённые поездки доступны. Новые публикации и заявки заблокированы.",
   },
 };
 
@@ -48,12 +48,12 @@ export default function DriverSubscriptionPage() {
   return (
     <DriverShell active="profile">
       <DriverHeader
-        title="Subscription"
-        subtitle="Driver access and plan status"
+        title="Подписка"
+        subtitle="Доступ водителя и статус плана"
         status={<DriverPill tone={copy.tone}>{copy.status}</DriverPill>}
       />
 
-      <DriverCard className="mt-4 space-y-3" label="Driver subscription detail">
+      <DriverCard className="mt-4 space-y-3" label="Детали подписки">
         <div className="flex items-start gap-3">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
             <DriverIconView name={enabled ? "briefcase" : "lock"} />
@@ -70,18 +70,18 @@ export default function DriverSubscriptionPage() {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
-            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Started</div>
+            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Началась</div>
             <div className="text-sm font-black">6 Aug 2026</div>
           </div>
           <div className="rounded-[18px] bg-[rgb(var(--surface-tint))] p-3">
-            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Expires</div>
+            <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Заканчивается</div>
             <div className="text-sm font-black">
               {state === "expired" ? "3 Aug 2026" : "24 Aug 2026"}
             </div>
           </div>
         </div>
         <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3">
-          <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Access window</div>
+          <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Период доступа</div>
           <div className="mt-1 text-lg font-black">{copy.days}</div>
         </div>
         <button
@@ -89,10 +89,10 @@ export default function DriverSubscriptionPage() {
           type="button"
           onClick={() => {
             setState("active");
-            setNotice("Subscription access is active for local QA.");
+            setNotice("Подписка активирована в demo state.");
           }}
         >
-          {notice ? "Subscription active" : copy.cta}
+          {notice ? "Подписка активна" : copy.cta}
         </button>
       </DriverCard>
 
@@ -105,14 +105,14 @@ export default function DriverSubscriptionPage() {
         </DriverCard>
       ) : null}
 
-      <DriverCard className="mt-3 space-y-3" label="Driver subscription access rules">
-        <h2 className="m-0 text-lg font-black">Access rules</h2>
+      <DriverCard className="mt-3 space-y-3" label="Правила доступа">
+        <h2 className="m-0 text-lg font-black">Доступ</h2>
         {[
-          ["Publish trips", enabled],
-          ["Accept passenger requests", enabled],
-          ["Message confirmed passengers", true],
-          ["Finish confirmed rides", true],
-          ["Manage vehicle and profile", true],
+          ["Публиковать маршруты", enabled],
+          ["Принимать заявки", enabled],
+          ["Писать подтверждённым пассажирам", true],
+          ["Завершать подтверждённые поездки", true],
+          ["Управлять автомобилем и профилем", true],
         ].map(([label, allowed]) => (
           <div
             key={label as string}
@@ -120,18 +120,18 @@ export default function DriverSubscriptionPage() {
           >
             <span className="text-sm font-black">{label}</span>
             <DriverPill tone={allowed ? "success" : "warning"}>
-              {allowed ? "Enabled" : "Locked"}
+              {allowed ? "Доступно" : "Закрыто"}
             </DriverPill>
           </div>
         ))}
       </DriverCard>
 
-      <DriverCard className="mt-3 space-y-3" label="Subscription history">
-        <h2 className="m-0 text-lg font-black">History</h2>
+      <DriverCard className="mt-3 space-y-3" label="История подписки">
+        <h2 className="m-0 text-lg font-black">История</h2>
         <div className="grid gap-2">
           {[
-            ["Nodex Driver", "6 Aug 2026", "Active period"],
-            ["Nodex Driver", "6 Jul 2026", "Completed period"],
+            ["Nodex Driver", "6 Aug 2026", "Активна period"],
+            ["Nodex Driver", "6 Jul 2026", "Завершённый период"],
           ].map(([plan, date, label]) => (
             <div
               key={`${plan}-${date}`}
@@ -151,7 +151,7 @@ export default function DriverSubscriptionPage() {
         className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--primary))] no-underline"
         href="/"
       >
-        Back to driver home
+        На главную водителя
       </Link>
     </DriverShell>
   );
