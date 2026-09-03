@@ -2,7 +2,7 @@ import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui"
 
 const reviews = [
   ["Nodex Client", "5.0", "Nukus → Urgench · 12 Aug", "Punctual driver and clear communication."],
-  ["Parcel sender", "5.0", "Nukus → Khiva · 9 Aug", "Careful parcel handoff."],
+  ["Отправитель посылки", "5.0", "Nukus → Khiva · 9 авг", "Аккуратная передача посылки."],
 ];
 
 export default function DriverReviewsPage() {
@@ -14,7 +14,7 @@ export default function DriverReviewsPage() {
         status={<DriverPill tone="success">4.9</DriverPill>}
       />
 
-      <DriverCard className="mt-4 space-y-3" label="Driver review summary">
+      <DriverCard className="mt-4 space-y-3" label="Сводка отзывов водителя">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="m-0 text-xl font-black">Reliability profile</h1>
@@ -33,7 +33,7 @@ export default function DriverReviewsPage() {
           className="min-h-11 w-full rounded-full border-0 bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
           type="button"
         >
-          View received reviews
+          Посмотреть полученные отзывы
         </button>
       </DriverCard>
 

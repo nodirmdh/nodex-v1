@@ -7,9 +7,9 @@ const notifications = [
     "2 min",
     "Unread",
   ],
-  ["Trip reminder", "Departure tomorrow at 08:30. Check pending requests.", "1 h", "Read"],
-  ["Subscription expiry", "Your driver subscription has 18 days remaining.", "Today", "Read"],
-  ["Support reply", "Support updated a ticket connected to your trip.", "Yesterday", "Read"],
+  ["Напоминание о поездке", "Выезд завтра в 08:30. Проверьте ожидающие заявки.", "1 ч", "Прочитано"],
+  ["Subscription expiry", "Your driver subscription has 18 days remaining.", "Today", "Прочитано"],
+  ["Ответ поддержки", "Поддержка обновила обращение по вашей поездке.", "Вчера", "Прочитано"],
 ];
 
 export default function DriverNotificationsPage() {

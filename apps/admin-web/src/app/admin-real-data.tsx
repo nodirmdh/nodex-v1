@@ -25,13 +25,13 @@ type LoadState<T> = { status: "idle" | "loading" | "loaded" | "error"; data: T |
 
 function useAdminAccessToken() {
   const [accessToken, setAccessToken] = useState("");
-  const [status, setStatus] = useState("Admin session required");
+  const [status, setСтатус] = useState("Нужна admin-сессия");
 
   useEffect(() => {
     const saved = window.localStorage.getItem(tokenKey) ?? "";
     if (saved) {
       setAccessToken(saved);
-      setStatus("Admin session restored");
+      setСтатус("Admin-сессия восстановлена");
     }
   }, []);
 
@@ -42,11 +42,11 @@ function useAdminAccessToken() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ appContext: "ADMIN_WEB" }),
     });
-    if (!response.ok) throw new Error("Admin mock login failed");
+    if (!response.ok) throw new Error("Не удалось выполнить demo-вход администратора");
     const body = await response.json();
     window.localStorage.setItem(tokenKey, body.accessToken);
     setAccessToken(body.accessToken);
-    setStatus(`Signed in as ${body.user?.displayName ?? "admin"}`);
+    setСтатус(`Вход выполнен: ${body.user?.displayName ?? "admin"}`);
     return body.accessToken as string;
   }, []);
 
@@ -114,13 +114,13 @@ function DemoSupportDetail({ ticketId, note }: { ticketId: string; note: string 
 
 function DemoTripDetail({ tripId, note }: { tripId: string; note: string }) {
   const trip = demoTrips.find((item) => item.id === tripId) ?? demoTrips[0]!;
-  return <div className="admin-detail-layout"><AdminPanel className="overflow-hidden"><ApiFallbackNotice>{note}</ApiFallbackNotice><div className="p-4"><DetailGrid items={[["Водитель", trip.driver], ["Автомобиль", trip.vehicle], ["Статус", <Status key="s" value={trip.status} />], ["Выезд", trip.departure], ["Места", trip.seats], ["Start PIN", <Status key="p" value="Present" />], ["ETA", trip.eta], ["Надёжность", "94%"]]} /></div></AdminPanel><Tabs tabs={[{ label: "Пассажиры", content: <Row href="/bookings/book_5001" title="Gulnoza Bektemirova" meta="BOARDING" /> }, { label: "История", content: <EventList items={[{ type: "Создана", createdAt: "2026-08-24T07:30:00Z" }, { type: "Посадка началась", createdAt: "2026-08-24T08:20:00Z" }]} /> }, { label: "Поддержка", content: <Link className="font-black text-[rgb(var(--primary))] no-underline hover:underline" href={"/support?tripId=" + trip.id}>Открыть обращения по поездке</Link> }]} /></div>;
+  return <div className="admin-detail-layout"><AdminPanel className="overflow-hidden"><ApiFallbackNotice>{note}</ApiFallbackNotice><div className="p-4"><DetailGrid items={[["Водитель", trip.driver], ["Автомобиль", trip.vehicle], ["Статус", <Status key="s" value={trip.status} />], ["Выезд", trip.departure], ["Места", trip.seats], ["Start PIN", <Status key="p" value="Есть" />], ["ETA", trip.eta], ["Надёжность", "94%"]]} /></div></AdminPanel><Tabs tabs={[{ label: "Пассажиры", content: <Row href="/bookings/book_5001" title="Gulnoza Bektemirova" meta="BOARDING" /> }, { label: "История", content: <EventList items={[{ type: "Создана", createdAt: "2026-08-24T07:30:00Z" }, { type: "Посадка началась", createdAt: "2026-08-24T08:20:00Z" }]} /> }, { label: "Поддержка", content: <Link className="font-black text-[rgb(var(--primary))] no-underline hover:underline" href={"/support?tripId=" + trip.id}>Открыть обращения по поездке</Link> }]} /></div>;
 }
 
 export function SupportInboxRealData() {
   const { accessToken, login, status } = useAdminAccessToken();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("All priorities");
+  const [filter, setFilter] = useState("Все приоритеты");
   const [state, setState] = useState<LoadState<AdminSupportTicket[]>>({ status: "idle", data: null, error: null });
 
   const loadTickets = useCallback(async (token = accessToken) => {
@@ -130,7 +130,7 @@ export function SupportInboxRealData() {
       const body = await listAdminSupportTickets(authOptions(token));
       setState({ status: "loaded", data: body.tickets, error: null });
     } catch (error) {
-      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Support API request failed" });
+      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Запрос поддержки не выполнен" });
     }
   }, [accessToken]);
 
@@ -139,15 +139,15 @@ export function SupportInboxRealData() {
   const rows = useMemo(() => (state.data ?? []).filter((ticket) => {
     const text = `${ticket.id} ${ticket.subject} ${ticket.type} ${ticket.status} ${ticket.priority} ${userName(ticket.requester)}`.toLowerCase();
     const matchesQuery = text.includes(query.toLowerCase());
-    const matchesFilter = filter === "All priorities" || ticket.priority === filter || ticket.type === filter || ticket.status === filter;
+    const matchesFilter = filter === "Все приоритеты" || ticket.priority === filter || ticket.type === filter || ticket.status === filter;
     return matchesQuery && matchesFilter;
   }), [filter, query, state.data]);
 
   if (!accessToken) {
-    return <DemoSupportInbox note="Live API не подключён в preview. Показан стабильный demo inbox." />;
+    return <DemoSupportInbox note="Live API не подключён в preview. Показаны стабильные demo-обращения." />;
   }
 
-  return <AdminPanel className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgb(var(--border))] p-3"><Status value={status} /><Button onClick={() => loadTickets()} variant="secondary">Refresh</Button></div><Toolbar query={query} onQuery={setQuery} filters={["All priorities", "URGENT", "HIGH", "NORMAL", "LOW", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "BOOKING_ISSUE", "SAFETY", "REWARDS", "COMPLAINT"]} activeFilter={filter} onFilter={setFilter} placeholder="Заявка, клиент, тип, статус" count={rows.length} />{state.status === "loading" ? <div className="p-6 text-sm font-semibold text-[rgb(var(--text-muted))]">Загружаем обращения...</div> : null}{state.status === "error" ? <DemoSupportInbox note={`Live API временно недоступен: ${state.error}. Показан demo fallback.`} /> : null}{state.status === "loaded" ? <DataTable rows={rows} hrefFor={(row) => `/support/${row.id}`} empty="API не вернул обращения." columns={[{ key: "id", label: "Заявка", render: (row) => <strong>{row.id}</strong> }, { key: "requester", label: "Клиент", render: (row) => userName(row.requester) }, { key: "subject", label: "Тема", render: (row) => row.subject }, { key: "type", label: "Тип", render: (row) => row.type }, { key: "priority", label: "Приоритет", render: (row) => <Status value={row.priority} /> }, { key: "status", label: "Статус", render: (row) => <Status value={row.status} /> }, { key: "trip", label: "Поездка", render: (row) => row.tripId ?? "-" }, { key: "updated", label: "Обновлено", sortValue: (row) => row.updatedAt, render: (row) => formatDate(row.updatedAt) }]} /> : null}</AdminPanel>;
+  return <AdminPanel className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgb(var(--border))] p-3"><Status value={status} /><Button onClick={() => loadTickets()} variant="secondary">Обновить</Button></div><Toolbar query={query} onQuery={setQuery} filters={["Все приоритеты", "URGENT", "HIGH", "NORMAL", "LOW", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "BOOKING_ISSUE", "SAFETY", "REWARDS", "COMPLAINT"]} activeFilter={filter} onFilter={setFilter} placeholder="Заявка, клиент, тип, статус" count={rows.length} />{state.status === "loading" ? <div className="p-6 text-sm font-semibold text-[rgb(var(--text-muted))]">Загружаем обращения...</div> : null}{state.status === "error" ? <DemoSupportInbox note={`Live API временно недоступен: ${state.error}. Показан demo fallback.`} /> : null}{state.status === "loaded" ? <DataTable rows={rows} hrefFor={(row) => `/support/${row.id}`} empty="API не вернул обращения." columns={[{ key: "id", label: "Заявка", render: (row) => <strong>{row.id}</strong> }, { key: "requester", label: "Клиент", render: (row) => userName(row.requester) }, { key: "subject", label: "Тема", render: (row) => row.subject }, { key: "type", label: "Тип", render: (row) => row.type }, { key: "priority", label: "Приоритет", render: (row) => <Status value={row.priority} /> }, { key: "status", label: "Статус", render: (row) => <Status value={row.status} /> }, { key: "trip", label: "Поездка", render: (row) => row.tripId ?? "-" }, { key: "updated", label: "Обновлено", sortValue: (row) => row.updatedAt, render: (row) => formatDate(row.updatedAt) }]} /> : null}</AdminPanel>;
 }
 
 export function SupportTicketRealData({ ticketId }: { ticketId: string }) {
@@ -160,16 +160,16 @@ export function SupportTicketRealData({ ticketId }: { ticketId: string }) {
       const body = await getAdminSupportTicket(ticketId, authOptions(token));
       setState({ status: "loaded", data: body.ticket, error: null });
     } catch (error) {
-      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Support detail API request failed" });
+      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Запрос обращения не выполнен" });
     }
   }, [accessToken, ticketId]);
   useEffect(() => { void loadTicket(); }, [loadTicket]);
   if (!accessToken) return <DemoSupportDetail ticketId={ticketId} note="Live API не подключён в preview. Показана demo заявка." />;
-  if (state.status === "loading") return <EmptyPanel title="Ticket detail">Loading real support ticket...</EmptyPanel>;
+  if (state.status === "loading") return <EmptyPanel title="Детали обращения">Загружаем обращение...</EmptyPanel>;
   if (state.status === "error") return <DemoSupportDetail ticketId={ticketId} note={`Live API временно недоступен: ${state.error}. Показан demo fallback.`} />;
-  if (!state.data) return <EmptyPanel title="Ticket detail">No support ticket loaded.</EmptyPanel>;
+  if (!state.data) return <EmptyPanel title="Детали обращения">Обращение не загружено.</EmptyPanel>;
   const ticket = state.data;
-  return <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"><AdminPanel className="overflow-hidden"><div className="border-b border-[rgb(var(--border))] p-4"><h2 className="m-0 text-base font-black">Conversation</h2></div><div className="space-y-3 p-4">{ticket.messages.length ? ticket.messages.map((message) => <Message key={message.id} who={userName(message.sender)} text={message.text ?? "Attachment only message"} meta={formatDate(message.createdAt)} attachments={message.attachments} />) : <p className="text-sm text-[rgb(var(--text-muted))]">No messages returned by API.</p>}</div></AdminPanel><AdminPanel className="p-4"><h2 className="m-0 mb-3 text-base font-black">Ticket context</h2><DetailGrid items={[["Requester", <LinkedValue key="u" href={`/users/${ticket.requester.id}`}>{userName(ticket.requester)}</LinkedValue>], ["Trip", ticket.tripId ? <LinkedValue key="t" href={`/trips/${ticket.tripId}`}>{ticket.tripId}</LinkedValue> : "-"], ["Booking", ticket.bookingId ? <LinkedValue key="b" href={`/bookings/${ticket.bookingId}`}>{ticket.bookingId}</LinkedValue> : "-"], ["Driver", ticket.driverId ? <LinkedValue key="d" href={`/drivers/${ticket.driverId}`}>{ticket.driverId}</LinkedValue> : "-"], ["Type", ticket.type], ["Status", <Status key="s" value={ticket.status} />], ["Priority", <Status key="p" value={ticket.priority} />], ["Assigned", ticket.assignedTo ? userName(ticket.assignedTo) : "Unassigned"], ["SLA", formatDate(ticket.slaDueAt)], ["Attachments", `${ticket.messages.flatMap((message) => message.attachments).length} files`], ["Retention", formatDate(ticket.retentionUntil)]]} /></AdminPanel></div>;
+  return <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"><AdminPanel className="overflow-hidden"><div className="border-b border-[rgb(var(--border))] p-4"><h2 className="m-0 text-base font-black">Диалог</h2></div><div className="space-y-3 p-4">{ticket.messages.length ? ticket.messages.map((message) => <Message key={message.id} who={userName(message.sender)} text={message.text ?? "Сообщение только с вложением"} meta={formatDate(message.createdAt)} attachments={message.attachments} />) : <p className="text-sm text-[rgb(var(--text-muted))]">API не вернул сообщения.</p>}</div></AdminPanel><AdminPanel className="p-4"><h2 className="m-0 mb-3 text-base font-black">Контекст обращения</h2><DetailGrid items={[["Клиент", <LinkedValue key="u" href={`/users/${ticket.requester.id}`}>{userName(ticket.requester)}</LinkedValue>], ["Поездка", ticket.tripId ? <LinkedValue key="t" href={`/trips/${ticket.tripId}`}>{ticket.tripId}</LinkedValue> : "-"], ["Бронирование", ticket.bookingId ? <LinkedValue key="b" href={`/bookings/${ticket.bookingId}`}>{ticket.bookingId}</LinkedValue> : "-"], ["Водитель", ticket.driverId ? <LinkedValue key="d" href={`/drivers/${ticket.driverId}`}>{ticket.driverId}</LinkedValue> : "-"], ["Тип", ticket.type], ["Статус", <Status key="s" value={ticket.status} />], ["Приоритет", <Status key="p" value={ticket.priority} />], ["Оператор", ticket.assignedTo ? userName(ticket.assignedTo) : "Не назначен"], ["SLA", formatDate(ticket.slaDueAt)], ["Файлы", `${ticket.messages.flatMap((message) => message.attachments).length} файлов`], ["Retention", formatDate(ticket.retentionUntil)]]} /></AdminPanel></div>;
 }
 
 function Message({ who, text, meta, attachments }: { who: string; text: string; meta: string; attachments: Array<{ id: string; originalFileName: string; mimeType: string; sizeBytes: number; status: string }> }) {
@@ -179,7 +179,7 @@ function Message({ who, text, meta, attachments }: { who: string; text: string; 
 export function TripsListRealData() {
   const { accessToken, login, status } = useAdminAccessToken();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("All statuses");
+  const [filter, setFilter] = useState("Все статусы");
   const [state, setState] = useState<LoadState<AdminTrip[]>>({ status: "idle", data: null, error: null });
   const loadTrips = useCallback(async (token = accessToken) => {
     if (!token) return;
@@ -188,16 +188,16 @@ export function TripsListRealData() {
       const body = await listAdminTrips({}, authOptions(token));
       setState({ status: "loaded", data: body.trips, error: null });
     } catch (error) {
-      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Trips API request failed" });
+      setState({ status: "error", data: null, error: error instanceof Error ? error.message : "Запрос поездок не выполнен" });
     }
   }, [accessToken]);
   useEffect(() => { void loadTrips(); }, [loadTrips]);
   const rows = useMemo(() => (state.data ?? []).filter((trip) => {
     const text = `${trip.id} ${routeName(trip)} ${userName(trip.driverProfile?.user)} ${trip.status}`.toLowerCase();
-    return text.includes(query.toLowerCase()) && (filter === "All statuses" || trip.status === filter);
+    return text.includes(query.toLowerCase()) && (filter === "Все статусы" || trip.status === filter);
   }), [filter, query, state.data]);
   if (!accessToken) return <DemoTripsList note="Live API не подключён в preview. Показан стабильный demo список поездок." />;
-  return <AdminPanel className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgb(var(--border))] p-3"><Status value={status} /><Button onClick={() => loadTrips()} variant="secondary">Refresh</Button></div><Toolbar query={query} onQuery={setQuery} filters={["All statuses", "DRAFT", "PUBLISHED", "BOOKING_OPEN", "BOARDING", "IN_PROGRESS", "COMPLETED", "CANCELLED", "BLOCKED"]} activeFilter={filter} onFilter={setFilter} placeholder="Маршрут, водитель, ID поездки" count={rows.length} />{state.status === "loading" ? <div className="p-6 text-sm font-semibold text-[rgb(var(--text-muted))]">Загружаем поездки...</div> : null}{state.status === "error" ? <div className="p-6 text-sm font-semibold text-red-700">{state.error}</div> : null}{state.status === "loaded" ? <DataTable rows={rows} hrefFor={(row) => `/trips/${row.id}`} empty="API не вернул поездки." columns={[{ key: "route", label: "Маршрут", sortValue: routeName, render: (row) => <strong>{routeName(row)}</strong> }, { key: "driver", label: "Водитель", render: (row) => userName(row.driverProfile?.user) }, { key: "departure", label: "Выезд", sortValue: (row) => row.departureAtUtc, render: (row) => formatDate(row.departureAtUtc) }, { key: "status", label: "Статус", render: (row) => <Status value={row.status} /> }, { key: "seats", label: "Места", render: (row) => `${row.availableSeatCount}/${row.passengerSeatCapacity}` }, { key: "vehicle", label: "Авто", render: vehicleName }, { key: "eta", label: "ETA", render: (row) => formatDate(row.arrivalEstimateAtUtc) }]} /> : null}</AdminPanel>;
+  return <AdminPanel className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-[rgb(var(--border))] p-3"><Status value={status} /><Button onClick={() => loadTrips()} variant="secondary">Обновить</Button></div><Toolbar query={query} onQuery={setQuery} filters={["Все статусы", "DRAFT", "PUBLISHED", "BOOKING_OPEN", "BOARDING", "IN_PROGRESS", "COMPLETED", "CANCELLED", "BLOCKED"]} activeFilter={filter} onFilter={setFilter} placeholder="Маршрут, водитель, ID поездки" count={rows.length} />{state.status === "loading" ? <div className="p-6 text-sm font-semibold text-[rgb(var(--text-muted))]">Загружаем поездки...</div> : null}{state.status === "error" ? <div className="p-6 text-sm font-semibold text-red-700">{state.error}</div> : null}{state.status === "loaded" ? <DataTable rows={rows} hrefFor={(row) => `/trips/${row.id}`} empty="API не вернул поездки." columns={[{ key: "route", label: "Маршрут", sortValue: routeName, render: (row) => <strong>{routeName(row)}</strong> }, { key: "driver", label: "Водитель", render: (row) => userName(row.driverProfile?.user) }, { key: "departure", label: "Выезд", sortValue: (row) => row.departureAtUtc, render: (row) => formatDate(row.departureAtUtc) }, { key: "status", label: "Статус", render: (row) => <Status value={row.status} /> }, { key: "seats", label: "Места", render: (row) => `${row.availableSeatCount}/${row.passengerSeatCapacity}` }, { key: "vehicle", label: "Авто", render: vehicleName }, { key: "eta", label: "ETA", render: (row) => formatDate(row.arrivalEstimateAtUtc) }]} /> : null}</AdminPanel>;
 }
 
 export function TripDetailRealData({ tripId }: { tripId: string }) {
@@ -218,24 +218,24 @@ export function TripDetailRealData({ tripId }: { tripId: string }) {
       setHistory(historyBody);
       setOperations(operationsBody);
     } catch (error) {
-      setTripState({ status: "error", data: null, error: error instanceof Error ? error.message : "Trip detail API request failed" });
+      setTripState({ status: "error", data: null, error: error instanceof Error ? error.message : "Запрос поездки не выполнен" });
     }
   }, [accessToken, tripId]);
   useEffect(() => { void loadTrip(); }, [loadTrip]);
   if (!accessToken) return <DemoTripDetail tripId={tripId} note="Live API не подключён в preview. Показана demo поездка." />;
-  if (tripState.status === "loading") return <EmptyPanel title="Trip detail">Loading real trip...</EmptyPanel>;
+  if (tripState.status === "loading") return <EmptyPanel title="Детали поездки">Загружаем поездку...</EmptyPanel>;
   if (tripState.status === "error") return <DemoTripDetail tripId={tripId} note={`Live API временно недоступен: ${tripState.error}. Показан demo fallback.`} />;
-  if (!tripState.data) return <EmptyPanel title="Trip detail">No trip loaded.</EmptyPanel>;
+  if (!tripState.data) return <EmptyPanel title="Детали поездки">Поездка не загружена.</EmptyPanel>;
   const trip = tripState.data;
   const bookings = Array.isArray(operations?.bookings) ? operations.bookings : [];
   const timeline = history?.timeline ?? trip.timelineEvents ?? [];
   const moderation = history?.moderation ?? trip.moderationEvents ?? [];
-  return <div className="admin-detail-layout"><AdminPanel className="p-4"><DetailGrid items={[["Driver", trip.driverProfile?.id ? <LinkedValue key="d" href={`/drivers/${trip.driverProfile.id}`}>{userName(trip.driverProfile.user)}</LinkedValue> : userName(trip.driverProfile?.user)], ["Vehicle", vehicleName(trip)], ["Status", <Status key="s" value={trip.status} />], ["Departure", formatDate(trip.departureAtUtc)], ["Seats", `${trip.availableSeatCount}/${trip.passengerSeatCapacity}`], ["Bookings", String(bookings.length)], ["Whole-car", trip.wholeCarPriceMinor ? `${trip.wholeCarPriceMinor}` : "-"], ["Start PIN", bookings.some((booking) => Array.isArray(booking.startPins) && booking.startPins.length) ? <Status key="p" value="Present" /> : "Not returned"], ["ETA", formatDate(trip.arrivalEstimateAtUtc)], ["GPS", Array.isArray(operations?.locations) ? `${operations.locations.length} pings` : "Use trip history API"], ["Reliability", trip.driverProfile?.reliabilityScore == null ? "-" : String(trip.driverProfile.reliabilityScore)]]} /></AdminPanel><Tabs tabs={[{ label: "Passengers", content: bookings.length ? bookings.map((booking) => <Row key={String(booking.id)} href={`/bookings/${booking.id}`} title={userName(booking.client)} meta={String(booking.status ?? "BOOKING")} />) : <span className="text-sm text-[rgb(var(--text-muted))]">No bookings returned by operations API.</span> }, { label: "Bookings", content: bookings.length ? bookings.map((booking) => <Row key={String(booking.id)} href={`/bookings/${booking.id}`} title={String(booking.id)} meta={String(booking.status ?? "BOOKING")} />) : <span className="text-sm text-[rgb(var(--text-muted))]">No booking records returned.</span> }, { label: "Timeline", content: <EventList items={timeline} /> }, { label: "GPS history", content: <JsonBlock value={operations?.locations ?? operations?.locationHistory ?? "No GPS payload returned by admin operations API."} /> }, { label: "Fraud flags", content: <EventList items={moderation} /> }, { label: "Rewards", content: <JsonBlock value={operations?.rewards ?? "No rewards relation returned by admin trip endpoints."} /> }, { label: "Support", content: <Link className="font-black text-[rgb(var(--primary))] no-underline hover:underline" href={`/support?tripId=${trip.id}`}>Open support tickets for this trip</Link> }, { label: "Matching", content: <JsonBlock value={operations?.matching ?? operations?.waitlist ?? "No matching relation returned by admin trip endpoints."} /> }]} /></div>;
+  return <div className="admin-detail-layout"><AdminPanel className="p-4"><DetailGrid items={[["Водитель", trip.driverProfile?.id ? <LinkedValue key="d" href={`/drivers/${trip.driverProfile.id}`}>{userName(trip.driverProfile.user)}</LinkedValue> : userName(trip.driverProfile?.user)], ["Автомобиль", vehicleName(trip)], ["Статус", <Status key="s" value={trip.status} />], ["Выезд", formatDate(trip.departureAtUtc)], ["Места", `${trip.availableSeatCount}/${trip.passengerSeatCapacity}`], ["Бронирования", String(bookings.length)], ["Весь автомобиль", trip.wholeCarPriceMinor ? `${trip.wholeCarPriceMinor}` : "-"], ["Start PIN", bookings.some((booking) => Array.isArray(booking.startPins) && booking.startPins.length) ? <Status key="p" value="Есть" /> : "Не вернулся"], ["ETA", formatDate(trip.arrivalEstimateAtUtc)], ["GPS", Array.isArray(operations?.locations) ? `${operations.locations.length} точек` : "Используйте историю поездки"], ["Надёжность", trip.driverProfile?.reliabilityScore == null ? "-" : String(trip.driverProfile.reliabilityScore)]]} /></AdminPanel><Tabs tabs={[{ label: "Пассажиры", content: bookings.length ? bookings.map((booking) => <Row key={String(booking.id)} href={`/bookings/${booking.id}`} title={userName(booking.client)} meta={String(booking.status ?? "BOOKING")} />) : <span className="text-sm text-[rgb(var(--text-muted))]">Operations API не вернул бронирования.</span> }, { label: "Бронирования", content: bookings.length ? bookings.map((booking) => <Row key={String(booking.id)} href={`/bookings/${booking.id}`} title={String(booking.id)} meta={String(booking.status ?? "BOOKING")} />) : <span className="text-sm text-[rgb(var(--text-muted))]">Записи бронирований не вернулись.</span> }, { label: "История", content: <EventList items={timeline} /> }, { label: "История GPS", content: <JsonBlock value={operations?.locations ?? operations?.locationHistory ?? "GPS-данные не вернулись из admin operations API."} /> }, { label: "Фрод-флаги", content: <EventList items={moderation} /> }, { label: "Награды", content: <JsonBlock value={operations?.rewards ?? "Связанные награды не вернулись из admin trip endpoints."} /> }, { label: "Поддержка", content: <Link className="font-black text-[rgb(var(--primary))] no-underline hover:underline" href={`/support?tripId=${trip.id}`}>Открыть обращения по поездке</Link> }, { label: "Подбор", content: <JsonBlock value={operations?.matching ?? operations?.waitlist ?? "Связанный подбор не вернулся из admin trip endpoints."} /> }]} /></div>;
 }
 
 function EventList({ items }: { items: Array<Record<string, unknown>> }) {
-  if (!items.length) return <span className="text-sm text-[rgb(var(--text-muted))]">No events returned by API.</span>;
-  return <div className="grid gap-2">{items.map((item, index) => <div className="rounded-[8px] border border-[rgb(var(--border))] p-3 text-sm" key={String(item.id ?? index)}><strong>{String(item.type ?? item.eventType ?? item.status ?? "Event")}</strong><div className="text-xs text-[rgb(var(--text-muted))]">{formatDate(String(item.createdAt ?? item.occurredAt ?? ""))}</div></div>)}</div>;
+  if (!items.length) return <span className="text-sm text-[rgb(var(--text-muted))]">API не вернул события.</span>;
+  return <div className="grid gap-2">{items.map((item, index) => <div className="rounded-[8px] border border-[rgb(var(--border))] p-3 text-sm" key={String(item.id ?? index)}><strong>{String(item.type ?? item.eventType ?? item.status ?? "Событие")}</strong><div className="text-xs text-[rgb(var(--text-muted))]">{formatDate(String(item.createdAt ?? item.occurredAt ?? ""))}</div></div>)}</div>;
 }
 
 function JsonBlock({ value }: { value: unknown }) {
