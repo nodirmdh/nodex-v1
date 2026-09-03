@@ -73,7 +73,7 @@ export default function SettingsPage() {
       <Card className="mt-3 space-y-2" compact>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-black">Nodex Client</div>
+            <div className="text-sm font-black">ENVO Client</div>
             <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Preview build</div>
           </div>
           <StatusPill tone="accent">MVP</StatusPill>

@@ -14,7 +14,7 @@ export default function PersonalInfoPage() {
         <div className="flex items-center justify-between gap-3 rounded-[20px] bg-[rgb(var(--canvas))] p-3">
           <div>
             <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Имя</div>
-            <div className="text-base font-black">Пользователь Nodex</div>
+            <div className="text-base font-black">Пользователь ENVO</div>
           </div>
           <StatusPill tone="success">Проверено</StatusPill>
         </div>

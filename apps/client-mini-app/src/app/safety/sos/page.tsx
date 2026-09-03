@@ -3,8 +3,8 @@ import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-
 
 const safetyOptions = [
   { label: "Поделиться поездкой с доверенным контактом", href: "/safety?shared=true" },
-  { label: "Связаться с поддержкой Nodex", href: "/messages/support-ticket?safety=support" },
-  { label: "Создать обращение по безопасности", href: "/support?safety=report" },
+  { label: "Связаться с поддержкой ENVO", href: "/messages/support-envo?safety=support" },
+  { label: "Создать обращение по безопасности", href: "/messages/support-envo?safety=report" },
 ];
 
 export default function ClientSosPage() {
@@ -25,13 +25,12 @@ export default function ClientSosPage() {
           <StatusPill tone="danger">Требуется подтверждение</StatusPill>
           <h1 className="m-0 mt-3 text-2xl font-black">Экстренная помощь</h1>
           <p className="m-0 mt-2 text-sm font-semibold text-[rgb(var(--text-muted))]">
-            Nodex can record this action, attach trip details, and guide you to local emergency
-            help. This does not place a phone call automatically.
+            ENVO зафиксирует действие, добавит детали поездки и подскажет, как получить срочную помощь. Звонок не выполняется автоматически.
           </p>
         </div>
         <Link
-          className="inline-flex min-h-14 items-center justify-center rounded-full bg-[rgb(var(--destructive))] px-4 text-base font-black text-white no-underline"
-          href="/messages/support-ticket?safety=sos"
+          className="inline-flex min-h-14 items-center justify-center rounded-full bg-[rgb(var(--destructive))] px-4 text-center text-base font-black text-white no-underline"
+          href="/messages/support-envo?safety=sos"
         >
           Удерживайте, чтобы начать SOS
         </Link>

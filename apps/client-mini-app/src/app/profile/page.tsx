@@ -44,7 +44,7 @@ export default function ProfilePage() {
       </Group>
 
       <Group title="Помощь">
-        <SettingsRow href="/messages/support-demo" icon="help" subtitle="Чат поддержки с вложениями" title="Поддержка" />
+        <SettingsRow href="/messages/support-envo" icon="help" subtitle="Чат поддержки с вложениями" title="Поддержка" />
         <SettingsRow href="/safety" icon="shield" subtitle="Поделиться поездкой и открыть помощь" title="Безопасность" />
       </Group>
 
