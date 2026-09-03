@@ -5,4 +5,28 @@ import { AdminPageHeader, AdminPanel } from "../admin-shell";
 import { DataTable, QuickActionModal, Status, Toolbar } from "../admin-components";
 import { fraudCases } from "../admin-data";
 
-export default function FraudPage() { const [query,setQuery]=useState(""); const [filter,setFilter]=useState("All statuses"); const rows=useMemo(()=>fraudCases.filter((c)=>`${c.id} ${c.entity} ${c.type} ${c.flags} ${c.reason}`.toLowerCase().includes(query.toLowerCase())&&(filter==="All statuses"||c.status===filter||c.risk===filter)),[filter,query]); return <main className="admin-main"><AdminPageHeader title="Anti-Fraud" subtitle="Signals, GPS evidence, reward/referral relation and decision history." /><AdminPanel className="overflow-hidden"><Toolbar query={query} onQuery={setQuery} filters={["All statuses","Open","Hold","Approved","Rejected","Low","Medium","High"]} activeFilter={filter} onFilter={setFilter} placeholder="Entity, signal, flag, reason" count={rows.length}/><DataTable rows={rows} hrefFor={() => "/fraud"} columns={[{key:"entity",label:"Entity",render:(c)=><strong>{c.entity} · {c.entityId}</strong>},{key:"type",label:"Type",render:(c)=>c.type},{key:"risk",label:"Risk",render:(c)=><Status value={c.risk}/>},{key:"flags",label:"Flags",render:(c)=>c.flags},{key:"reason",label:"Reason",render:(c)=>c.reason},{key:"trip",label:"Trip",render:(c)=>c.tripId},{key:"status",label:"Status",render:(c)=><Status value={c.status}/>},{key:"created",label:"Created",render:(c)=>c.created},{key:"action",label:"Decision",render:(c)=><QuickActionModal label="Decide" title="Fraud decision"><p>{c.reason}</p><p>Approve, reject and hold remain preview-only until existing backend actions are connected.</p></QuickActionModal>}]} /></AdminPanel></main>; }
+export default function FraudPage() {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("All statuses");
+  const rows = useMemo(() => fraudCases.filter((item) => `${item.id} ${item.entity} ${item.type} ${item.flags} ${item.reason}`.toLowerCase().includes(query.toLowerCase()) && (filter === "All statuses" || item.status === filter || item.risk === filter)), [filter, query]);
+
+  return (
+    <main className="admin-main">
+      <AdminPageHeader title="Антифрод" subtitle="Сигналы риска, GPS-доказательства, связь с наградами и история решений." />
+      <AdminPanel className="overflow-hidden">
+        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Open", "Hold", "Approved", "Rejected", "Low", "Medium", "High"]} activeFilter={filter} onFilter={setFilter} placeholder="Пользователь, сигнал, флаг, причина" count={rows.length} />
+        <DataTable rows={rows} hrefFor={() => "/fraud"} columns={[
+          { key: "entity", label: "Объект", render: (item) => <strong>{item.entity} · {item.entityId}</strong> },
+          { key: "type", label: "Тип", render: (item) => item.type },
+          { key: "risk", label: "Риск", render: (item) => <Status value={item.risk} /> },
+          { key: "flags", label: "Флаги", render: (item) => item.flags },
+          { key: "reason", label: "Причина", render: (item) => item.reason },
+          { key: "trip", label: "Рейс", render: (item) => item.tripId },
+          { key: "status", label: "Статус", render: (item) => <Status value={item.status} /> },
+          { key: "created", label: "Создано", render: (item) => item.created },
+          { key: "action", label: "Решение", render: (item) => <QuickActionModal label="Решить" title="Антифрод решение"><p>{item.reason}</p><p>Одобрение, отклонение и удержание остаются demo-действиями до подключения существующих backend actions.</p></QuickActionModal> },
+        ]} />
+      </AdminPanel>
+    </main>
+  );
+}
