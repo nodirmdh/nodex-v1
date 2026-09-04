@@ -12,7 +12,7 @@ const primaryQueues = [
 
 const worklist = [
   ["Поддержка", "sup_9002", "Координация посадки требует ответа", "/support/sup_9002", "Open"],
-  ["Матчинг", "wait_6101", "Waitlist Nukus -> Urgench найден к рейсу", "/matching", "Matched"],
+  ["Матчинг", "wait_6101", "Лист ожидания Nukus → Urgench найден к поездке", "/matching", "Matched"],
   ["Награды", "rew_3003", "Бонус удержан до антифрод-проверки", "/rewards", "Pending"],
   ["Поездка", "trip_7001", "Посадка началась, проверка PIN", "/trips/trip_7001", "Boarding"],
 ] as const;

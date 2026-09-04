@@ -12,9 +12,9 @@ export default function ReferralsPage() {
 
   return (
     <main className="admin-main">
-      <AdminPageHeader title="Рефералы" subtitle="Кто пригласил, qualifying trip, награда и антифрод-состояние." />
+      <AdminPageHeader title="Рефералы" subtitle="Кто пригласил, поездка для зачёта, награда и антифрод-состояние." />
       <AdminPanel className="overflow-hidden">
-        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Pending", "Qualified", "Blocked", "Clear", "Review"]} activeFilter={filter} onFilter={setFilter} placeholder="Кто пригласил, новый клиент, qualifying trip" count={rows.length} />
+        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Pending", "Qualified", "Blocked", "Clear", "Review"]} activeFilter={filter} onFilter={setFilter} placeholder="Кто пригласил, новый клиент, поездка для зачёта" count={rows.length} />
         <DataTable rows={rows} hrefFor={() => "/referrals"} columns={[
           { key: "id", label: "Реферал", render: (item) => <strong>{item.id}</strong> },
           { key: "inviter", label: "Пригласил", render: (item) => item.inviter },

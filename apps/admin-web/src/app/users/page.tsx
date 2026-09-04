@@ -16,18 +16,18 @@ export default function UsersPage() {
 
   return (
     <main className="admin-main">
-      <AdminPageHeader title="Клиенты" subtitle="Search, filter, and open passenger profiles." />
-      <AdminPanel className="overflow-hidden" label="Users table">
-        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Active", "Watch", "Blocked", "Low", "Medium", "High"]} activeFilter={filter} onFilter={setFilter} placeholder="Client name, Telegram, phone, internal ID" count={rows.length} />
+      <AdminPageHeader title="Клиенты" subtitle="Поиск, фильтры и профили клиентов." />
+      <AdminPanel className="overflow-hidden" label="Таблица клиентов">
+        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Active", "Watch", "Blocked", "Low", "Medium", "High"]} activeFilter={filter} onFilter={setFilter} placeholder="Клиент, Telegram, телефон, внутренний ID" count={rows.length} />
         <DataTable rows={rows} hrefFor={(row) => `/users/${row.id}`} columns={[
-          { key: "name", label: "Name", sortValue: (row) => row.name, render: (row) => <><strong>{row.name}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.telegram}</span></> },
-          { key: "status", label: "Status", sortValue: (row) => row.status, render: (row) => <Status value={row.status} /> },
-          { key: "trips", label: "Trips", sortValue: (row) => row.trips, render: (row) => row.trips },
-          { key: "cancel", label: "Cancels", sortValue: (row) => row.cancellations, render: (row) => row.cancellations },
-          { key: "rewards", label: "Rewards", render: (row) => row.rewards },
-          { key: "risk", label: "Risk", sortValue: (row) => row.risk, render: (row) => <Status value={row.risk} /> },
-          { key: "created", label: "Created", sortValue: (row) => row.created, render: (row) => row.created },
-          { key: "action", label: "Action", render: () => <span className="font-black text-[rgb(var(--primary))]">Open</span> },
+          { key: "name", label: "Клиент", sortValue: (row) => row.name, render: (row) => <><strong>{row.name}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.telegram}</span></> },
+          { key: "status", label: "Статус", sortValue: (row) => row.status, render: (row) => <Status value={row.status} /> },
+          { key: "trips", label: "Поездки", sortValue: (row) => row.trips, render: (row) => row.trips },
+          { key: "cancel", label: "Отмены", sortValue: (row) => row.cancellations, render: (row) => row.cancellations },
+          { key: "rewards", label: "Награды", render: (row) => row.rewards },
+          { key: "risk", label: "Риск", sortValue: (row) => row.risk, render: (row) => <Status value={row.risk} /> },
+          { key: "created", label: "Создано", sortValue: (row) => row.created, render: (row) => row.created },
+          { key: "action", label: "Действие", render: () => <span className="font-black text-[rgb(var(--primary))]">Открыть</span> },
         ]} />
       </AdminPanel>
     </main>

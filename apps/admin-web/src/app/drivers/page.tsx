@@ -15,20 +15,20 @@ export default function DriversPage() {
   }), [filter, query]);
   return (
     <main className="admin-main">
-      <AdminPageHeader title="Водители" subtitle="Verification, vehicles, activity, rewards, and risk." />
-      <AdminPanel className="overflow-hidden" label="Drivers table">
-        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Active", "Offline", "Restricted", "Approved", "Pending", "Needs action", "Low", "Medium", "High"]} activeFilter={filter} onFilter={setFilter} placeholder="Driver, phone, plate, driver ID" count={rows.length} />
+      <AdminPageHeader title="Водители" subtitle="Проверка, автомобили, активность, награды и риск." />
+      <AdminPanel className="overflow-hidden" label="Таблица водителей">
+        <Toolbar query={query} onQuery={setQuery} filters={["All statuses", "Active", "Offline", "Restricted", "Approved", "Pending", "Needs action", "Low", "Medium", "High"]} activeFilter={filter} onFilter={setFilter} placeholder="Водитель, телефон, номер, ID водителя" count={rows.length} />
         <DataTable rows={rows} hrefFor={(row) => `/drivers/${row.id}`} columns={[
-          { key: "driver", label: "Driver", sortValue: (row) => row.name, render: (row) => <><strong>{row.name}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.telegram}</span></> },
-          { key: "vehicle", label: "Vehicle", sortValue: (row) => row.plate, render: (row) => <><strong>{row.vehicle}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.plate}</span></> },
-          { key: "status", label: "Status", sortValue: (row) => row.status, render: (row) => <Status value={row.status} /> },
-          { key: "verification", label: "Verification", render: (row) => <Status value={row.verification} /> },
-          { key: "trips", label: "Trips", sortValue: (row) => row.trips, render: (row) => row.trips },
-          { key: "rating", label: "Rating", render: (row) => row.rating },
-          { key: "cancel", label: "Cancels", render: (row) => row.cancellations },
-          { key: "rewards", label: "Rewards", render: (row) => row.rewards },
-          { key: "risk", label: "Risk", render: (row) => <Status value={row.risk} /> },
-          { key: "action", label: "Actions", render: () => <span className="font-black text-[rgb(var(--primary))]">Open</span> },
+          { key: "driver", label: "Водитель", sortValue: (row) => row.name, render: (row) => <><strong>{row.name}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.telegram}</span></> },
+          { key: "vehicle", label: "Автомобиль", sortValue: (row) => row.plate, render: (row) => <><strong>{row.vehicle}</strong><span className="block text-xs text-[rgb(var(--text-muted))]">{row.plate}</span></> },
+          { key: "status", label: "Статус", sortValue: (row) => row.status, render: (row) => <Status value={row.status} /> },
+          { key: "verification", label: "Проверка", render: (row) => <Status value={row.verification} /> },
+          { key: "trips", label: "Поездки", sortValue: (row) => row.trips, render: (row) => row.trips },
+          { key: "rating", label: "Рейтинг", render: (row) => row.rating },
+          { key: "cancel", label: "Отмены", render: (row) => row.cancellations },
+          { key: "rewards", label: "Награды", render: (row) => row.rewards },
+          { key: "risk", label: "Риск", render: (row) => <Status value={row.risk} /> },
+          { key: "action", label: "Действия", render: () => <span className="font-black text-[rgb(var(--primary))]">Открыть</span> },
         ]} />
       </AdminPanel>
     </main>

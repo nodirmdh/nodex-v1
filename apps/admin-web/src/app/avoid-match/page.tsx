@@ -8,7 +8,7 @@ const initialRelations = [
   {
     id: "avoid-client-driver-1",
     direction: "Клиент → водитель",
-    subject: "Nodex Client",
+    subject: "ENVO Client",
     target: "Azizbek Karimov · Chevrolet Cobalt · 95 A 214 QA",
     addedBy: "Клиент",
     date: "Сегодня, 14:20",

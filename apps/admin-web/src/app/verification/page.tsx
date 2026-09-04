@@ -61,7 +61,7 @@ export default function VerificationPage() {
         {[
           ["queue", "Pending"],
           ["review", "Review"],
-          ["approved", "Approved"],
+          ["approved", "Одобрено"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -98,7 +98,7 @@ function VerificationQueue() {
       <table className="w-full border-collapse text-sm">
         <thead className="bg-[rgb(var(--canvas))]">
           <tr>
-            {["Driver", "Submitted", "Documents", "Vehicle", "State", "Action"].map((header) => (
+            {["Водитель", "Отправлено", "Документы", "Автомобиль", "Статус", "Действие"].map((header) => (
               <th
                 key={header}
                 className="border-b border-[rgb(var(--border))] px-4 py-2 text-left text-[11px] font-black uppercase tracking-[0.08em] text-[rgb(var(--text-muted))]"
@@ -148,7 +148,7 @@ function VerificationReview({ approved }: { approved: boolean }) {
       <AdminPanel className="overflow-hidden" label="Verification review">
         <div className="border-b border-[rgb(var(--border))] px-4 py-3">
           <h1 className="m-0 text-lg font-black">
-            {approved ? "Approved verification" : "Review Phase2 Driver 2"}
+            {approved ? "Проверка одобрена" : "Проверить Phase2 Driver 2"}
           </h1>
           <p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">
             Metadata is shown honestly when document preview is unavailable.
@@ -173,7 +173,7 @@ function VerificationReview({ approved }: { approved: boolean }) {
                 </AdminStatusBadge>
               </div>
               <div className="mt-3 rounded-[10px] bg-[rgb(var(--surface))] p-3 text-xs text-[rgb(var(--text-muted))]">
-                filename: {doc.toLowerCase().replaceAll(" ", "-")}.pdf · submitted 2026-07-30
+                файл: {doc.toLowerCase().replaceAll(" ", "-")}.pdf · отправлено 2026-07-30
               </div>
             </div>
           ))}

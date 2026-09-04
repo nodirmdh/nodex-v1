@@ -8,10 +8,10 @@ type SubscriptionState = "active" | "expiring" | "expired";
 
 const stateCopy = {
   active: {
-    title: "Подписка активна",
+    title: "Бесплатный период",
     status: "Активна",
     tone: "success" as const,
-    days: "Осталось 18 дней",
+    days: "Осталось 72 дня",
     cta: "Продлить подписку",
     help: "Публикация маршрутов и приём новых заявок доступны.",
   },
@@ -60,7 +60,7 @@ export default function DriverSubscriptionPage() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
-              Nodex Driver
+              ENVO Driver
             </p>
             <h1 className="m-0 mt-1 text-2xl font-black">{copy.title}</h1>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
@@ -92,7 +92,7 @@ export default function DriverSubscriptionPage() {
             setNotice("Подписка активирована в demo state.");
           }}
         >
-          {notice ? "Подписка активна" : copy.cta}
+          {notice ? "Бесплатный период" : copy.cta}
         </button>
       </DriverCard>
 
@@ -130,8 +130,8 @@ export default function DriverSubscriptionPage() {
         <h2 className="m-0 text-lg font-black">История</h2>
         <div className="grid gap-2">
           {[
-            ["Nodex Driver", "6 Aug 2026", "Активна period"],
-            ["Nodex Driver", "6 Jul 2026", "Завершённый период"],
+            ["ENVO Driver", "6 Aug 2026", "Бесплатный период"],
+            ["ENVO Driver", "6 Jul 2026", "Завершённый период"],
           ].map(([plan, date, label]) => (
             <div
               key={`${plan}-${date}`}
