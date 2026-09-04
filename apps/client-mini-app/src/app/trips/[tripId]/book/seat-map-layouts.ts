@@ -42,7 +42,7 @@ export const SEAT_MAP_LAYOUTS: Record<SeatMapLayoutId, SeatMapLayout> = {
       {
         seatKey: "DRIVER",
         label: "Водитель",
-        shortLabel: "Водитель",
+        shortLabel: "В",
         x: 38,
         y: 31,
         rotate: faceFront,
@@ -96,7 +96,7 @@ export const SEAT_MAP_LAYOUTS: Record<SeatMapLayoutId, SeatMapLayout> = {
       {
         seatKey: "DRIVER",
         label: "Водитель",
-        shortLabel: "Водитель",
+        shortLabel: "В",
         x: 38,
         y: 31,
         rotate: faceFront,
@@ -141,7 +141,7 @@ export const SEAT_MAP_LAYOUTS: Record<SeatMapLayoutId, SeatMapLayout> = {
       {
         seatKey: "DRIVER",
         label: "Водитель",
-        shortLabel: "Водитель",
+        shortLabel: "В",
         x: 38,
         y: 22,
         rotate: faceFront,
@@ -213,7 +213,7 @@ export const SEAT_MAP_LAYOUTS: Record<SeatMapLayoutId, SeatMapLayout> = {
       {
         seatKey: "DRIVER",
         label: "Водитель",
-        shortLabel: "Водитель",
+        shortLabel: "В",
         x: 38,
         y: 21,
         rotate: faceFront,

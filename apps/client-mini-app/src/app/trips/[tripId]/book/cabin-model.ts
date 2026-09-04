@@ -79,7 +79,7 @@ export const cabinSeats: CabinSeat[] = [
 ];
 
 export const sevenSeatPreview: CabinSeat[] = [
-  ...cabinSeats.filter((seat) => seat.key !== "ROW_1_CENTER"),
+  ...cabinSeats,
   {
     key: "ROW_2_LEFT",
     label: "Third row left",
@@ -124,6 +124,18 @@ export function seatPriceMinor(basePriceMinor: number, seat: CabinSeat | undefin
   return basePriceMinor;
 }
 
-export function selectedSeatsTotalMinor(basePriceMinor: number, seats: CabinSeat[], selectedSeatKeys: string[]) {
-  return selectedSeatKeys.reduce((total, seatKey) => total + seatPriceMinor(basePriceMinor, seats.find((seat) => seat.key === seatKey)), 0);
+export function selectedSeatsTotalMinor(
+  basePriceMinor: number,
+  seats: CabinSeat[],
+  selectedSeatKeys: string[],
+) {
+  return selectedSeatKeys.reduce(
+    (total, seatKey) =>
+      total +
+      seatPriceMinor(
+        basePriceMinor,
+        seats.find((seat) => seat.key === seatKey),
+      ),
+    0,
+  );
 }
