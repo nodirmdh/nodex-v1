@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { DriverCard, DriverHeader, DriverIconView, DriverPill, DriverShell } from "../driver-ui";
 
+const supportActions = ["Пожаловаться на пассажира", "Сообщить об инциденте", "Написать в поддержку"];
+
 export default function DriverSafetyPage() {
   return (
     <DriverShell active="profile">
@@ -26,14 +28,14 @@ export default function DriverSafetyPage() {
 
       <DriverCard className="mt-3 space-y-2" label="Безопасность текущей поездки">
         <h2 className="m-0 text-lg font-black">Текущая поездка</h2>
-        {["Пожаловаться на пассажира", "Сообщить об инциденте", "Написать в поддержку"].map((action) => (
-          <button
+        {supportActions.map((action) => (
+          <Link
             key={action}
-            className="min-h-11 w-full rounded-[16px] border-0 bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black"
-            type="button"
+            className="flex min-h-11 w-full items-center rounded-[16px] bg-[rgb(var(--canvas))] px-3 text-left text-sm font-black text-[rgb(var(--foreground))] no-underline"
+            href="/messages/support"
           >
             {action}
-          </button>
+          </Link>
         ))}
       </DriverCard>
 

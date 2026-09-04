@@ -3,36 +3,33 @@ import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui"
 
 const conversations = [
   {
-    id: "azizbek-karimov",
+    id: "trip-passenger",
     initials: "AK",
-    title: "Чат с пассажиром",
-    name: "Azizbek Karimov",
-    context: "Nukus → Urgench · завтра 08:30",
-    seat: "Переднее пассажирское",
-    body: "Буду у входа.",
+    type: "Поездка",
+    title: "Azizbek Karimov",
+    context: "Nukus → Urgench · Переднее пассажирское",
+    body: "Буду у главного входа.",
     time: "2 мин",
     unread: true,
   },
   {
-    id: "parcel-sender",
-    initials: "PS",
-    title: "Отправитель посылки",
-    name: "Отправитель посылки",
-    context: "Nukus → Urgench · маленькая посылка",
-    seat: "Передача у точки посадки",
-    body: "Напишите после передачи посылки.",
-    time: "18 мин",
+    id: "support",
+    initials: "EN",
+    type: "Поддержка",
+    title: "Поддержка ENVO",
+    context: "Проверка документов · В работе",
+    body: "Мы добавили заметку к вашему обращению.",
+    time: "1 ч",
     unread: false,
   },
   {
-    id: "support",
-    initials: "NS",
-    title: "Поддержка",
-    name: "Поддержка ENVO",
-    context: "Проверка автомобиля",
-    seat: "Помощь водителю",
-    body: "Заметка по проверке документов готова.",
-    time: "1 ч",
+    id: "parcel-sender",
+    initials: "GE",
+    type: "Посылка",
+    title: "Gulnora Ergasheva",
+    context: "Посылка · Nukus → Urgench",
+    body: "Напишите после передачи водителю.",
+    time: "18 мин",
     unread: false,
   },
 ];
@@ -42,7 +39,7 @@ export default function DriverMessagesPage() {
     <DriverShell active="messages">
       <DriverHeader
         title="Сообщения"
-        subtitle="Пассажиры, посылки и поддержка"
+        subtitle="Поездки, посылки и единая поддержка"
         status={<DriverPill tone="info">3 чата</DriverPill>}
       />
 
@@ -64,21 +61,25 @@ export default function DriverMessagesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h1 className="m-0 truncate text-base font-black">{conversation.title}</h1>
-                      <div className="truncate text-sm font-black">{conversation.name}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <DriverPill tone={conversation.type === "Поездка" ? "success" : conversation.type === "Посылка" ? "accent" : "info"}>
+                          {conversation.type}
+                        </DriverPill>
+                        <span className="min-w-0 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">
+                          {conversation.context}
+                        </span>
+                      </div>
                     </div>
                     <span className="shrink-0 text-xs font-black text-[rgb(var(--primary))]">
                       {conversation.time}
                     </span>
-                  </div>
-                  <div className="mt-1 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">
-                    {conversation.context} · {conversation.seat}
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     {conversation.unread && (
                       <span className="h-2 w-2 shrink-0 rounded-full bg-[rgb(var(--primary))]" />
                     )}
                     <p className="m-0 truncate text-sm font-semibold text-[rgb(var(--text-muted))]">
-                      “{conversation.body}”
+                      {conversation.body}
                     </p>
                   </div>
                 </div>
