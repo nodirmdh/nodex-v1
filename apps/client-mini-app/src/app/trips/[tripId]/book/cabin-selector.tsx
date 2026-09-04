@@ -169,7 +169,7 @@ function SeatNode({
 }) {
   return (
     <button
-      aria-label={`${layoutSeat.label}: ${stateCopy[status]}, ${formatUzs(priceMinor)}`}
+      aria-label={layoutSeat.bookable ? `${layoutSeat.label}: ${stateCopy[status]}, ${formatUzs(priceMinor)}` : `${layoutSeat.label}: ${stateCopy[status]}`}
       aria-pressed={status === "selected"}
       className={cn(
         "absolute z-20 grid aspect-[72/86] w-[clamp(42px,13vw,56px)] place-items-center border-0 bg-transparent p-0 transition duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--primary))]",

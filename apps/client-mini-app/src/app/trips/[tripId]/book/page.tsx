@@ -20,6 +20,7 @@ import {
   cabinSeats,
   selectableSeatKeys,
   seatLabelForKey,
+  seatPriceMinor,
   selectedSeatsTotalMinor,
   sevenSeatPreview,
   tripCabin,
@@ -55,6 +56,12 @@ const seatLabelRu: Record<string, string> = {
 
 function displaySeatLabel(label: string) {
   return seatLabelRu[label] ?? label;
+}
+
+function seatPriceNote(seatKey: string) {
+  if (seatKey === "FRONT_RIGHT") return "+20% за повышенный комфорт";
+  if (seatKey.includes("CENTER")) return "-20% специальная цена";
+  return "Стандартная цена";
 }
 
 function Icon({ name, className = "" }: { name: IconName; className?: string }) {
@@ -170,6 +177,20 @@ export default function BookingFlowPage() {
     scheduleOption,
     requestedDepartureAtUtc,
   });
+
+  const selectedSeatBreakdown = useMemo(
+    () =>
+      effectiveSeats.map((seatKey) => {
+        const seat = visibleSeats.find((item) => item.key === seatKey);
+        return {
+          seatKey,
+          label: displaySeatLabel(seatLabelForKey(visibleSeats, seatKey)),
+          priceMinor: seatPriceMinor(tripCabin.priceMinor, seat),
+          note: seatPriceNote(seatKey),
+        };
+      }),
+    [effectiveSeats, visibleSeats],
+  );
 
   const passengerFields = useMemo(
     () =>
@@ -403,6 +424,11 @@ export default function BookingFlowPage() {
                 <Icon name="clock" className="h-4 w-4" />
                 {scheduleSummary} · {tripCabin.departure}
               </div>
+              {bookingType !== "WHOLE_CAR" && selectedSeatBreakdown.length === 1 ? (
+                <div className="mt-1 text-xs font-bold text-[rgb(var(--primary))]">
+                  {formatUzs(selectedSeatBreakdown[0]!.priceMinor)} · {selectedSeatBreakdown[0]!.note}
+                </div>
+              ) : null}
             </div>
             <div className="text-right">
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
@@ -413,6 +439,26 @@ export default function BookingFlowPage() {
               </div>
             </div>
           </div>
+
+          {bookingType !== "WHOLE_CAR" && selectedSeatBreakdown.length > 1 ? (
+            <div className="mt-3 grid gap-2 rounded-[20px] bg-[rgb(var(--canvas))] p-3 text-sm">
+              {selectedSeatBreakdown.map((seat) => (
+                <div key={seat.seatKey} className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">{seat.label}</div>
+                    <div className="text-xs font-bold text-[rgb(var(--text-muted))]">{seat.note}</div>
+                  </div>
+                  <div className="shrink-0 font-semibold">{formatUzs(seat.priceMinor)}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {bookingType === "WHOLE_CAR" ? (
+            <p className="m-0 mt-3 rounded-[18px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">
+              Это отдельная цена всей машины: {formatUzs(tripCabin.wholeCarPriceMinor)}.
+            </p>
+          ) : null}
 
           <div className="mt-3 grid gap-2">
             {[
