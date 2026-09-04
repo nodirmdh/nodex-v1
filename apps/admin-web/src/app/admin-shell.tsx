@@ -4,64 +4,47 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Bell,
-  Car,
-  ChevronLeft,
-  Gift,
-  Headphones,
-  LayoutDashboard,
-  Megaphone,
-  Network,
-  Route,
-  Search,
-  Settings,
-  ShieldCheck,
-  ShieldAlert,
-  ShieldMinus,
-  Ticket,
-  UserRound,
-  Users,
-} from "lucide-react";
+import { EnvoIcon } from "@nodex/ui";
+import type { EnvoIconName } from "@nodex/ui";
 import { globalSearchItems } from "./admin-data";
 
-type NavItem = { label: string; href: string; icon: ReactNode };
+type NavItem = { label: string; href: string; icon: EnvoIconName };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
-  { label: "Обзор", items: [{ label: "Панель", href: "/dashboard", icon: <LayoutDashboard size={16} /> }] },
+  { label: "Обзор", items: [{ label: "Панель", href: "/dashboard", icon: "home" }] },
   {
     label: "Операции",
     items: [
-      { label: "Поездки", href: "/trips", icon: <Route size={16} /> },
-      { label: "Бронирования", href: "/bookings", icon: <Ticket size={16} /> },
-      { label: "Матчинг", href: "/matching", icon: <Network size={16} /> },
+      { label: "Поездки", href: "/trips", icon: "route" },
+      { label: "Бронирования", href: "/bookings", icon: "ticket" },
+      { label: "Матчинг", href: "/matching", icon: "fill" },
     ],
   },
   {
     label: "Люди",
     items: [
-      { label: "Клиенты", href: "/users", icon: <UserRound size={16} /> },
-      { label: "Водители", href: "/drivers", icon: <Users size={16} /> },
-      { label: "Рефералы", href: "/referrals", icon: <Car size={16} /> },
+      { label: "Клиенты", href: "/users", icon: "profile" },
+      { label: "Водители", href: "/drivers", icon: "passenger" },
+      { label: "Рефералы", href: "/referrals", icon: "referral" },
     ],
   },
   {
     label: "Поддержка и безопасность",
     items: [
-      { label: "Поддержка", href: "/support", icon: <Headphones size={16} /> },
-      { label: "Надёжность", href: "/reliability", icon: <ShieldCheck size={16} /> },
-      { label: "Антифрод", href: "/fraud", icon: <ShieldAlert size={16} /> },
-      { label: "Не предлагать", href: "/avoid-match", icon: <ShieldMinus size={16} /> },
+      { label: "Поддержка", href: "/support", icon: "support" },
+      { label: "Надёжность", href: "/reliability", icon: "protection" },
+      { label: "Антифрод", href: "/fraud", icon: "safety" },
+      { label: "Не предлагать", href: "/avoid-match", icon: "complaint" },
     ],
   },
   {
     label: "Рост",
     items: [
-      { label: "Награды", href: "/rewards", icon: <Gift size={16} /> },
-      { label: "Промо", href: "/promotions", icon: <Megaphone size={16} /> },
+      { label: "Награды", href: "/rewards", icon: "reward" },
+      { label: "Промо", href: "/promotions", icon: "promo" },
     ],
   },
-  { label: "Система", items: [{ label: "Настройки", href: "/settings", icon: <Settings size={16} /> }] },
+  { label: "Система", items: [{ label: "Настройки", href: "/settings", icon: "preferences" }] },
 ];
 
 const extraSearchItems = [
@@ -109,7 +92,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             {!collapsed ? <><div className="text-xl font-black leading-tight">Control Center</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Операции без шума</div></> : null}
           </Link>
           <button aria-label="Свернуть меню" className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setCollapsed((value) => !value)} type="button">
-            <ChevronLeft className={collapsed ? "rotate-180" : ""} size={15} />
+            <EnvoIcon name="back" className={collapsed ? "rotate-180" : ""} />
           </button>
         </div>
         <nav className="space-y-4" aria-label="Admin navigation">
@@ -124,7 +107,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     className={`grid min-h-9 items-center gap-2 rounded-[8px] px-2 text-sm font-semibold no-underline ${collapsed ? "grid-cols-1 place-items-center" : "grid-cols-[20px_1fr]"} ${isActive(item.href) ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "text-[rgb(var(--text-muted))] hover:bg-[rgb(var(--surface-muted))] hover:text-[rgb(var(--foreground))]"}`}
                     href={item.href}
                   >
-                    {item.icon}
+                    <EnvoIcon name={item.icon} />
                     {!collapsed ? <span className="truncate">{item.label}</span> : null}
                   </Link>
                 ))}
@@ -141,7 +124,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
           <div className="relative flex items-center gap-2">
             <label className="hidden min-h-9 w-[390px] grid-cols-[18px_1fr] items-center gap-2 rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
-              <Search size={15} />
+              <EnvoIcon name="search" className="h-[15px] w-[15px]" />
               <input className="min-w-0 border-0 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск: клиент, водитель, рейс, заявка" value={query} />
             </label>
             {results.length > 0 ? (
@@ -154,7 +137,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 ))}
               </div>
             ) : null}
-            <button aria-label="Уведомления" className="grid h-9 w-9 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><Bell size={16} /></button>
+            <button aria-label="Уведомления" className="grid h-9 w-9 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><EnvoIcon name="notification" className="h-4 w-4" /></button>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">NA</div>
           </div>
         </header>

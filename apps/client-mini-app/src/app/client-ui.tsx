@@ -1,65 +1,39 @@
 import Link from "next/link";
+import { EnvoIcon } from "@nodex/ui";
+import type { EnvoIconName } from "@nodex/ui";
 import type { ReactNode } from "react";
 
 export type ClientNavKey = "home" | "trips" | "messages" | "profile";
 export type ClientIcon =
-  | "back"
+  | EnvoIconName
   | "bell"
   | "car"
   | "chat"
-  | "check"
   | "clock"
   | "help"
-  | "home"
-  | "profile"
   | "review"
   | "shield"
   | "star"
-  | "ticket"
+  | "users"
   | "warning";
 
-const iconPaths: Record<ClientIcon, ReactNode> = {
-  back: <path d="m15 6-6 6 6 6" />,
-  bell: <path d="M8 17h8M9 17a3 3 0 0 0 6 0M6 14h12l-1.6-2.2V8.8a4.4 4.4 0 0 0-8.8 0v3L6 14Z" />,
-  car: (
-    <path d="M5 14h14l-1.8-4.2A2 2 0 0 0 15.4 8H8.6a2 2 0 0 0-1.8 1.2L5 14Zm1 0v4m12-4v4M7.5 18h.1m8.8 0h.1" />
-  ),
-  chat: <path d="M5 18v-4.5A7.5 7.5 0 1 1 9.5 20H6.8A1.8 1.8 0 0 1 5 18Z" />,
-  check: <path d="m5 12 4 4L19 6" />,
-  clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
-  help: (
-    <path d="M12 18h.01M9.1 9a3 3 0 1 1 4.9 2.3c-.9.7-1.7 1.2-1.9 2.7M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-  ),
-  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
-  profile: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" />,
-  review: <path d="m12 4 2.2 4.7 5.1.6-3.8 3.5 1 5-4.5-2.5-4.5 2.5 1-5-3.8-3.5 5.1-.6L12 4Z" />,
-  shield: <path d="M12 3 5 6v5c0 4.2 2.8 7.6 7 10 4.2-2.4 7-5.8 7-10V6l-7-3Z" />,
-  star: <path d="m12 4 2.2 4.7 5.1.6-3.8 3.5 1 5-4.5-2.5-4.5 2.5 1-5-3.8-3.5 5.1-.6L12 4Z" />,
-  ticket: <path d="M5 7h14v3a2 2 0 0 0 0 4v3H5v-3a2 2 0 0 0 0-4V7Z" />,
-  warning: (
-    <path d="M12 8v5m0 4h.01M10.3 4.7 2.8 18a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L13.7 4.7a2 2 0 0 0-3.4 0Z" />
-  ),
+const clientIconAliases: Partial<Record<ClientIcon, EnvoIconName>> = {
+  bell: "notification",
+  car: "vehicle",
+  chat: "message",
+  clock: "time",
+  help: "support",
+  review: "favorite",
+  shield: "safety",
+  star: "favorite",
+  users: "passenger",
+  warning: "emergency",
 };
 
 export function Icon({ name, className = "" }: { name: ClientIcon; className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      height="20"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      {iconPaths[name]}
-    </svg>
-  );
+  const iconName = (clientIconAliases[name] ?? name) as EnvoIconName;
+  return <EnvoIcon name={iconName} className={className} />;
 }
-
 export function ClientShell({ active, children }: { active: ClientNavKey; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">

@@ -1,63 +1,25 @@
 import Link from "next/link";
+import { EnvoIcon } from "@nodex/ui";
+import type { EnvoIconName } from "@nodex/ui";
 import type { ReactNode } from "react";
 
 export type DriverNavKey = "home" | "trips" | "requests" | "messages" | "profile";
-export type DriverIcon =
-  | "bell"
-  | "briefcase"
-  | "car"
-  | "chat"
-  | "check"
-  | "clock"
-  | "home"
-  | "lock"
-  | "profile"
-  | "route"
-  | "shield"
-  | "ticket"
-  | "warning";
+export type DriverIcon = EnvoIconName | "bell" | "briefcase" | "car" | "chat" | "clock" | "lock" | "shield";
 
-const iconPaths: Record<DriverIcon, ReactNode> = {
-  bell: <path d="M8 17h8M9 17a3 3 0 0 0 6 0M6 14h12l-1.6-2.2V8.8a4.4 4.4 0 0 0-8.8 0v3L6 14Z" />,
-  briefcase: (
-    <path d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7m-9 4h12M5 7h14v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7Z" />
-  ),
-  car: (
-    <path d="M5 14h14l-1.8-4.2A2 2 0 0 0 15.4 8H8.6a2 2 0 0 0-1.8 1.2L5 14Zm1 0v4m12-4v4M7.5 18h.1m8.8 0h.1" />
-  ),
-  chat: <path d="M5 18v-4.5A7.5 7.5 0 1 1 9.5 20H6.8A1.8 1.8 0 0 1 5 18Z" />,
-  check: <path d="m5 12 4 4L19 6" />,
-  clock: <path d="M12 6v6l4 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />,
-  home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1v-7.5Z" />,
-  lock: <path d="M7 11V8a5 5 0 0 1 10 0v3m-11 0h12v9H6v-9Z" />,
-  profile: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" />,
-  route: <path d="M6 6h.01M18 18h.01M6 6c8 0 12 2 12 6s-4 6-12 6" />,
-  shield: <path d="M12 3 5 6v5c0 4.2 2.8 7.6 7 10 4.2-2.4 7-5.8 7-10V6l-7-3Z" />,
-  ticket: <path d="M5 7h14v3a2 2 0 0 0 0 4v3H5v-3a2 2 0 0 0 0-4V7Z" />,
-  warning: (
-    <path d="M12 8v5m0 4h.01M10.3 4.7 2.8 18a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L13.7 4.7a2 2 0 0 0-3.4 0Z" />
-  ),
+const driverIconAliases: Partial<Record<DriverIcon, EnvoIconName>> = {
+  bell: "notification",
+  briefcase: "request",
+  car: "vehicle",
+  chat: "message",
+  clock: "time",
+  lock: "protection",
+  shield: "safety",
 };
 
 export function DriverIconView({ name, className = "" }: { name: DriverIcon; className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      height="18"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      {iconPaths[name]}
-    </svg>
-  );
+  const iconName = (driverIconAliases[name] ?? name) as EnvoIconName;
+  return <EnvoIcon name={iconName} className={className} />;
 }
-
 export function DriverShell({ active, children }: { active: DriverNavKey; children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[rgb(var(--background))] text-[rgb(var(--foreground))]">
