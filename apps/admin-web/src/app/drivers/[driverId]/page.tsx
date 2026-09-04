@@ -9,7 +9,7 @@ export default async function DriverDetailPage({ params }: { params: Promise<{ d
   return (
     <main className="admin-main">
       <Breadcrumbs items={[{ label: "Админ", href: "/dashboard" }, { label: "Водители", href: "/drivers" }, { label: driver.id }]} />
-      <AdminPageHeader title={driver.name} subtitle={`${driver.vehicle} · ${driver.plate} · ${driver.phone}`} actions={<><QuickActionModal label="Запросить документы" title="Запрос документов водителя">Это отправит водителю запрос на обновление документов, когда будет подключено существующее API-действие.</QuickActionModal><QuickActionModal label="Ограничить" title="Ограничить доступ водителя" action="Ограничить">Изменения пока не сохраняются.</QuickActionModal></>} />
+      <AdminPageHeader title={driver.name} subtitle={`${driver.vehicle} · ${driver.plate} · ${driver.phone}`} actions={<><QuickActionModal label="Запросить документы" title="Запрос документов водителя">Водитель получит запрос на обновление документов.</QuickActionModal><QuickActionModal label="Ограничить" title="Ограничить доступ водителя" action="Ограничить">Изменения пока не сохраняются.</QuickActionModal></>} />
       <div className="admin-detail-layout">
         <AdminPanel className="p-4"><DetailGrid items={[["Статус", <Status key="s" value={driver.status} />], ["Проверка", <Status key="v" value={driver.verification} />], ["Риск", <Status key="r" value={driver.risk} />], ["Автомобиль", driver.vehicle], ["Номер", driver.plate], ["Город", driver.city], ["Рейтинг", driver.rating], ["Завершённые поездки", driver.trips], ["Отмены", driver.cancellations], ["Награды", driver.rewards]]} /></AdminPanel>
         <Tabs tabs={[

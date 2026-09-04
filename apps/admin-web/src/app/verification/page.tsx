@@ -7,25 +7,25 @@ type QueueState = "queue" | "review" | "approved";
 
 const submissions = [
   {
-    driver: "Phase2 Driver 2",
+    driver: "Водитель этапа 2",
     submitted: "2026-07-30",
-    documents: "5/5 complete",
+    documents: "5/5 заполнено",
     vehicle: "Chevrolet Cobalt · Одобрено",
     state: "Pending",
     tone: "warning" as const,
   },
   {
-    driver: "Phase2 Driver 3",
+    driver: "Водитель этапа 3",
     submitted: "2026-07-30",
-    documents: "4/5 complete",
-    vehicle: "Chevrolet Cobalt · Pending",
+    documents: "4/5 заполнено",
+    vehicle: "Chevrolet Cobalt · На проверке",
     state: "Needs action",
     tone: "danger" as const,
   },
   {
-    driver: "Phase2 Driver 4",
+    driver: "Водитель этапа 4",
     submitted: "2026-07-29",
-    documents: "5/5 complete",
+    documents: "5/5 заполнено",
     vehicle: "Chevrolet Tracker · Одобрено",
     state: "Approved",
     tone: "success" as const,
@@ -43,15 +43,15 @@ export default function VerificationPage() {
   return (
     <main className="p-5">
       <AdminPageHeader
-        title="Verification"
-        subtitle="Review driver submissions, document completeness, and decision history."
+        title="Проверка водителей"
+        subtitle="Заявки водителей, комплектность документов и история решений."
         actions={
           <>
             <button className="min-h-9 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm font-black">
-              Export queue
+              Экспорт списка
             </button>
             <button className="min-h-9 rounded-[10px] bg-[rgb(var(--primary))] px-3 text-sm font-black text-[rgb(var(--primary-foreground))]">
-              Assign next
+              Назначить следующую
             </button>
           </>
         }
@@ -59,8 +59,8 @@ export default function VerificationPage() {
 
       <div className="mb-3 flex flex-wrap gap-2">
         {[
-          ["queue", "Pending"],
-          ["review", "Review"],
+          ["queue", "Ожидают"],
+          ["review", "Проверка"],
           ["approved", "Одобрено"],
         ].map(([key, label]) => (
           <button
@@ -88,11 +88,11 @@ export default function VerificationPage() {
 
 function VerificationQueue() {
   return (
-    <AdminPanel className="overflow-hidden" label="Verification queue">
+    <AdminPanel className="overflow-hidden" label="Очередь проверки">
       <div className="border-b border-[rgb(var(--border))] px-4 py-3">
-        <h1 className="m-0 text-lg font-black">Driver verification queue</h1>
+        <h1 className="m-0 text-lg font-black">Очередь проверки водителей</h1>
         <p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">
-          Pending submissions are sorted by operational urgency.
+          Заявки отсортированы по операционной срочности.
         </p>
       </div>
       <table className="w-full border-collapse text-sm">
@@ -124,14 +124,14 @@ function VerificationQueue() {
                 {submission.vehicle}
               </td>
               <td className="border-b border-[rgb(var(--border))] px-4 py-3">
-                <AdminStatusBadge tone={submission.tone}>{submission.state}</AdminStatusBadge>
+                <AdminStatusBadge tone={submission.tone}>{submission.state === "Pending" ? "Ожидает" : submission.state === "Needs action" ? "Нужно исправить" : "Одобрено"}</AdminStatusBadge>
               </td>
               <td className="border-b border-[rgb(var(--border))] px-4 py-3">
                 <button
                   className="min-h-8 rounded-[10px] bg-[rgb(var(--primary))] px-3 text-xs font-black text-[rgb(var(--primary-foreground))]"
                   type="button"
                 >
-                  Review
+                  Проверить
                 </button>
               </td>
             </tr>
@@ -145,10 +145,10 @@ function VerificationQueue() {
 function VerificationReview({ approved }: { approved: boolean }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <AdminPanel className="overflow-hidden" label="Verification review">
+      <AdminPanel className="overflow-hidden" label="Проверка документов">
         <div className="border-b border-[rgb(var(--border))] px-4 py-3">
           <h1 className="m-0 text-lg font-black">
-            {approved ? "Проверка одобрена" : "Проверить Phase2 Driver 2"}
+            {approved ? "Проверка одобрена" : "Проверить водителя этапа 2"}
           </h1>
           <p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">
             Если просмотр документа недоступен, показаны его основные сведения.
@@ -156,11 +156,11 @@ function VerificationReview({ approved }: { approved: boolean }) {
         </div>
         <div className="grid gap-3 p-4 lg:grid-cols-2">
           {[
-            "Identity document",
-            "Driver license",
-            "Vehicle registration",
-            "Selfie",
-            "Vehicle front",
+            "Документ удостоверения личности",
+            "Водительское удостоверение",
+            "Регистрация автомобиля",
+            "Селфи",
+            "Автомобиль спереди",
           ].map((doc) => (
             <div
               key={doc}
@@ -180,10 +180,10 @@ function VerificationReview({ approved }: { approved: boolean }) {
         </div>
       </AdminPanel>
 
-      <AdminPanel className="p-4" label="Verification decision panel">
+      <AdminPanel className="p-4" label="Решение по проверке">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="m-0 text-xl font-black">Phase2 Driver 2</h2>
+            <h2 className="m-0 text-xl font-black">Водитель этапа 2</h2>
             <p className="m-0 text-sm text-[rgb(var(--text-muted))]">+998 ** *** 0002</p>
           </div>
           <AdminStatusBadge tone={approved ? "success" : "warning"}>
@@ -192,10 +192,10 @@ function VerificationReview({ approved }: { approved: boolean }) {
         </div>
 
         <div className="my-4 grid gap-2 text-sm">
-          <Row label="Vehicle" value="Chevrolet Cobalt" />
-          <Row label="Plate" value="95 A 214 QA" />
-          <Row label="Documents" value="5/5 complete" />
-          <Row label="Duplicate check" value="Clear" />
+          <Row label="Автомобиль" value="Chevrolet Cobalt" />
+          <Row label="Госномер" value="95 A 214 QA" />
+          <Row label="Документы" value="5/5 заполнено" />
+          <Row label="Проверка дублей" value="Совпадений нет" />
         </div>
 
         {!approved ? (
@@ -204,35 +204,35 @@ function VerificationReview({ approved }: { approved: boolean }) {
               className="min-h-10 rounded-[10px] border-0 bg-[rgb(var(--primary))] px-3 text-sm font-black text-[rgb(var(--primary-foreground))]"
               type="button"
             >
-              Approve
+              Одобрить
             </button>
             <button
               className="min-h-10 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm font-black"
               type="button"
             >
-              Request correction
+              Запросить исправление
             </button>
             <button
               className="min-h-10 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm font-black"
               type="button"
             >
-              Reject
+              Отклонить
             </button>
             <div className="rounded-[12px] bg-[rgb(var(--foreground))] p-3 text-[rgb(var(--primary-foreground))]">
-              <h3 className="m-0 text-base font-black">Approve driver verification?</h3>
-              <p className="m-0 mt-1 text-sm opacity-80">Phase2 Driver 2 · 5 documents reviewed</p>
+              <h3 className="m-0 text-base font-black">Одобрить проверку водителя?</h3>
+              <p className="m-0 mt-1 text-sm opacity-80">Водитель этапа 2 · проверено 5 документов</p>
               <button
                 className="mt-3 min-h-9 w-full rounded-[10px] border-0 bg-[rgb(var(--primary))] px-3 text-sm font-black text-[rgb(var(--primary-foreground))]"
                 type="button"
               >
-                Approve driver
+                Одобрить водителя
               </button>
             </div>
           </div>
         ) : (
           <div className="rounded-[12px] bg-[rgb(var(--success-soft))] p-3 text-sm font-semibold text-[rgb(var(--success))]">
-            Driver verification is approved. The driver can publish trips while subscription access
-            is active.
+            Проверка водителя одобрена. Водитель может публиковать поездки, пока подписка
+            активна.
           </div>
         )}
       </AdminPanel>

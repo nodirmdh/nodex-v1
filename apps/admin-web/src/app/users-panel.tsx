@@ -84,7 +84,7 @@ export function UsersPanel() {
             </select>
           </label>
           <Button onClick={login} variant="secondary">
-            Admin mock login
+            Вход оператора
           </Button>
           <Button onClick={loadUsers}>Load users</Button>
         </div>

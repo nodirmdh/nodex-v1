@@ -29,17 +29,17 @@ const vehicles: VehicleRow[] = [
     plate: "95 A 184 AA",
     driver: "Azizbek Karimov",
     region: "Nukus",
-    seats: "4 passenger seats",
-    documents: "3 of 3 checked",
+    seats: "4 пассажирских места",
+    documents: "Проверено 3 из 3",
     status: "In review",
-    priority: "Plate and interior photo need second look",
+    priority: "Нужно повторно проверить номер и фото салона",
     updated: "11:42 UTC",
-    photos: ["Front exterior", "Rear exterior", "Cabin", "Plate close-up"],
+    photos: ["Автомобиль спереди", "Автомобиль сзади", "Салон", "Госномер крупным планом"],
     timeline: [
-      { label: "Vehicle submitted", time: "09:18" },
-      { label: "Driver already approved", time: "09:21" },
-      { label: "Documents matched plate", time: "10:04" },
-      { label: "Cabin photo queued for review", time: "11:42" },
+      { label: "Автомобиль отправлен", time: "09:18" },
+      { label: "Водитель уже одобрен", time: "09:21" },
+      { label: "Документы сверены с госномером", time: "10:04" },
+      { label: "Фото салона ожидает проверки", time: "11:42" },
     ],
   },
   {
@@ -48,16 +48,16 @@ const vehicles: VehicleRow[] = [
     plate: "95 B 442 BA",
     driver: "Madina Yusupova",
     region: "Urgench",
-    seats: "3 passenger seats",
-    documents: "3 of 3 checked",
+    seats: "3 пассажирских места",
+    documents: "Проверено 3 из 3",
     status: "Approved",
-    priority: "Ready for trip publishing",
+    priority: "Готов к публикации поездок",
     updated: "10:15 UTC",
-    photos: ["Front exterior", "Rear exterior", "Interior", "Insurance"],
+    photos: ["Автомобиль спереди", "Автомобиль сзади", "Салон", "Страховой полис"],
     timeline: [
-      { label: "Vehicle submitted", time: "08:10" },
-      { label: "Registration verified", time: "08:44" },
-      { label: "Approved by operations", time: "10:15" },
+      { label: "Автомобиль отправлен", time: "08:10" },
+      { label: "Регистрация проверена", time: "08:44" },
+      { label: "Одобрено оператором", time: "10:15" },
     ],
   },
   {
@@ -66,20 +66,27 @@ const vehicles: VehicleRow[] = [
     plate: "01 K 731 KA",
     driver: "Sherzod Rakhimov",
     region: "Tashkent",
-    seats: "4 passenger seats",
-    documents: "2 of 3 checked",
+    seats: "4 пассажирских места",
+    documents: "Проверено 2 из 3",
     status: "Changes requested",
-    priority: "Insurance document is unreadable",
+    priority: "Страховой документ не читается",
     updated: "09:58 UTC",
-    photos: ["Front exterior", "Cabin", "Plate close-up"],
+    photos: ["Автомобиль спереди", "Салон", "Госномер крупным планом"],
     timeline: [
-      { label: "Vehicle submitted", time: "07:40" },
-      { label: "Insurance image failed review", time: "09:58" },
-      { label: "Correction request prepared", time: "10:01" },
+      { label: "Автомобиль отправлен", time: "07:40" },
+      { label: "Фото страхового полиса не прошло проверку", time: "09:58" },
+      { label: "Запрос на исправление подготовлен", time: "10:01" },
     ],
   },
 ];
 
+const vehicleStatusLabels: Record<VehicleStatus, string> = {
+  Submitted: "Отправлено",
+  "In review": "На проверке",
+  "Changes requested": "Нужны исправления",
+  Approved: "Одобрено",
+  Suspended: "Приостановлено",
+};
 function statusTone(status: VehicleStatus): BadgeTone {
   if (status === "Approved") return "success";
   if (status === "Suspended") return "danger";
@@ -105,29 +112,29 @@ export default function AdminVehiclesPage() {
   return (
     <main className="p-5">
       <AdminPageHeader
-        title="Vehicle moderation"
-        subtitle="Review real vehicle documents, cabin evidence, seat capacity, and approval risk before drivers publish trips."
+        title="Проверка автомобилей"
+        subtitle="Документы, фотографии салона, число мест и допуск автомобиля к публикации поездок."
         actions={
           <>
             <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
-              Export queue
+              Экспорт списка
             </button>
             <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
-              Review next
+              Проверить следующий
             </button>
           </>
         }
       />
 
       <div className="grid gap-4 min-[1380px]:grid-cols-[minmax(0,1fr)_460px]">
-        <AdminPanel className="overflow-hidden" label="Vehicle moderation queue">
+        <AdminPanel className="overflow-hidden" label="Очередь проверки автомобилей">
           <div className="grid gap-3 border-b border-[rgb(var(--border))] p-4 lg:grid-cols-[1fr_auto]">
             <div className="flex flex-wrap gap-2">
               {[
-                ["In review", "1"],
-                ["Approved", "1"],
-                ["Corrections", "1"],
-                ["Avg review", "18m"],
+                ["На проверке", "1"],
+                ["Одобрено", "1"],
+                ["Исправления", "1"],
+                ["Среднее время", "18 мин"],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -141,13 +148,13 @@ export default function AdminVehiclesPage() {
             <div className="flex flex-wrap items-start gap-2">
               <input
                 className="min-h-10 w-[260px] rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm outline-none"
-                placeholder="Search plate, driver, city"
+                placeholder="Номер, водитель или город"
               />
               <select className="min-h-10 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm">
-                <option>All statuses</option>
-                <option>In review</option>
-                <option>Changes requested</option>
-                <option>Approved</option>
+                <option>Все статусы</option>
+                <option>На проверке</option>
+                <option>Нужны исправления</option>
+                <option>Одобрено</option>
               </select>
             </div>
           </div>
@@ -156,12 +163,12 @@ export default function AdminVehiclesPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="text-left text-[11px] font-black uppercase tracking-[0.08em] text-[rgb(var(--text-muted))]">
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Vehicle</th>
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Driver</th>
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Capacity</th>
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Documents</th>
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Status</th>
-                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Updated</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Автомобиль</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Водитель</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Места</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Документы</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Статус</th>
+                  <th className="border-b border-[rgb(var(--border))] px-4 py-3">Обновлено</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,7 +195,7 @@ export default function AdminVehiclesPage() {
                     <td className="px-4 py-3">{vehicle.documents}</td>
                     <td className="px-4 py-3">
                       <AdminStatusBadge tone={statusTone(vehicle.status)}>
-                        {vehicle.status}
+                        {vehicleStatusLabels[vehicle.status]}
                       </AdminStatusBadge>
                     </td>
                     <td className="px-4 py-3 text-[rgb(var(--text-muted))]">{vehicle.updated}</td>
@@ -199,7 +206,7 @@ export default function AdminVehiclesPage() {
           </div>
         </AdminPanel>
 
-        <AdminPanel className="overflow-hidden" label="Vehicle detail">
+        <AdminPanel className="overflow-hidden" label="Карточка автомобиля">
           <div className="border-b border-[rgb(var(--border))] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -209,30 +216,30 @@ export default function AdminVehiclesPage() {
                 </p>
               </div>
               <AdminStatusBadge tone={statusTone(selected.status)}>
-                {selected.status}
+                {vehicleStatusLabels[selected.status]}
               </AdminStatusBadge>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
               <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
                 <strong>{selected.region}</strong>
-                <span className="block text-xs text-[rgb(var(--text-muted))]">Operating city</span>
+                <span className="block text-xs text-[rgb(var(--text-muted))]">Город работы</span>
               </div>
               <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
                 <strong>{selected.seats.split(" ")[0]}</strong>
-                <span className="block text-xs text-[rgb(var(--text-muted))]">Seats</span>
+                <span className="block text-xs text-[rgb(var(--text-muted))]">Места</span>
               </div>
               <div className="rounded-[10px] bg-[rgb(var(--surface-muted))] p-3">
-                <strong>Approved</strong>
-                <span className="block text-xs text-[rgb(var(--text-muted))]">Driver</span>
+                <strong>Одобрен</strong>
+                <span className="block text-xs text-[rgb(var(--text-muted))]">Водитель</span>
               </div>
             </div>
           </div>
 
           <div className="space-y-4 p-4">
             <section className="sticky bottom-0 rounded-[12px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-3 shadow-[var(--shadow-xs)]">
-              <h3 className="m-0 mb-2 text-sm font-black">Documents</h3>
+              <h3 className="m-0 mb-2 text-sm font-black">Документы</h3>
               <div className="grid gap-2">
-                {["Registration certificate", "Insurance policy", "Technical inspection"].map(
+                {["Свидетельство о регистрации", "Страховой полис", "Технический осмотр"].map(
                   (item) => (
                     <div
                       key={item}
@@ -241,14 +248,14 @@ export default function AdminVehiclesPage() {
                       <span>{item}</span>
                       <AdminStatusBadge
                         tone={
-                          item === "Insurance policy" && selected.id === "vehicle-k5"
+                          item === "Страховой полис" && selected.id === "vehicle-k5"
                             ? "warning"
                             : "success"
                         }
                       >
-                        {item === "Insurance policy" && selected.id === "vehicle-k5"
-                          ? "Needs replacement"
-                          : "Verified"}
+                        {item === "Страховой полис" && selected.id === "vehicle-k5"
+                          ? "Нужно заменить"
+                          : "Проверено"}
                       </AdminStatusBadge>
                     </div>
                   ),
@@ -257,7 +264,7 @@ export default function AdminVehiclesPage() {
             </section>
 
             <section>
-              <h3 className="m-0 mb-2 text-sm font-black">Photo gallery</h3>
+              <h3 className="m-0 mb-2 text-sm font-black">Фотографии</h3>
               <div className="grid grid-cols-2 gap-2">
                 {selected.photos.map((photo) => (
                   <div
@@ -266,7 +273,7 @@ export default function AdminVehiclesPage() {
                   >
                     {photo}
                     <span className="mt-5 block text-xs font-semibold text-[rgb(var(--text-muted))]">
-                      Evidence image
+                      Фото для проверки
                     </span>
                   </div>
                 ))}
@@ -274,36 +281,36 @@ export default function AdminVehiclesPage() {
             </section>
 
             <section>
-              <h3 className="m-0 mb-2 text-sm font-black">Decision</h3>
+              <h3 className="m-0 mb-2 text-sm font-black">Решение</h3>
               <div className="grid gap-2">
                 <textarea
                   className="min-h-20 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] p-3 text-sm outline-none"
                   defaultValue={
                     reviewMode
-                      ? "Insurance image is blurred. Request a readable replacement before approval."
+                      ? "Фото страхового полиса размыто. Запросите читаемую замену перед одобрением."
                       : ""
                   }
-                  placeholder="Add required reason for approval, correction, rejection, or suspension."
+                  placeholder="Укажите причину одобрения, исправления, отклонения или приостановки."
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <button className="rounded-[10px] bg-[rgb(var(--primary))] px-3 py-2 text-sm font-black text-[rgb(var(--primary-foreground))]">
-                    Approve
+                    Одобрить
                   </button>
                   <button className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black">
-                    Request correction
+                    Запросить исправление
                   </button>
                   <button className="rounded-[10px] border border-[rgb(var(--warning))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--warning))]">
-                    Reject
+                    Отклонить
                   </button>
                   <button className="rounded-[10px] border border-[rgb(var(--destructive))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black text-[rgb(var(--destructive))]">
-                    Suspend
+                    Приостановить
                   </button>
                 </div>
               </div>
             </section>
 
             <section>
-              <h3 className="m-0 mb-2 text-sm font-black">Review history</h3>
+              <h3 className="m-0 mb-2 text-sm font-black">История проверки</h3>
               <div className="grid gap-2">
                 {selected.timeline.map((event) => (
                   <div
