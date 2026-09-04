@@ -24,7 +24,7 @@ export default function FraudPage() {
           { key: "trip", label: "Рейс", render: (item) => item.tripId },
           { key: "status", label: "Статус", render: (item) => <Status value={item.status} /> },
           { key: "created", label: "Создано", render: (item) => item.created },
-          { key: "action", label: "Решение", render: (item) => <QuickActionModal label="Решить" title="Антифрод решение"><p>{item.reason}</p><p>Одобрение, отклонение и удержание остаются demo-действиями до подключения существующих backend actions.</p></QuickActionModal> },
+          { key: "action", label: "Решение", render: (item) => <QuickActionModal label="Решить" title="Антифрод решение"><p>{item.reason}</p><p>Выберите решение по сигналу. Изменения пока не сохраняются.</p></QuickActionModal> },
         ]} />
       </AdminPanel>
     </main>

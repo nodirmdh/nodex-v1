@@ -1,3 +1,4 @@
+import { envoVehicleLayoutId } from "@nodex/ui";
 import type { CabinSeat, CabinTemplate } from "./cabin-model";
 
 export type SeatMapVehicleType = "sedan" | "minivan";
@@ -293,26 +294,18 @@ export function seatMapLayoutIdForVehicle(input: {
   passengerSeatCapacity?: number | undefined;
   seats?: CabinSeat[] | undefined;
 }): SeatMapLayoutId {
-  const tariff = input.tariff?.toLowerCase() ?? "";
-  const model = input.model?.toLowerCase() ?? "";
   const passengerSeats =
     input.passengerSeatCapacity ??
     input.seats?.filter((seat) => seat.status !== "driver").length ??
     4;
 
-  if (
-    input.template === "MINIVAN_8" ||
-    passengerSeats >= 7 ||
-    /staria|minivan|минивэн|hyundai/i.test(model)
-  ) {
+  if (input.template === "MINIVAN_8" || input.template === "SUV_7") {
     return passengerSeats >= 7 ? "minivan_7p" : "minivan_6p";
   }
 
-  if (input.template === "SUV_7") return passengerSeats >= 7 ? "minivan_7p" : "minivan_6p";
-
-  if (tariff.includes("comfort") || tariff.includes("комфорт") || input.template === "SUV_5") {
-    return "sedan_comfort_no_middle";
-  }
-
-  return "sedan_standard_4p";
+  return envoVehicleLayoutId({
+    model: input.model,
+    tariff: input.template === "SUV_5" ? "comfort" : input.tariff,
+    passengerCapacity: passengerSeats,
+  });
 }

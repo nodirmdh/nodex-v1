@@ -10,7 +10,7 @@ const submissions = [
     driver: "Phase2 Driver 2",
     submitted: "2026-07-30",
     documents: "5/5 complete",
-    vehicle: "Chevrolet Cobalt · Approved",
+    vehicle: "Chevrolet Cobalt · Одобрено",
     state: "Pending",
     tone: "warning" as const,
   },
@@ -26,7 +26,7 @@ const submissions = [
     driver: "Phase2 Driver 4",
     submitted: "2026-07-29",
     documents: "5/5 complete",
-    vehicle: "Chevrolet Tracker · Approved",
+    vehicle: "Chevrolet Tracker · Одобрено",
     state: "Approved",
     tone: "success" as const,
   },
@@ -151,7 +151,7 @@ function VerificationReview({ approved }: { approved: boolean }) {
             {approved ? "Проверка одобрена" : "Проверить Phase2 Driver 2"}
           </h1>
           <p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">
-            Metadata is shown honestly when document preview is unavailable.
+            Если просмотр документа недоступен, показаны его основные сведения.
           </p>
         </div>
         <div className="grid gap-3 p-4 lg:grid-cols-2">
@@ -169,7 +169,7 @@ function VerificationReview({ approved }: { approved: boolean }) {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="m-0 text-sm font-black">{doc}</h2>
                 <AdminStatusBadge tone={approved ? "success" : "warning"}>
-                  {approved ? "Approved" : "Submitted"}
+                  {approved ? "Одобрено" : "Отправлено"}
                 </AdminStatusBadge>
               </div>
               <div className="mt-3 rounded-[10px] bg-[rgb(var(--surface))] p-3 text-xs text-[rgb(var(--text-muted))]">
@@ -187,7 +187,7 @@ function VerificationReview({ approved }: { approved: boolean }) {
             <p className="m-0 text-sm text-[rgb(var(--text-muted))]">+998 ** *** 0002</p>
           </div>
           <AdminStatusBadge tone={approved ? "success" : "warning"}>
-            {approved ? "Approved" : "Pending"}
+            {approved ? "Одобрено" : "На проверке"}
           </AdminStatusBadge>
         </div>
 

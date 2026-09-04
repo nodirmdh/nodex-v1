@@ -46,7 +46,10 @@ export default function SearchPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setSearch(readSearchParams());
-    if (params.get("waitlist") === "1" || params.get("request") === "1") setMatchStage("waiting");
+    const scenario = params.get("scenario");
+    if (scenario === "no-results") setMatchStage("no_match");
+    if (scenario === "waiting" || params.get("request") === "1") setMatchStage("waiting");
+    if (scenario === "found") setMatchStage("found");
   }, []);
 
   const dateLabel = dateLabels[search.date] ?? search.date;
@@ -57,7 +60,7 @@ export default function SearchPage() {
     if (timeFilter === "Вечер") list = list.filter((trip) => Number(trip.departure.slice(0, 2)) >= 17);
     if (onlyParcel) list = list.filter((trip) => trip.id !== "phase5-nukus-urgench-evening");
     if (onlyBaggage) list = list.filter((trip) => trip.seats > 1);
-    if (matchStage === "no_match" || matchStage === "waiting") return [];
+    if (matchStage !== "results") return [];
     return list;
   }, [matchStage, onlyBaggage, onlyParcel, search.from, search.passengers, search.to, timeFilter]);
 
@@ -70,7 +73,7 @@ export default function SearchPage() {
         <div className="grid grid-cols-2 gap-2 text-sm"><div className="rounded-[16px] bg-[rgb(var(--canvas))] p-3"><span className="block text-xs text-[rgb(var(--text-muted))]">Время выезда</span><strong className="font-semibold">{dateLabel}, 08:30+</strong></div><div className="rounded-[16px] bg-[rgb(var(--canvas))] p-3"><span className="block text-xs text-[rgb(var(--text-muted))]">Пассажиры</span><strong className="font-semibold">{passengerLabel(search.passengers)}</strong></div></div>
       </section>
 
-      <RequestLifecycle stage={matchStage} route={`${search.from} → ${search.to}`} onStage={setMatchStage} />
+      <RequestLifecycle stage={matchStage} route={`${search.from} → ${search.to}`} />
 
       <section className="mt-7" aria-label="Результаты поиска">
         <div className="mb-3 flex items-center justify-between"><h1 className="m-0 text-2xl font-semibold">Опубликованные поездки</h1><button className="rounded-full border-0 bg-[rgb(var(--surface-tint))] px-4 py-2 text-sm font-semibold text-[rgb(var(--primary))]" type="button" onClick={() => setSheetOpen(true)}>Фильтры</button></div>
@@ -85,12 +88,12 @@ export default function SearchPage() {
   );
 }
 
-function RequestLifecycle({ stage, route, onStage }: { stage: MatchStage; route: string; onStage: (stage: MatchStage) => void }) {
+function RequestLifecycle({ stage, route }: { stage: MatchStage; route: string }) {
   const steps = ["Поиск", "Заявка создана", "Ищем водителя", "Вариант найден"] as const;
   const activeIndex = stage === "results" ? 0 : stage === "no_match" ? 1 : stage === "waiting" ? 2 : 3;
-  return <section className="mt-5 rounded-[22px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]" aria-label="Статус заявки"><div className="flex items-center justify-between gap-3"><div><h2 className="m-0 text-lg font-semibold">Как хотите ехать?</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{stage === "results" ? "Можно выбрать опубликованную поездку водителя или создать свою заявку ко времени выезда." : stage === "no_match" ? "Подходящих поездок сейчас нет. Создайте заявку, и ENVO покажет её подходящим водителям." : stage === "waiting" ? "Заявка создана. Ищем подходящего водителя и сообщим, когда появится вариант." : "Водитель найден. Откройте вариант, выберите место и отправьте запрос."}</p></div><StatusPill tone={stage === "found" ? "success" : stage === "waiting" ? "info" : "accent"}>{stage === "found" ? "Найден" : stage === "waiting" ? "Ищем" : "Выбор"}</StatusPill></div><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{steps.map((label, index) => <span key={label} className={["shrink-0 rounded-full px-3 py-2 text-xs font-semibold", index <= activeIndex ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"].join(" ")}>{label}</span>)}</div>{stage === "waiting" ? <button className="mt-3 min-h-10 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onStage("found")}>Показать найденный вариант</button> : null}{stage === "found" ? <Link className="mt-3 flex min-h-10 w-full items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/trips/phase5-nukus-urgench-morning">Открыть вариант</Link> : null}<p className="m-0 mt-3 text-xs font-semibold text-[rgb(var(--text-muted))]">Маршрут: {route}</p></section>;
+  return <section className="mt-5 rounded-[22px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]" aria-label="Статус заявки"><div className="flex items-center justify-between gap-3"><div><h2 className="m-0 text-lg font-semibold">Как хотите ехать?</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{stage === "results" ? "Можно выбрать опубликованную поездку водителя или создать свою заявку ко времени выезда." : stage === "no_match" ? "Подходящих поездок сейчас нет. Создайте заявку, и ENVO покажет её подходящим водителям." : stage === "waiting" ? "Заявка создана. Ищем подходящего водителя и сообщим, когда появится вариант." : "Водитель найден. Откройте вариант, выберите место и отправьте запрос."}</p></div><StatusPill tone={stage === "found" ? "success" : stage === "waiting" ? "info" : "accent"}>{stage === "found" ? "Найден" : stage === "waiting" ? "Ищем" : "Выбор"}</StatusPill></div><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{steps.map((label, index) => <span key={label} className={["shrink-0 rounded-full px-3 py-2 text-xs font-semibold", index <= activeIndex ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]"].join(" ")}>{label}</span>)}</div>{stage === "found" ? <Link className="mt-3 flex min-h-10 w-full items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/trips/phase5-nukus-urgench-morning">Открыть вариант</Link> : null}<p className="m-0 mt-3 text-xs font-semibold text-[rgb(var(--text-muted))]">Маршрут: {route}</p></section>;
 }
 
 function NoMatchCard({ stage, route, onStage }: { stage: MatchStage; route: string; onStage: (stage: MatchStage) => void }) {
-  return <div className="mt-4 rounded-[22px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]"><h2 className="m-0 text-lg font-semibold">{stage === "found" ? "Вариант найден" : stage === "waiting" ? "Заявка создана" : "Подходящих поездок пока нет"}</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{stage === "waiting" ? "Ищем подходящего водителя. Сообщим, когда появится вариант." : stage === "found" ? `ENVO нашёл рейс ${route} на 08:30.` : `Создайте заявку, чтобы водители увидели спрос по маршруту ${route}.`}</p>{stage === "found" ? <Link className="mt-3 flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/trips/phase5-nukus-urgench-morning">Открыть поездку</Link> : <button className="mt-3 min-h-11 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onStage("waiting")}>{stage === "waiting" ? "Ищем водителя" : "Создать заявку"}</button>}</div>;
+  return <div className="mt-4 rounded-[22px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-sm)]"><h2 className="m-0 text-lg font-semibold">{stage === "found" ? "Вариант найден" : stage === "waiting" ? "Заявка создана" : "Подходящих поездок пока нет"}</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{stage === "waiting" ? "Ищем подходящего водителя. Сообщим, когда появится вариант." : stage === "found" ? `ENVO нашёл рейс ${route} на 08:30.` : `Создайте заявку, чтобы водители увидели спрос по маршруту ${route}.`}</p>{stage === "found" ? <Link className="mt-3 flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/trips/phase5-nukus-urgench-morning">Открыть поездку</Link> : stage === "waiting" ? <div className="mt-3 rounded-[16px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">Поиск продолжается автоматически</div> : <button className="mt-3 min-h-11 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))]" type="button" onClick={() => onStage("waiting")}>Создать заявку</button>}</div>;
 }

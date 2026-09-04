@@ -8,7 +8,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ use
   return (
     <main className="admin-main">
       <Breadcrumbs items={[{ label: "Админ", href: "/dashboard" }, { label: "Клиенты", href: "/users" }, { label: user.id }]} />
-      <AdminPageHeader title={user.name} subtitle={`${user.telegram} · ${user.phone}`} actions={<><QuickActionModal label="Изменить статус" title="Изменить статус клиента" action="Сохранить статус">Изменение статуса остаётся demo-действием до подключения существующего backend endpoint.</QuickActionModal><QuickActionModal label="Добавить заметку" title="Добавить заметку">Заметка сохраняется только в preview state.</QuickActionModal></>} />
+      <AdminPageHeader title={user.name} subtitle={`${user.telegram} · ${user.phone}`} actions={<><QuickActionModal label="Изменить статус" title="Изменить статус клиента" action="Сохранить статус">Изменения пока не сохраняются.</QuickActionModal><QuickActionModal label="Добавить заметку" title="Добавить заметку">Изменения пока не сохраняются.</QuickActionModal></>} />
       <div className="admin-detail-layout">
         <AdminPanel className="p-4">
           <div className="grid place-items-center rounded-[8px] bg-[rgb(var(--surface-tint))] p-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-[rgb(var(--primary))] text-xl font-black text-[rgb(var(--primary-foreground))]">{user.name.slice(0, 1)}</div><h2 className="mb-0 mt-3 text-xl font-black">{user.name}</h2><Status value={user.risk} /></div>
@@ -22,8 +22,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ use
           { label: "Рефералы", content: referrals.map((referral) => <Row key={referral.id} href="/referrals" title={referral.id} meta={referral.status} />) },
           { label: "Поддержка", content: tickets.filter((ticket) => ticket.requesterId === user.id).map((ticket) => <Row key={ticket.id} href={`/support/${ticket.id}`} title={ticket.subject} meta={ticket.status} />) },
           { label: "Антифрод", content: fraudCases.map((item) => <Row key={item.id} href="/fraud" title={item.type} meta={item.risk} />) },
-          { label: "GPS / История", content: <DetailGrid items={[["Последний маршрут", "Станция Nukus → центр Urgench"], ["Доступ к геолокации", "Только во время поездки"], ["Окно истории", "Preview-данные"]]} /> },
-          { label: "Аудит", content: <DetailGrid items={[["Создано", user.created], ["Последняя проверка", "Сегодня 09:18"], ["Оператор", "Demo-оператор"]]} /> },
+          { label: "GPS / История", content: <DetailGrid items={[["Последний маршрут", "Станция Nukus → центр Urgench"], ["Доступ к геолокации", "Только во время поездки"], ["Окно истории", "Доступные данные"]]} /> },
+          { label: "Аудит", content: <DetailGrid items={[["Создано", user.created], ["Последняя проверка", "Сегодня 09:18"], ["Оператор", "Оператор ENVO"]]} /> },
         ]} />
       </div>
     </main>

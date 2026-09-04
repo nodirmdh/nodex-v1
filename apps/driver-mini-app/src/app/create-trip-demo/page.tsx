@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Button, formatUzs } from "@nodex/ui";
+import { Button, envoVehiclePassengerCapacity, formatUzs } from "@nodex/ui";
 import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui";
 
 const cities = ["Nukus", "Urgench", "Khiva", "Kungrad"];
 const vehicleOptions = [
-  { label: "Chevrolet Cobalt · 95 A 214 QA", model: "Chevrolet Cobalt", capacity: 4 },
-  { label: "Chevrolet Tracker · 95 B 412 QA", model: "Chevrolet Tracker", capacity: 4 },
-  { label: "Hyundai Staria · 95 C 818 QA", model: "Hyundai Staria", capacity: 7 },
+  { label: "Chevrolet Cobalt · 95 A 214 QA", model: "Chevrolet Cobalt" },
+  { label: "Chevrolet Tracker · 95 B 412 QA", model: "Chevrolet Tracker" },
+  { label: "Hyundai Staria · 95 C 818 QA", model: "Hyundai Staria" },
 ];
 const tariffs = ["Старт", "Комфорт", "Премиум"];
 type Step = "route" | "details" | "published";
@@ -37,7 +37,7 @@ export default function CreateTripDemo() {
   const [priceMinor, setPriceMinor] = useState(5000000);
   const [parcel, setParcel] = useState(true);
   const selectedVehicle = vehicleOptions.find((item) => item.label === vehicle) ?? vehicleOptions[0]!;
-  const capacity = selectedVehicle.capacity;
+  const capacity = envoVehiclePassengerCapacity({ model: selectedVehicle.model });
   const canPublish = origin !== destination && departure && seats > 0 && seats <= capacity && priceMinor > 0;
   const route = `${origin} → ${destination}`;
   const summary = useMemo(() => ({ route, departure, vehicle, seats, tariff, priceMinor, parcel }), [departure, parcel, priceMinor, route, seats, tariff, vehicle]);

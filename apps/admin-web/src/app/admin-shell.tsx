@@ -17,7 +17,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { label: "Поездки", href: "/trips", icon: "route" },
       { label: "Бронирования", href: "/bookings", icon: "ticket" },
-      { label: "Матчинг", href: "/matching", icon: "fill" },
+      { label: "Подбор", href: "/matching", icon: "fill" },
     ],
   },
   {
@@ -81,7 +81,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
   };
 
-  const currentLabel = pathname === "/" ? "Панель" : pathname.split("/").filter(Boolean).join(" / ");
+  const currentLabel = groups.flatMap((group) => group.items).find((item) => isActive(item.href))?.label ?? "Панель";
 
   return (
     <div className={`admin-shell min-h-screen bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))] ${collapsed ? "admin-shell-collapsed" : ""}`}>
@@ -89,7 +89,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="mb-5 flex items-center justify-between gap-2 px-2">
           <Link className="min-w-0 text-[rgb(var(--foreground))] no-underline" href="/dashboard">
             <div className="text-xs font-black uppercase text-[rgb(var(--primary))]">ENVO</div>
-            {!collapsed ? <><div className="text-xl font-black leading-tight">Control Center</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Операции без шума</div></> : null}
+            {!collapsed ? <><div className="text-xl font-black leading-tight">Центр управления</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Операции без шума</div></> : null}
           </Link>
           <button aria-label="Свернуть меню" className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setCollapsed((value) => !value)} type="button">
             <EnvoIcon name="back" className={collapsed ? "rotate-180" : ""} />
@@ -119,7 +119,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div className="min-w-0">
         <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.94)] px-5 backdrop-blur-xl">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Admin / {currentLabel}</div>
+            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">ENVO / {currentLabel}</div>
             <div className="truncate text-sm font-black">Операционный центр ENVO</div>
           </div>
           <div className="relative flex items-center gap-2">

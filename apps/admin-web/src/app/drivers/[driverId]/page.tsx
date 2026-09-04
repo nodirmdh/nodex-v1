@@ -9,7 +9,7 @@ export default async function DriverDetailPage({ params }: { params: Promise<{ d
   return (
     <main className="admin-main">
       <Breadcrumbs items={[{ label: "Админ", href: "/dashboard" }, { label: "Водители", href: "/drivers" }, { label: driver.id }]} />
-      <AdminPageHeader title={driver.name} subtitle={`${driver.vehicle} · ${driver.plate} · ${driver.phone}`} actions={<><QuickActionModal label="Запросить документы" title="Запрос документов водителя">Это отправит водителю запрос на обновление документов, когда будет подключено существующее API-действие.</QuickActionModal><QuickActionModal label="Ограничить" title="Ограничить доступ водителя" action="Удержать в preview">Ограничение остаётся demo-действием, пока не подключено существующее backend-действие.</QuickActionModal></>} />
+      <AdminPageHeader title={driver.name} subtitle={`${driver.vehicle} · ${driver.plate} · ${driver.phone}`} actions={<><QuickActionModal label="Запросить документы" title="Запрос документов водителя">Это отправит водителю запрос на обновление документов, когда будет подключено существующее API-действие.</QuickActionModal><QuickActionModal label="Ограничить" title="Ограничить доступ водителя" action="Ограничить">Изменения пока не сохраняются.</QuickActionModal></>} />
       <div className="admin-detail-layout">
         <AdminPanel className="p-4"><DetailGrid items={[["Статус", <Status key="s" value={driver.status} />], ["Проверка", <Status key="v" value={driver.verification} />], ["Риск", <Status key="r" value={driver.risk} />], ["Автомобиль", driver.vehicle], ["Номер", driver.plate], ["Город", driver.city], ["Рейтинг", driver.rating], ["Завершённые поездки", driver.trips], ["Отмены", driver.cancellations], ["Награды", driver.rewards]]} /></AdminPanel>
         <Tabs tabs={[
@@ -23,8 +23,8 @@ export default async function DriverDetailPage({ params }: { params: Promise<{ d
           { label: "ENVO Fill / ENVO Return", content: <DetailGrid items={[["Спрос ENVO Fill", "6 подходящих листов ожидания"], ["Активность ENVO Return", "3 предложенных обратных маршрута"]]} /> },
           { label: "Поддержка", content: tickets.filter((ticket) => ticket.requesterId === driver.id).map((ticket) => <Row key={ticket.id} href={`/support/${ticket.id}`} title={ticket.subject} meta={ticket.status} />) },
           { label: "Антифрод", content: fraudCases.filter((item) => item.entityId === driver.id).map((item) => <Row key={item.id} href="/fraud" title={item.reason} meta={item.risk} />) },
-          { label: "GPS", content: <DetailGrid items={[["Последний сигнал", "Сегодня 12:28"], ["Коридор", "Nukus → Urgench"], ["Доказательства", "Preview-трасса"]]} /> },
-          { label: "Аудит", content: <DetailGrid items={[["Проверяющий", "Demo-оператор"], ["Последнее решение", "Документы одобрены"], ["Связанная поездка", <LinkedValue key="t" href="/trips/trip_7001">trip_7001</LinkedValue>]]} /> },
+          { label: "GPS", content: <DetailGrid items={[["Последний сигнал", "Сегодня 12:28"], ["Коридор", "Nukus → Urgench"], ["Доказательства", "Доступная трасса"]]} /> },
+          { label: "Аудит", content: <DetailGrid items={[["Проверяющий", "Оператор ENVO"], ["Последнее решение", "Документы одобрены"], ["Связанная поездка", <LinkedValue key="t" href="/trips/trip_7001">trip_7001</LinkedValue>]]} /> },
         ]} />
       </div>
     </main>

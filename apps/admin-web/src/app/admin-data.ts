@@ -154,9 +154,9 @@ export const rewards: RewardItem[] = [
 ];
 
 export const fraudCases: FraudCase[] = [
-  { id: "fraud_8101", entity: "Reward", entityId: "rew_3003", type: "Referral loop", risk: "High", flags: "repeat pair, shared device", reason: "Referral and booking identities overlap", tripId: "trip_7004", status: "Open", created: "Today 09:12" },
-  { id: "fraud_8102", entity: "Driver", entityId: "drv_215", type: "GPS mismatch", risk: "Medium", flags: "route drift", reason: "Reported pickup diverged from expected corridor", tripId: "trip_7002", status: "Hold", created: "Today 08:44" },
-  { id: "fraud_8103", entity: "Booking", entityId: "book_5003", type: "Timeout abuse", risk: "Low", flags: "repeated expiry", reason: "Multiple whole-car requests expired", tripId: "trip_7003", status: "Approved", created: "Yesterday" },
+  { id: "fraud_8101", entity: "Награда", entityId: "rew_3003", type: "Реферальная петля", risk: "High", flags: "повтор пары, общее устройство", reason: "Совпадают участники реферала и бронирования", tripId: "trip_7004", status: "Open", created: "Сегодня, 09:12" },
+  { id: "fraud_8102", entity: "Водитель", entityId: "drv_215", type: "Несовпадение GPS", risk: "Medium", flags: "отклонение от маршрута", reason: "Отмеченная посадка находится вне ожидаемого коридора", tripId: "trip_7002", status: "Hold", created: "Сегодня, 08:44" },
+  { id: "fraud_8103", entity: "Бронирование", entityId: "book_5003", type: "Злоупотребление тайм-аутом", risk: "Low", flags: "повторные истечения", reason: "Несколько заявок на весь автомобиль истекли", tripId: "trip_7003", status: "Approved", created: "Вчера" },
 ];
 
 export const referrals: Referral[] = [

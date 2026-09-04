@@ -45,8 +45,8 @@ export default function AvoidMatchPage() {
     <main className="p-5">
       <AdminPageHeader
         title="Не предлагать"
-        subtitle="Demo-видимость trust preferences между клиентами, водителями и операционной командой."
-        actions={<AdminStatusBadge tone="info">Frontend demo</AdminStatusBadge>}
+        subtitle="Исключения подбора между клиентами и водителями."
+        actions={<AdminStatusBadge tone="info">Просмотр</AdminStatusBadge>}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
@@ -70,7 +70,7 @@ export default function AvoidMatchPage() {
               <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{relation.date}</div>
               <div><AdminStatusBadge tone={relation.status === "Активно" ? "warning" : "info"}>{relation.reason}</AdminStatusBadge></div>
               <div className="flex gap-2">
-                <button aria-label="Открыть demo-проверку" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setInspected(relation)} type="button"><Eye size={15} /></button>
+                <button aria-label="Открыть проверку" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setInspected(relation)} type="button"><Eye size={15} /></button>
                 <button aria-label="Убрать связь" className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setRelations((current) => current.filter((item) => item.id !== relation.id))} type="button"><RotateCcw size={15} /></button>
               </div>
             </div>
@@ -94,7 +94,7 @@ export default function AvoidMatchPage() {
           </div>
           <div className="mt-4 rounded-[12px] bg-[rgb(var(--success-soft))] p-3 text-sm font-semibold text-[rgb(var(--success))]">
             <ShieldCheck className="mr-2 inline" size={16} />
-            Demo action: matching engine исключает эту пару из будущих рекомендаций.
+            Эта пара будет исключена из будущих рекомендаций. Изменения пока не сохраняются.
           </div>
         </AdminPanel>
       </div>
