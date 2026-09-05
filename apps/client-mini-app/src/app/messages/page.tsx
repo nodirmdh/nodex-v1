@@ -5,16 +5,16 @@ const conversations = [
   {
     id: "driver-azizbek",
     participant: "Azizbek Karimov",
-    context: "Nukus → Urgench · Завтра 08:30",
+    context: "Nukus → Urgench · завтра 08:30",
     lastMessage: "Напишу перед прибытием к точке посадки.",
     timestamp: "2 мин",
     unread: true,
-    category: "Поездка",
+    category: "Чат поездки",
   },
   {
-    id: "support-ticket",
-    participant: "Поддержка Nodex",
-    context: "Заявка #2048 · координация посадки",
+    id: "support-envo",
+    participant: "Поддержка ENVO",
+    context: "Координация посадки · в работе",
     lastMessage: "Мы добавили вашу заметку к заявке.",
     timestamp: "1 ч",
     unread: false,
@@ -23,11 +23,11 @@ const conversations = [
   {
     id: "parcel-driver",
     participant: "Водитель посылки",
-    context: "Принятая посылка · Nukus → Khiva",
+    context: "Посылка · Nukus → Khiva · в пути",
     lastMessage: "Посылка принята и уже в пути.",
     timestamp: "Вчера",
     unread: false,
-    category: "Посылка",
+    category: "Чат по посылке",
   },
 ];
 
@@ -36,7 +36,7 @@ export default function ClientMessagesPage() {
     <ClientShell active="messages">
       <ClientHeader title="Сообщения" subtitle="Поездки, посылки и поддержка" />
 
-      <section className="mt-4 grid gap-2.5" aria-label="Message inbox">
+      <section className="mt-4 grid gap-2.5" aria-label="Единый список сообщений">
         {conversations.map((conversation) => (
           <Link
             key={conversation.id}

@@ -1,0 +1,4 @@
+CREATE TYPE "TripTariff" AS ENUM ('START', 'COMFORT', 'PREMIUM');
+
+ALTER TABLE "Trip"
+  ADD COLUMN "tariff" "TripTariff" NOT NULL DEFAULT 'START';

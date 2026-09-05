@@ -172,6 +172,12 @@ enum TripStatus {
   EXPIRED
 }
 
+enum TripTariff {
+  START
+  COMFORT
+  PREMIUM
+}
+
 enum PickupPointType {
   CITY_CENTER
   BUS_STATION
@@ -199,6 +205,7 @@ enum BookingStatus {
   DRAFT
   HOLD
   PENDING_CONFIRMATION
+  REJECTED
   CONFIRMED
   PAYMENT_PENDING
   PAID
@@ -1389,6 +1396,7 @@ model Trip {
   status                        TripStatus             @default(DRAFT)
   passengerSeatCapacity         Int                    @default(1)
   availableSeatCount            Int                    @default(1)
+  tariff                        TripTariff             @default(START)
   pricePerSeatMinor             BigInt                 @default(0)
   wholeCarPriceMinor            BigInt?
   parcelSupported               Boolean                @default(false)
@@ -2192,6 +2200,7 @@ model NotificationTemplate {
 model SupportTicket {
   id               String                     @id @default(cuid())
   requesterUserId  String
+  requesterRole    String                     @default("CLIENT")
   type             SupportTicketType
   subject          String
   description      String
@@ -2241,18 +2250,24 @@ model SupportTicketParticipant {
 }
 
 model TicketMessage {
-  id           String             @id @default(cuid())
-  ticketId     String
-  senderUserId String
-  text         String
-  createdAt    DateTime           @default(now())
-  editedAt     DateTime?
-  deletedAt    DateTime?
-  ticket       SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender       User               @relation("TicketMessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
-  attachments  TicketAttachment[]
+  id               String             @id @default(cuid())
+  ticketId         String
+  senderUserId     String
+  text             String
+  status           String             @default("SENT")
+  readAt           DateTime?
+  replyToMessageId String?
+  createdAt        DateTime           @default(now())
+  editedAt         DateTime?
+  deletedAt        DateTime?
+  ticket           SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender           User               @relation("TicketMessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  replyTo          TicketMessage?     @relation("TicketMessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          TicketMessage[]    @relation("TicketMessageReplies")
+  attachments      TicketAttachment[]
 
   @@index([ticketId, createdAt])
+  @@index([replyToMessageId])
 }
 
 model TicketAttachment {
@@ -2272,6 +2287,7 @@ model TicketAttachment {
 
   @@index([ticketId])
   @@index([messageId])
+  @@index([fileObjectId])
 }
 
 model TicketInternalNote {

@@ -1,82 +1,82 @@
-import Link from "next/link";
-import { Card, ClientHeader, ClientShell, StatusPill } from "../client-ui";
+"use client";
 
-const categories = [
-  { label: "Проблема с поездкой", href: "/messages/support-ticket?topic=trip" },
-  { label: "Проблема с водителем", href: "/messages/support-ticket?topic=driver" },
-  { label: "Потерянная вещь", href: "/messages/support-ticket?topic=lost-item" },
-  { label: "Проблема с посылкой", href: "/parcels" },
-  { label: "Безопасность", href: "/safety/sos" },
-  { label: "Другое", href: "/messages/support-ticket?topic=other" },
+import Link from "next/link";
+import { useState } from "react";
+import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui";
+
+const topics = [
+  "Проблема с поездкой",
+  "Водитель опаздывает",
+  "Водитель не приехал",
+  "Проблема с посылкой",
+  "Безопасность",
+  "Другое",
+];
+
+const tickets = [
+  { id: "pickup", title: "Координация посадки", meta: "Проблема с поездкой", status: "В работе" },
+  { id: "parcel", title: "Вопрос по посылке", meta: "Посылка", status: "Открыто" },
 ];
 
 export default function ClientSupportPage() {
-  return (
-    <ClientShell active="profile">
-      <ClientHeader
-        backHref="/profile"
-        level="secondary"
-        title="Поддержка"
-        subtitle="Обращения и темы помощи"
-      />
+  const [selectedTopic, setSelectedTopic] = useState(topics[0]!);
+  const supportHref = `/messages/support-envo?topic=${encodeURIComponent(selectedTopic)}`;
 
-      <Card className="mt-4 space-y-2.5" compact>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="m-0 text-lg font-black">Открытое обращение</h2>
-            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Координация посадки Nukus → Urgench.
+  return (
+    <ClientShell active="messages">
+      <ClientHeader backHref="/profile" level="secondary" title="Поддержка" subtitle="Выберите тему, затем продолжите в Сообщениях" />
+
+      <Card className="mt-4" compact>
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[rgb(var(--surface-tint))] text-[rgb(var(--primary))]">
+            <Icon name="chat" className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="m-0 text-lg font-black">Поддержка ENVO</h1>
+            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
+              Один чат для поездок, посылок и обращений. Новая тема добавится как контекст внутри беседы.
             </p>
           </div>
-          <StatusPill tone="info">В работе</StatusPill>
+          <StatusPill tone="success">Онлайн</StatusPill>
         </div>
-        <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-2.5 text-sm font-semibold text-[rgb(var(--text-muted))]">
-          Поддержка добавила вашу заметку о посадке к заявке. Чат с водителем остаётся доступен.
-        </div>
-        <Link
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-          href="/messages/support-ticket"
-        >
-          Связаться с поддержкой
+        <Link className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline" href={supportHref}>
+          Открыть чат поддержки
         </Link>
       </Card>
 
       <Card className="mt-3" compact>
-        <h2 className="m-0 mb-3 text-lg font-black">С чем нужна помощь?</h2>
-        <div className="grid grid-cols-2 gap-2">
-          {categories.map((category) => (
-            <Link
-              key={category.label}
-              className="inline-flex min-h-11 items-center justify-center rounded-[18px] bg-[rgb(var(--surface-tint))] px-3 text-center text-sm font-black text-[rgb(var(--primary))] no-underline"
-              href={category.href}
+        <h2 className="m-0 text-lg font-black">С чем нужна помощь?</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {topics.map((topic) => (
+            <button
+              key={topic}
+              className={["min-h-12 rounded-[18px] border-0 px-3 text-sm font-semibold", selectedTopic === topic ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))] text-[rgb(var(--primary))]"].join(" ")}
+              type="button"
+              onClick={() => setSelectedTopic(topic)}
             >
-              {category.label}
-            </Link>
+              {topic}
+            </button>
           ))}
         </div>
+        <Link className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline" href={supportHref}>Создать обращение в чате</Link>
       </Card>
 
       <Card className="mt-3" compact>
-        <h2 className="m-0 mb-3 text-lg font-black">Последняя активность поддержки</h2>
-        <div className="grid gap-2.5">
-          {[
-            ["Обращение открыто", "Сегодня 08:10"],
-            ["Поддержка начала проверку", "Сегодня 08:14"],
-            ["Заметка для водителя добавлена", "Сегодня 08:18"],
-          ].map(([title, time], index) => (
-            <div key={title} className="grid grid-cols-[18px_1fr] gap-3">
-              <span
-                className={
-                  index === 0
-                    ? "mt-1 h-3 w-3 rounded-full bg-[rgb(var(--primary))]"
-                    : "mt-1 h-3 w-3 rounded-full bg-[rgb(var(--border-strong))]"
-                }
-              />
-              <div>
-                <div className="text-sm font-black">{title}</div>
-                <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{time}</div>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="m-0 text-lg font-black">Последние обращения</h2>
+          <StatusPill tone="accent">{tickets.length}</StatusPill>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {tickets.map((ticket) => (
+            <Link key={ticket.id} className="block rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline" href={`/messages/support-envo?topic=${encodeURIComponent(ticket.title)}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-black">{ticket.title}</div>
+                  <div className="mt-1 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">{ticket.meta}</div>
+                </div>
+                <StatusPill tone="info">{ticket.status}</StatusPill>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </Card>

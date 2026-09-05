@@ -83,7 +83,7 @@ export function DriverAuthPanel() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm text-slate-500">Driver identity</div>
-            <div className="text-lg font-bold">{user?.displayName ?? "Preview driver"}</div>
+            <div className="text-lg font-bold">{user?.displayName ?? "Preview-водитель"}</div>
           </div>
           <Badge tone={user ? "success" : "warning"}>{status}</Badge>
         </div>

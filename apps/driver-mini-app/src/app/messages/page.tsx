@@ -3,36 +3,33 @@ import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui"
 
 const conversations = [
   {
-    id: "azizbek-karimov",
+    id: "trip-passenger",
     initials: "AK",
-    title: "Passenger chat",
-    name: "Azizbek Karimov",
-    context: "Nukus → Urgench · Tomorrow 08:30",
-    seat: "Front passenger",
-    body: "I will be at the entrance.",
-    time: "2 min",
+    type: "Поездка",
+    title: "Azizbek Karimov",
+    context: "Nukus → Urgench · Переднее пассажирское",
+    body: "Буду у главного входа.",
+    time: "2 мин",
     unread: true,
   },
   {
-    id: "parcel-sender",
-    initials: "PS",
-    title: "Parcel sender",
-    name: "Parcel sender",
-    context: "Nukus → Urgench · Small parcel",
-    seat: "Handover at pickup",
-    body: "Please message after the parcel is handed over.",
-    time: "18 min",
+    id: "support",
+    initials: "EN",
+    type: "Поддержка",
+    title: "Поддержка ENVO",
+    context: "Проверка документов · В работе",
+    body: "Мы добавили заметку к вашему обращению.",
+    time: "1 ч",
     unread: false,
   },
   {
-    id: "support",
-    initials: "NS",
-    title: "Support",
-    name: "Nodex Support",
-    context: "Vehicle verification",
-    seat: "Driver help",
-    body: "Your document review note is ready.",
-    time: "1 h",
+    id: "parcel-sender",
+    initials: "GE",
+    type: "Посылка",
+    title: "Gulnora Ergasheva",
+    context: "Посылка · Nukus → Urgench",
+    body: "Напишите после передачи водителю.",
+    time: "18 мин",
     unread: false,
   },
 ];
@@ -41,12 +38,12 @@ export default function DriverMessagesPage() {
   return (
     <DriverShell active="messages">
       <DriverHeader
-        title="Messages"
-        subtitle="Passenger, parcel, and support chats"
-        status={<DriverPill tone="info">3 chats</DriverPill>}
+        title="Сообщения"
+        subtitle="Поездки, посылки и единая поддержка"
+        status={<DriverPill tone="info">3 чата</DriverPill>}
       />
 
-      <section aria-label="Driver inbox" className="mt-4 space-y-2.5">
+      <section aria-label="Входящие водителя" className="mt-4 space-y-2.5">
         {conversations.map((conversation) => (
           <Link
             key={conversation.id}
@@ -64,21 +61,25 @@ export default function DriverMessagesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h1 className="m-0 truncate text-base font-black">{conversation.title}</h1>
-                      <div className="truncate text-sm font-black">{conversation.name}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <DriverPill tone={conversation.type === "Поездка" ? "success" : conversation.type === "Посылка" ? "accent" : "info"}>
+                          {conversation.type}
+                        </DriverPill>
+                        <span className="min-w-0 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">
+                          {conversation.context}
+                        </span>
+                      </div>
                     </div>
                     <span className="shrink-0 text-xs font-black text-[rgb(var(--primary))]">
                       {conversation.time}
                     </span>
-                  </div>
-                  <div className="mt-1 truncate text-xs font-semibold text-[rgb(var(--text-muted))]">
-                    {conversation.context} · {conversation.seat}
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     {conversation.unread && (
                       <span className="h-2 w-2 shrink-0 rounded-full bg-[rgb(var(--primary))]" />
                     )}
                     <p className="m-0 truncate text-sm font-semibold text-[rgb(var(--text-muted))]">
-                      “{conversation.body}”
+                      {conversation.body}
                     </p>
                   </div>
                 </div>

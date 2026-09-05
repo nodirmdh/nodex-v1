@@ -1,239 +1,99 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { formatUzs } from "@nodex/ui";
-import { Avatar, Card, ClientHeader, ClientShell, Icon, StatusPill } from "../../client-ui";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { EnvoIcon, formatUzs } from "@nodex/ui";
+import { Avatar, Card, ClientHeader, ClientShell, StatusPill } from "../../client-ui";
+import { CabinSelector } from "../../trips/[tripId]/book/cabin-selector";
+import {
+  type BookingType,
+  cabinSeats,
+  selectableSeatKeys,
+  seatLabelForKey,
+  tripCabin,
+} from "../../trips/[tripId]/book/cabin-model";
 
-type DetailState = "upcoming" | "active" | "completed" | "cancelled";
+type DelayState = "ON_TIME" | "SLIGHT_DELAY" | "DELAYED" | "CRITICAL_DELAY";
+type ProtectionStage = "idle" | "searching" | "found" | "accepted" | "none";
 
-const stateCopy = {
-  upcoming: {
-    title: "Поездка подтверждена",
-    status: "Предстоящие",
-    tone: "success" as const,
-    body: "Ваша заявка подтверждена. Покажите код посадки в точке отправления.",
-  },
-  active: {
-    title: "Поездка в пути",
-    status: "В пути",
-    tone: "info" as const,
-    body: "Вы едете в Urgench. Держите детали поездки под рукой до прибытия.",
-  },
-  completed: {
-    title: "Поездка завершена",
-    status: "Завершённые",
-    tone: "accent" as const,
-    body: "Спасибо за поездку. Теперь можно оставить отзыв водителю.",
-  },
-  cancelled: {
-    title: "Заявка отменена",
-    status: "Отменено",
-    tone: "danger" as const,
-    body: "Ваша заявка на место больше не активна. Когда будете готовы, можно найти новую поездку.",
-  },
+const delayCopy = {
+  ON_TIME: { label: "Водитель подъезжает", eta: "6 мин", tone: "success" as const },
+  SLIGHT_DELAY: { label: "Небольшая задержка", eta: "8 мин", tone: "warning" as const },
+  DELAYED: { label: "Водитель задерживается", eta: "12 мин", tone: "warning" as const },
+  CRITICAL_DELAY: { label: "Критическая задержка", eta: "35 мин", tone: "danger" as const },
 };
 
+const reasons = ["изменились планы", "водитель задерживается", "нашёл другой транспорт", "ошибка при бронировании", "другое"];
+const seatLabelRu: Record<string, string> = {
+  "Front passenger": "Переднее пассажирское",
+  "Rear left": "Заднее левое",
+  "Rear middle": "Заднее среднее",
+  "Rear right": "Заднее правое",
+};
+
+function displaySeatLabel(seatKey: string) {
+  const label = seatLabelForKey(cabinSeats, seatKey);
+  return seatLabelRu[label] ?? label;
+}
+
 export default function BookingDetailPage() {
-  const [state, setState] = useState<DetailState>("upcoming");
+  const params = useParams<{ bookingId?: string }>();
+  const bookingId = params.bookingId ?? "phase6-booking-hold";
+  const [delayState, setDelayState] = useState<DelayState>("ON_TIME");
+  const [protection, setProtection] = useState<ProtectionStage>("idle");
+  const [scenario, setScenario] = useState<string | null>(null);
 
   useEffect(() => {
-    const next = new URLSearchParams(window.location.search).get("state");
-    if (next === "active" || next === "completed" || next === "cancelled") setState(next);
+    const scenario = new URLSearchParams(window.location.search).get("scenario");
+    setScenario(scenario);
+    if (scenario === "delay") setDelayState("DELAYED");
+    if (scenario === "critical-delay") setDelayState("CRITICAL_DELAY");
+    if (scenario === "driver-cancelled") setProtection("idle");
+    if (scenario === "replacement-searching") setProtection("searching");
+    if (scenario === "replacement-found") setProtection("found");
+    if (scenario === "replacement-none") setProtection("none");
   }, []);
-
-  const copy = stateCopy[state];
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState(reasons[0]!);
+  const copy = useMemo(() => delayCopy[delayState], [delayState]);
+  const confirmed = bookingId.includes("confirmed") || bookingId.includes("active");
+  const driverCancelled = scenario === "driver-cancelled" || scenario?.startsWith("replacement-");
+  const availableSeatKeys = useMemo(() => selectableSeatKeys(cabinSeats), []);
+  const bookingType: BookingType = bookingId.includes("whole") ? "WHOLE_CAR" : bookingId.includes("multi") ? "MULTI_SEAT" : "SEAT";
+  const visualSeats = bookingType === "WHOLE_CAR" ? availableSeatKeys : bookingType === "MULTI_SEAT" ? ["ROW_1_LEFT", "ROW_1_CENTER", "ROW_1_RIGHT"] : ["FRONT_RIGHT"];
+  const visualSummary = bookingType === "WHOLE_CAR" ? "Вся машина" : visualSeats.map(displaySeatLabel).join(", ");
+  const visualCabinSeats = cabinSeats.map((seat) =>
+    seat.status === "driver" || visualSeats.includes(seat.key) ? seat : { ...seat, status: "unavailable" as const },
+  );
 
   return (
     <ClientShell active="trips">
-      <ClientHeader
-        backHref="/bookings"
-        level="secondary"
-        title="Статус поездки"
-        subtitle="Nukus → Urgench"
-      />
+      <ClientHeader backHref="/bookings" level="secondary" title="Поездка" subtitle="Nukus → Urgench" />
 
-      <Card className="mt-4 space-y-3" compact label="Сводка заявки">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="m-0 text-xs font-black uppercase tracking-[0.12em] text-[rgb(var(--primary))]">
-              {copy.status}
-            </p>
-            <h1 className="m-0 mt-1 text-[22px] font-black leading-tight">{copy.title}</h1>
-            <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              {copy.body}
-            </p>
-          </div>
-          <StatusPill tone={copy.tone}>{copy.status}</StatusPill>
-        </div>
+      <section className="mt-6">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><div><div className="text-3xl font-semibold">08:30</div><div className="mt-1 text-sm text-[rgb(var(--text-muted))]">Nukus</div></div><div className="text-center text-[rgb(var(--primary))]">→<br /><span className="text-xs text-[rgb(var(--text-muted))]">ETA 08:30</span></div><div className="text-right"><div className="text-3xl font-semibold">11:30</div><div className="mt-1 text-sm text-[rgb(var(--text-muted))]">Urgench</div></div></div>
+      </section>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[22px] bg-[rgb(var(--canvas))] p-3">
-          <div>
-            <div className="text-2xl font-black">08:30</div>
-            <div className="text-sm font-bold text-[rgb(var(--text-muted))]">Nukus</div>
-          </div>
-          <div className="grid place-items-center text-[rgb(var(--primary))]">
-            <Icon name="car" className="h-5 w-5" />
-            <span className="text-[11px] font-black text-[rgb(var(--text-muted))]">3h</span>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-black">11:30</div>
-            <div className="text-sm font-bold text-[rgb(var(--text-muted))]">Urgench</div>
-          </div>
-        </div>
+      <Card className="mt-6" compact>
+        <div className="flex items-center gap-3"><Avatar name="Azizbek Karimov" /><div className="min-w-0 flex-1"><h1 className="m-0 truncate text-lg font-semibold">Azizbek Karimov</h1><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">Chevrolet Cobalt · 95 A 214 QA</p></div><StatusPill tone={copy.tone}>{copy.eta}</StatusPill></div>
+        <div className="mt-4 rounded-[18px] bg-[rgb(var(--canvas))] p-3"><p className="m-0 text-sm text-[rgb(var(--text-muted))]">Текущий статус</p><h2 className="m-0 mt-1 text-xl font-semibold">{copy.label}</h2></div>
+        <div className="mt-3 grid grid-cols-2 gap-2"><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--primary))] px-3 text-sm font-semibold text-[rgb(var(--primary-foreground))] no-underline" href="/messages/driver-azizbek">Написать</Link><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--foreground))] no-underline" href="/safety?tripId=phase6-booking-confirmed">Безопасность</Link></div>
       </Card>
 
-      <Card className="mt-3 space-y-3" compact label="Boarding state">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="m-0 text-lg font-black">
-              {state === "completed" || state === "cancelled" ? "Итог поездки" : "Код посадки"}
-            </h2>
-            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              {state === "completed"
-                ? "Стоимость поездки согласовывалась напрямую с водителем."
-                : state === "cancelled"
-                  ? "Эта заявка была отменена до подтверждения водителем."
-                  : "Покажите этот код водителю на Nukus Central Station."}
-            </p>
-          </div>
-          <StatusPill tone={state === "active" ? "info" : "warning"}>
-            {state === "completed" || state === "cancelled" ? "В архиве" : "Действует до 10:25"}
-          </StatusPill>
-        </div>
-
-        {state === "completed" || state === "cancelled" ? (
-          <div className="grid gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-[22px] bg-[rgb(var(--canvas))] p-3">
-                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">Место</div>
-                <div className="text-base font-black">Переднее пассажирское</div>
-              </div>
-              <div className="rounded-[22px] bg-[rgb(var(--surface-tint))] p-3">
-                <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
-                  Указанная цена
-                </div>
-                <div className="text-base font-black">{formatUzs(8500000)}</div>
-              </div>
-            </div>
-            {state === "completed" ? (
-              <Link
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-                href="/reviews"
-              >
-                Оценить водителя
-              </Link>
-            ) : (
-              <Link
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-                href="/search"
-              >
-                Найти новую поездку
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-[22px] border border-dashed border-[rgb(var(--primary)/0.3)] bg-[rgb(var(--surface-tint))] p-3 text-center text-4xl font-black tracking-[0.26em] text-[rgb(var(--primary))]">
-            482913
-          </div>
-        )}
+      <Card className="mt-4" compact>
+        <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-semibold">Ваше место</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{visualSummary}</p></div><StatusPill tone={confirmed ? "success" : "info"}>{confirmed ? "Забронировано" : "Ожидает водителя"}</StatusPill></div>
+        <CabinSelector bookingType={bookingType} onSeatToggle={() => {}} passengerCount={visualSeats.length} priceMinor={tripCabin.priceMinor} seats={visualCabinSeats} selectedSeats={visualSeats} tariff={tripCabin.tariff} template={tripCabin.template} vehicleModel={tripCabin.model} />
       </Card>
 
-      {state === "active" || state === "upcoming" ? (
-        <Card className="mt-3 space-y-3" compact label="Trip Core">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="m-0 text-lg font-black">PIN старта</h2>
-              <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-                Код показывается только пассажиру через защищённый API перед началом движения.
-              </p>
-            </div>
-            <StatusPill tone="info">4 цифры</StatusPill>
-          </div>
-          <div className="rounded-[22px] bg-[rgb(var(--foreground))] p-3 text-center text-3xl font-black tracking-[0.24em] text-[rgb(var(--primary-foreground))]">
-            ••••
-          </div>
-          <div className="grid gap-2 rounded-[22px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold text-[rgb(var(--text-muted))]">
-            <div className="flex items-center justify-between gap-3">
-              <span>Геолокация поездки</span>
-              <strong className="text-[rgb(var(--primary))]">Только во время поездки</strong>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>ETA</span>
-              <strong className="text-[rgb(var(--foreground))]">Нет провайдера маршрута</strong>
-            </div>
-          </div>
-        </Card>
-      ) : null}
-      <Card className="mt-3 space-y-3" compact>
-        <div className="flex items-center gap-3">
-          <Avatar name="Azizbek Karimov" />
-          <div className="min-w-0 flex-1">
-            <h2 className="m-0 truncate text-base font-black">Azizbek Karimov</h2>
-            <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Chevrolet Cobalt · переднее пассажирское
-            </p>
-          </div>
-          <StatusPill tone="accent">4.9</StatusPill>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-            href="/messages/driver-azizbek"
-          >
-            Написать водителю
-          </Link>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--primary))] no-underline"
-            href="/safety"
-          >
-            Безопасность
-          </Link>
-        </div>
-      </Card>
+      {!driverCancelled ? <Link className="mt-4 flex min-h-12 w-full items-center justify-between rounded-[18px] bg-[rgb(var(--surface))] px-4 text-left text-[rgb(var(--foreground))] no-underline shadow-[var(--shadow-sm)]" href="/safety?tripId=phase6-booking-confirmed"><span><span className="block text-sm font-semibold">ENVO Protection</span><span className="block text-xs text-[rgb(var(--text-muted))]">Поездка защищена</span></span><span className="text-[rgb(var(--primary))]">Подробнее</span></Link> : null}
 
-      <Card className="mt-3 space-y-2.5" compact label="Статус выполнения поездки">
-        <h2 className="m-0 text-base font-black">Прогресс маршрута</h2>
-        {[
-          ["Посадка", "Nukus Central Station", true],
-          ["В пути", "Ожидаемое прибытие 11:30", state === "active" || state === "completed"],
-          ["Завершённые", "Итог и отзыв будут доступны после прибытия", state === "completed"],
-        ].map(([label, text, active]) => (
-          <div key={label as string} className="grid grid-cols-[20px_1fr_auto] gap-3">
-            <span
-              className={[
-                "mt-1 h-3 w-3 rounded-full",
-                active ? "bg-[rgb(var(--primary))]" : "bg-[rgb(var(--border-strong))]",
-              ].join(" ")}
-            />
-            <div>
-              <div className="text-sm font-black">{label}</div>
-              <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{text}</div>
-            </div>
-            {active ? <Icon name="check" className="h-4 w-4 text-[rgb(var(--primary))]" /> : null}
-          </div>
-        ))}
-      </Card>
+      {driverCancelled ? <Card className="mt-4" compact><StatusPill tone="danger">Поездка отменена</StatusPill><h2 className="m-0 mt-3 text-xl font-semibold">Водитель отменил поездку</h2><p className="m-0 mt-2 text-sm leading-6 text-[rgb(var(--text-muted))]">ENVO может найти другого водителя рядом с тем же маршрутом и сохранить цену.</p>{protection === "idle" ? <div className="mt-4 grid grid-cols-2 gap-2"><button className="min-h-11 rounded-[16px] border-0 bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]" type="button" onClick={() => setProtection("searching")}>Найти замену</button><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--canvas))] px-4 text-sm font-semibold text-[rgb(var(--foreground))] no-underline" href="/bookings">Не сейчас</Link></div> : null}{protection === "searching" ? <div className="mt-4 rounded-[16px] bg-[rgb(var(--canvas))] p-3"><StatusPill tone="info">Идёт поиск</StatusPill><p className="m-0 mt-2 text-sm text-[rgb(var(--text-muted))]">Ищем водителя. Обычно это занимает несколько минут, результат появится автоматически.</p></div> : null}{protection === "found" || protection === "accepted" ? <div className="mt-4 rounded-[18px] bg-[rgb(var(--canvas))] p-3"><div className="flex items-center gap-3"><Avatar name="Madina Yusupova" /><div className="min-w-0 flex-1"><strong className="block truncate font-semibold">Madina Yusupova</strong><span className="block text-xs text-[rgb(var(--text-muted))]">Chevrolet Tracker · прибудет к 08:45</span></div></div><div className="mt-3 flex items-center justify-between text-sm"><span>Цена сохранена</span><strong>{formatUzs(8500000)}</strong></div><div className="mt-3 grid gap-2"><button className="min-h-10 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] text-sm font-semibold text-[rgb(var(--primary-foreground))]" disabled={protection === "accepted"} type="button" onClick={() => setProtection("accepted")}>{protection === "accepted" ? "Замена принята вами" : "Принять замену"}</button><div className="grid grid-cols-2 gap-2"><Link className="flex min-h-10 items-center justify-center rounded-[16px] bg-[rgb(var(--surface))] text-sm font-semibold text-[rgb(var(--foreground))] no-underline" href="/trips/phase5-nukus-urgench-evening">Посмотреть водителя</Link><button className="min-h-10 rounded-[16px] border-0 bg-[rgb(var(--surface))] text-sm font-semibold" type="button" onClick={() => setProtection("none")}>Не подходит</button></div></div></div> : null}{protection === "none" ? <div className="mt-4 rounded-[16px] bg-[rgb(var(--warning-soft))] p-3 text-sm font-medium text-[rgb(var(--warning))]">Подходящей замены пока нет. Можно написать в Поддержку ENVO.</div> : null}</Card> : null}
 
-      <Card className="mt-3 space-y-3" compact>
-        <h2 className="m-0 text-base font-black">Следующее действие</h2>
-        {state === "completed" ? (
-          <Link
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
-            href="/reviews"
-          >
-            Оценить водителя
-          </Link>
-        ) : (
-          <button
-            className="min-h-11 w-full rounded-full bg-[rgb(var(--canvas))] px-4 text-sm font-black text-[rgb(var(--text-muted))]"
-            type="button"
-            onClick={() => setState("cancelled")}
-          >
-            Отменить заявку
-          </button>
-        )}
-      </Card>
+      <button className="mt-4 min-h-11 w-full rounded-[16px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 text-sm font-semibold text-[rgb(var(--foreground))]" type="button" onClick={() => setCancelOpen(true)}>Отменить бронирование</button>
+      {cancelOpen ? <CancelSheet reason={cancelReason} onReason={setCancelReason} onClose={() => setCancelOpen(false)} /> : null}
     </ClientShell>
   );
 }
+
+function CancelSheet({ reason, onReason, onClose }: { reason: string; onReason: (value: string) => void; onClose: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-end bg-[rgb(var(--foreground)/0.28)] p-3" role="dialog" aria-modal="true"><section className="w-full max-w-[430px] rounded-t-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-floating)]"><div className="flex items-center justify-between gap-3"><h2 className="m-0 text-lg font-semibold">Причина отмены</h2><button className="h-9 w-9 rounded-full border-0 bg-[rgb(var(--canvas))]" type="button" aria-label="Закрыть" onClick={onClose}><EnvoIcon name="close" className="h-4 w-4" /></button></div><div className="mt-3 grid gap-2">{reasons.map((item) => <button key={item} className={`min-h-10 rounded-[16px] border-0 px-3 text-left text-sm font-medium ${reason === item ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "bg-[rgb(var(--canvas))]"}`} type="button" onClick={() => onReason(item)}>{item}</button>)}</div><button className="mt-3 min-h-11 w-full rounded-[16px] border-0 bg-[rgb(var(--primary))] px-4 text-sm font-semibold text-[rgb(var(--primary-foreground))]" type="button" onClick={onClose}>Подтвердить</button></section></div>; }

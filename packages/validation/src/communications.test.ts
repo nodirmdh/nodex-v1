@@ -7,13 +7,16 @@ import {
   evaluateSupportTransition,
   notificationCreateSchema,
   parcelChatEligible,
+  supportAttachmentMetadataSchema,
   supportTicketCreateSchema,
+  supportTicketMessageSchema,
 } from "./index";
 
 describe("conversation eligibility", () => {
   const now = new Date("2026-08-02T09:00:00.000Z");
 
   it("allows active booking and retained completed booking chats", () => {
+    expect(bookingChatEligible("PENDING_CONFIRMATION", null, now)).toBe(true);
     expect(bookingChatEligible("CONFIRMED", null, now)).toBe(true);
     expect(bookingChatEligible("COMPLETED", new Date("2026-08-03T09:00:00.000Z"), now)).toBe(true);
     expect(bookingChatEligible("CANCELLED_BY_CLIENT", null, now)).toBe(false);
@@ -87,6 +90,45 @@ describe("support tickets", () => {
         priority: "NORMAL",
       }),
     ).toMatchObject({ type: "PARCEL" });
+  });
+
+  it("validates replies and safe attachment metadata", () => {
+    expect(
+      supportTicketMessageSchema.parse({
+        text: "I can share a photo from pickup.",
+        replyToMessageId: "message-1",
+      }),
+    ).toMatchObject({ replyToMessageId: "message-1" });
+
+    expect(
+      supportAttachmentMetadataSchema.parse({
+        messageId: "message-1",
+        storageKey: "support/ticket-1/photo.webp",
+        originalFileName: "pickup-photo.webp",
+        mimeType: "image/webp",
+        sizeBytes: 120_000,
+        checksum: "sha256-photo",
+      }),
+    ).toMatchObject({ mimeType: "image/webp" });
+  });
+
+  it("rejects unsafe support attachment metadata", () => {
+    expect(() =>
+      supportAttachmentMetadataSchema.parse({
+        originalFileName: "run.exe",
+        mimeType: "application/x-msdownload",
+        sizeBytes: 120_000,
+        checksum: "sha256-file",
+      }),
+    ).toThrow();
+    expect(() =>
+      supportAttachmentMetadataSchema.parse({
+        originalFileName: "huge.mp4",
+        mimeType: "video/mp4",
+        sizeBytes: 25 * 1024 * 1024,
+        checksum: "sha256-file",
+      }),
+    ).toThrow();
   });
 
   it("evaluates support transitions and SLA due dates", () => {

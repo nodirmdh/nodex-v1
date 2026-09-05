@@ -1,7 +1,12 @@
 "use client";
 
 import { cn, formatUzs } from "@nodex/ui";
-import type { BookingType, CabinSeat, CabinTemplate } from "./cabin-model";
+import {
+  seatPriceMinor,
+  type BookingType,
+  type CabinSeat,
+  type CabinTemplate,
+} from "./cabin-model";
 import {
   SEAT_MAP_LAYOUTS,
   type SeatMapLayout,
@@ -42,6 +47,11 @@ function resolveVisualStatus(
   if (seat.status === "occupied") return "reserved";
   if (selected) return "selected";
   return "free";
+}
+
+function compactSeatPrice(priceMinor: number) {
+  const uzs = Math.max(0, Math.round(priceMinor / 100));
+  return `${Math.round(uzs / 1000)}k`;
 }
 
 function VehicleShell({ shell }: { shell: SeatMapLayout["shell"] }) {
@@ -110,38 +120,40 @@ function LockMark() {
 
 function SeatIcon({ status }: { status: VisualSeatStatus }) {
   const selected = status === "selected";
+  const reserved = status === "reserved" || status === "blocked";
+  const driver = status === "driver";
+  const seatFill = selected
+    ? "fill-current"
+    : reserved
+      ? "fill-[#d9dedb]"
+      : driver
+        ? "fill-[#eef3ef]"
+        : "fill-[#f4efe6]";
+  const cushionFill = selected
+    ? "fill-[rgb(var(--primary-foreground)/0.18)]"
+    : reserved
+      ? "fill-[#cbd2ce]"
+      : driver
+        ? "fill-[#e2e9e5]"
+        : "fill-[#fff8ea]";
 
   return (
     <svg viewBox="0 0 72 86" aria-hidden="true" className="h-full w-full overflow-visible">
       <path
         d="M24 6H48C53 6 56 9 56 14V21C56 24 54 26 50 26H22C18 26 16 24 16 21V14C16 9 19 6 24 6Z"
-        className={cn(
-          "stroke-current [stroke-width:2.4]",
-          selected ? "fill-current" : "fill-[rgb(var(--surface))]",
-        )}
+        className={cn("stroke-current [stroke-width:2.4]", seatFill)}
       />
       <path
         d="M15 30C18 24 26 21 36 21C46 21 54 24 57 30C60 36 61 49 59 58C58 64 54 68 48 68H24C18 68 14 64 13 58C11 49 12 36 15 30Z"
-        className={cn(
-          "stroke-current [stroke-width:2.7]",
-          selected ? "fill-current" : "fill-[rgb(var(--surface)/0.92)]",
-        )}
+        className={cn("stroke-current [stroke-width:2.7]", seatFill)}
       />
       <path
         d="M24 36C27 33 31 32 36 32C41 32 45 33 48 36C51 40 52 51 50 56C49 59 47 61 43 61H29C25 61 23 59 22 56C20 51 21 40 24 36Z"
-        className={cn(
-          "stroke-current [stroke-width:2]",
-          selected
-            ? "fill-[rgb(var(--primary-foreground)/0.18)]"
-            : "fill-[rgb(var(--surface-tint)/0.55)]",
-        )}
+        className={cn("stroke-current [stroke-width:2]", cushionFill)}
       />
       <path
         d="M22 66C25 63 30 62 36 62C42 62 47 63 50 66C54 70 53 77 48 80H24C19 77 18 70 22 66Z"
-        className={cn(
-          "stroke-current [stroke-width:2.4]",
-          selected ? "fill-current" : "fill-[rgb(var(--surface))]",
-        )}
+        className={cn("stroke-current [stroke-width:2.4]", seatFill)}
       />
       <path
         d="M13 40H8C6 40 5 42 5 45V56C5 59 7 61 10 61H14M59 40H64C66 40 67 42 67 45V56C67 59 65 61 62 61H58"
@@ -169,11 +181,15 @@ function SeatNode({
 }) {
   return (
     <button
-      aria-label={`${layoutSeat.label}: ${stateCopy[status]}, ${formatUzs(priceMinor)}`}
+      aria-label={
+        layoutSeat.bookable
+          ? `${layoutSeat.label}: ${stateCopy[status]}, ${compactSeatPrice(priceMinor)}`
+          : `${layoutSeat.label}: ${stateCopy[status]}`
+      }
       aria-pressed={status === "selected"}
       className={cn(
         "absolute z-20 grid aspect-[72/86] w-[clamp(42px,13vw,56px)] place-items-center border-0 bg-transparent p-0 transition duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--primary))]",
-        status === "free" && "cursor-pointer text-[rgb(var(--primary))] active:scale-95",
+        status === "free" && "cursor-pointer text-[#a99d8b] active:scale-95",
         status === "selected" &&
           "text-[rgb(var(--primary))] drop-shadow-[0_5px_8px_rgb(var(--primary)/0.24)]",
         status === "reserved" && "cursor-not-allowed text-[#9facaa] opacity-80",
@@ -191,14 +207,18 @@ function SeatNode({
     >
       <SeatIcon status={status} />
       {status === "reserved" ? <LockMark /> : null}
+      {layoutSeat.bookable && status !== "driver" ? (
+        <span className="absolute -bottom-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[rgb(var(--surface)/0.94)] px-1.5 py-0.5 text-[9px] font-black text-[rgb(var(--primary))] shadow-[var(--shadow-xs)]">
+          {compactSeatPrice(priceMinor)}
+        </span>
+      ) : null}
       <span
         className={cn(
           "absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 text-[11px] font-black leading-none",
           status === "selected"
             ? "text-[rgb(var(--primary-foreground))]"
             : "text-[rgb(var(--foreground))]",
-          status === "driver" &&
-            "top-[88%] text-[7px] uppercase tracking-[0.06em] text-[rgb(var(--foreground))]",
+          status === "driver" && "text-[9px] text-[rgb(var(--foreground))]",
         )}
       >
         {layoutSeat.shortLabel}
@@ -275,7 +295,7 @@ export function CabinSelector({
               disabled={disabled}
               layoutSeat={layoutSeat}
               onSeatToggle={onSeatToggle}
-              priceMinor={priceMinor}
+              priceMinor={seatPriceMinor(priceMinor, seat)}
               seat={seat}
               status={status}
             />

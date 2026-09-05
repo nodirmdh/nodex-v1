@@ -1,130 +1,63 @@
 "use client";
 
 import { useState } from "react";
-import { AppHeader, Badge, BottomNav, Button, Panel, Timeline } from "@nodex/ui";
+import Link from "next/link";
+import { Button } from "@nodex/ui";
+import { DriverCard, DriverHeader, DriverPill, DriverShell } from "../driver-ui";
 
-const parcels = [
-  {
-    id: "phase8-parcel-accepted",
-    title: "Small electronics",
-    route: "Nukus to Khiva",
-    sender: "A. Karimov",
-    recipient: "M. Seitov",
-    status: "ACCEPTED",
-  },
-  {
-    id: "phase8-parcel-transit",
-    title: "Documents envelope",
-    route: "Nukus to Urgench",
-    sender: "D. Allamuratov",
-    recipient: "R. Matyakubov",
-    status: "IN_TRANSIT",
-  },
-];
+type ParcelState = "new" | "accepted" | "picked" | "transit" | "delivered" | "declined";
 
-function tone(status: string) {
-  if (status === "DELIVERED") return "success";
-  if (status === "ACCEPTED") return "warning";
-  if (status === "IN_TRANSIT" || status === "READY_FOR_PICKUP") return "info";
-  return "neutral";
-}
+const request = {
+  route: "Nukus → Urgench",
+  pickup: "Nukus, вокзал",
+  destination: "Urgench, автостанция",
+  size: "Маленькая",
+  type: "Документы",
+  description: "Папка с документами в синем пакете",
+  sender: "Gulnora Ergasheva",
+  receiver: "Bekzod Ergashev",
+  receiverPhone: "+998 90 123 45 67",
+  price: "32 000 UZS",
+  note: "Передать только получателю по коду. Фото посылки прикреплено клиентом.",
+};
+
+const history = [
+  ["Конверт с документами", "Доставлена", "success"],
+  ["Мелкая электроника", "В пути", "info"],
+  ["Пакет с одеждой", "Отклонена", "danger"],
+] as const;
 
 export default function DriverParcelsPage() {
-  const [code, setCode] = useState("");
-  const selected = parcels[0]!;
+  const [state, setState] = useState<ParcelState>("new");
+  const [notice, setNotice] = useState("");
+  const active = state !== "new" && state !== "declined";
+  const statusLabel = state === "new" ? "Новая заявка" : state === "accepted" ? "Принята" : state === "picked" ? "Забрана" : state === "transit" ? "В пути" : state === "delivered" ? "Передана" : "Отклонена";
+
+  function update(next: ParcelState, message: string) {
+    setState(next);
+    setNotice(message);
+  }
 
   return (
-    <main className="nodex-app mobile-shell">
-      <AppHeader title="Parcel operations" subtitle="Handover, transit, pickup, and issues" />
-      <div className="space-y-4 px-4">
-        <Panel className="space-y-3" aria-label="Driver parcel dashboard">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-xl font-black">Trip parcels</h1>
-              <p className="m-0 text-sm text-slate-500">Only approved trip parcels are shown.</p>
-            </div>
-            <Badge tone="info">{parcels.length} active</Badge>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">Accepted</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>1</strong>
-              <span className="block text-xs text-slate-500">Transit</span>
-            </div>
-            <div className="rounded-[var(--radius-md)] bg-[rgb(var(--surface-muted))] p-3">
-              <strong>0</strong>
-              <span className="block text-xs text-slate-500">Issues</span>
-            </div>
-          </div>
-        </Panel>
+    <DriverShell active="requests">
+      <DriverHeader title="Посылки" subtitle="Передача по активному междугороднему маршруту" status={<DriverPill tone={state === "declined" ? "danger" : active ? "success" : "info"}>{statusLabel}</DriverPill>} />
 
-        <section aria-label="Driver parcel list" className="space-y-3">
-          {parcels.map((parcel) => (
-            <Panel key={parcel.id} className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="m-0 text-base font-bold">{parcel.title}</h2>
-                  <p className="m-0 text-sm text-slate-500">
-                    {parcel.route} - {parcel.sender} to {parcel.recipient}
-                  </p>
-                </div>
-                <Badge tone={tone(parcel.status)}>{parcel.status}</Badge>
-              </div>
-            </Panel>
-          ))}
-        </section>
+      <DriverCard className="mt-5 space-y-4" label="Входящая заявка">
+        <div className="flex items-start justify-between gap-3"><div><h1 className="m-0 text-xl font-semibold">Посылка по маршруту</h1><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">{request.route} · сегодня 18:30</p></div><DriverPill tone="accent">{request.price}</DriverPill></div>
+        <div className="grid grid-cols-2 gap-2 text-sm"><Info label="Забрать" value={request.pickup} /><Info label="Доставить" value={request.destination} /><Info label="Тип" value={request.type} /><Info label="Размер" value={request.size} /></div>
+        <div className="rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-sm"><strong>{request.description}</strong><p className="m-0 mt-1 text-[rgb(var(--text-muted))]">Отправитель: {request.sender}</p><p className="m-0 mt-1 text-[rgb(var(--text-muted))]">Получатель: {request.receiver} · {request.receiverPhone}</p><p className="m-0 mt-1 text-[rgb(var(--text-muted))]">{request.note}</p><div className="mt-3 h-20 rounded-[14px] bg-[linear-gradient(135deg,rgb(var(--surface-tint)),rgb(var(--surface)))]" aria-label="Предпросмотр фото посылки" /></div><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))] no-underline" href="/messages/parcel-sender">Открыть чат по посылке</Link>
+        {state === "new" ? <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => update("accepted", "Посылка принята. Она добавлена в активную поездку.")}>Принять</Button><Button type="button" variant="secondary" onClick={() => update("declined", "Заявка отклонена в demo state. Клиент увидит поиск другого водителя.")}>Отклонить</Button></div> : null}
+        {state === "declined" ? <Button type="button" variant="secondary" onClick={() => update("new", "Заявка снова доступна для проверки.")}>Вернуть заявку</Button> : null}
+        {notice ? <div className="rounded-[16px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">{notice}</div> : null}
+      </DriverCard>
 
-        <Panel className="space-y-3" aria-label="Parcel code verification">
-          <h2 className="m-0 text-base font-bold">Verify selected parcel</h2>
-          <p className="m-0 text-sm text-slate-500">{selected.title}</p>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Numeric code</span>
-            <input
-              className="min-h-12 rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-white px-3 text-center text-xl font-bold tracking-[0.2em]"
-              inputMode="numeric"
-              maxLength={6}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-              placeholder="000000"
-              value={code}
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button disabled={code.length < 4} type="button">
-              Confirm handover
-            </Button>
-            <Button type="button" variant="secondary">
-              Ready for pickup
-            </Button>
-            <Button type="button" variant="secondary">
-              Confirm delivery
-            </Button>
-            <Button type="button" variant="secondary">
-              Report issue
-            </Button>
-          </div>
-        </Panel>
+      {active ? <DriverCard className="mt-4 space-y-3" label="В активной поездке"><div className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-lg font-semibold">Статус посылки</h2><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">Не занимает пассажирское место, хранится отдельно.</p></div><DriverPill tone="info">Багажник</DriverPill></div><div className="grid grid-cols-3 gap-2"><Button type="button" variant={state === "picked" ? "primary" : "secondary"} onClick={() => update("picked", "Отмечено: посылка забрана у отправителя.")}>Забрал</Button><Button type="button" variant={state === "transit" ? "primary" : "secondary"} onClick={() => update("transit", "Статус обновлён: посылка в пути.")}>В пути</Button><Button type="button" variant={state === "delivered" ? "primary" : "secondary"} onClick={() => update("delivered", "Передача получателю подтверждена.")}>Передал</Button></div><div className="grid gap-2 text-sm">{[["Принята водителем", true], ["Забрана у отправителя", state === "picked" || state === "transit" || state === "delivered"], ["В пути", state === "transit" || state === "delivered"], ["Передана получателю", state === "delivered"]].map(([label, done]) => <div key={String(label)} className="grid grid-cols-[18px_1fr] items-center gap-2"><span className={["h-2.5 w-2.5 rounded-full", done ? "bg-[rgb(var(--primary))]" : "bg-[rgb(var(--border-strong))]"].join(" ")} /><span className={done ? "font-semibold" : "text-[rgb(var(--text-muted))]"}>{label}</span></div>)}</div><Link className="flex min-h-11 items-center justify-center rounded-[16px] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))] no-underline" href="/messages/parcel-sender">Открыть чат по посылке</Link></DriverCard> : null}
 
-        <Panel aria-label="Driver parcel timeline">
-          <Timeline
-            items={[
-              { label: "Accepted", time: "Driver", active: true },
-              { label: "Handover code required", time: "Sender", active: true },
-              { label: "Pickup code required", time: "Recipient" },
-            ]}
-          />
-        </Panel>
-      </div>
-      <BottomNav
-        items={[
-          { label: "Trips" },
-          { label: "Parcels", active: true },
-          { label: "Vehicles" },
-          { label: "Profile" },
-        ]}
-      />
-    </main>
+      <section className="mt-4 space-y-3" aria-label="История посылок водителя"><h2 className="m-0 text-lg font-semibold">История посылок</h2>{history.map(([title, status, tone]) => <DriverCard key={title}><div className="flex items-center justify-between gap-3"><div><strong>{title}</strong><p className="m-0 mt-1 text-sm text-[rgb(var(--text-muted))]">Nukus → Urgench</p></div><DriverPill tone={tone}>{status}</DriverPill></div></DriverCard>)}</section>
+    </DriverShell>
   );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[16px] bg-[rgb(var(--canvas))] p-3"><span className="block text-xs font-semibold text-[rgb(var(--text-muted))]">{label}</span><strong className="mt-1 block">{value}</strong></div>;
 }

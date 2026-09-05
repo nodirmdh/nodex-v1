@@ -31,7 +31,7 @@ export const tripCabin: TripCabin = {
   color: "Белый",
   plate: "95 A 214 QA",
   capacity: "4 пассажирских места",
-  tariff: "Комфорт",
+  tariff: "Старт",
   route: "Nukus → Urgench",
   departure: "08:30",
   departureAtUtc: "2026-09-03T03:30:00.000Z",
@@ -67,19 +67,19 @@ export const cabinSeats: CabinSeat[] = [
     label: "Rear middle",
     row: "second",
     position: "center",
-    status: "unavailable",
+    status: "available",
   },
   {
     key: "ROW_1_RIGHT",
     label: "Rear right",
     row: "second",
     position: "right",
-    status: "occupied",
+    status: "available",
   },
 ];
 
 export const sevenSeatPreview: CabinSeat[] = [
-  ...cabinSeats.filter((seat) => seat.key !== "ROW_1_CENTER"),
+  ...cabinSeats,
   {
     key: "ROW_2_LEFT",
     label: "Third row left",
@@ -92,7 +92,7 @@ export const sevenSeatPreview: CabinSeat[] = [
     label: "Third row middle",
     row: "third",
     position: "center",
-    status: "unavailable",
+    status: "available",
   },
   {
     key: "ROW_2_RIGHT",
@@ -116,4 +116,26 @@ export function cabinTemplateForModel(model: string, capacity: number): CabinTem
   if (capacity >= 7) return "SUV_7";
   if (/tracker|suv/i.test(model)) return "SUV_5";
   return "SEDAN_5";
+}
+export function seatPriceMinor(basePriceMinor: number, seat: CabinSeat | undefined) {
+  if (!seat || seat.status === "driver") return basePriceMinor;
+  if (seat.position === "center") return Math.round(basePriceMinor * 0.8);
+  if (seat.row === "front" && seat.position === "right") return Math.round(basePriceMinor * 1.2);
+  return basePriceMinor;
+}
+
+export function selectedSeatsTotalMinor(
+  basePriceMinor: number,
+  seats: CabinSeat[],
+  selectedSeatKeys: string[],
+) {
+  return selectedSeatKeys.reduce(
+    (total, seatKey) =>
+      total +
+      seatPriceMinor(
+        basePriceMinor,
+        seats.find((seat) => seat.key === seatKey),
+      ),
+    0,
+  );
 }

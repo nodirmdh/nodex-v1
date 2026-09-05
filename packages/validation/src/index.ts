@@ -112,6 +112,7 @@ export const operationalTripStatuses = [
   "EXPIRED",
   "BLOCKED",
 ] as const;
+export const tripTariffs = ["START", "COMFORT", "PREMIUM"] as const;
 
 export const operationalBookingStatuses = [
   "PENDING_CONFIRMATION",
@@ -297,24 +298,46 @@ export const tripStopSchema = z.object({
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
-export const tripDraftSchema = z.object({
-  vehicleId: z.string().trim().min(1).optional(),
-  routeId: z.string().trim().min(1).optional().nullable(),
-  originCityId: z.string().trim().min(1).optional().nullable(),
-  destinationCityId: z.string().trim().min(1).optional().nullable(),
-  departureAtUtc: z.coerce.date().optional(),
-  arrivalEstimateAtUtc: z.coerce.date().optional().nullable(),
-  timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
-  passengerSeatCapacity: z.coerce.number().int().min(1).max(16).optional(),
-  pricePerSeatMinor: z.coerce.bigint().nonnegative().optional(),
-  wholeCarPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
-  parcelSupported: z.boolean().optional(),
-  parcelPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
-  currency: z.literal("UZS").default("UZS"),
-  luggageRules: optionalTextField,
-  comment: z.string().trim().max(1000).optional().nullable(),
-  stops: z.array(tripStopSchema).max(20).optional(),
-});
+export const tripDraftSchema = z
+  .object({
+    vehicleId: z.string().trim().min(1).optional(),
+    routeId: z.string().trim().min(1).optional().nullable(),
+    originCityId: z.string().trim().min(1).optional().nullable(),
+    destinationCityId: z.string().trim().min(1).optional().nullable(),
+    departureAtUtc: z.coerce.date().optional(),
+    arrivalEstimateAtUtc: z.coerce.date().optional().nullable(),
+    timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
+    passengerSeatCapacity: z.coerce.number().int().min(1).max(16).optional(),
+    tariff: z.enum(tripTariffs).optional(),
+    pricePerSeatMinor: z.coerce.bigint().positive().optional(),
+    wholeCarPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+    parcelSupported: z.boolean().optional(),
+    parcelPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+    currency: z.literal("UZS").default("UZS"),
+    luggageRules: optionalTextField,
+    comment: z.string().trim().max(1000).optional().nullable(),
+    stops: z.array(tripStopSchema).max(20).optional(),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.originCityId &&
+      value.destinationCityId &&
+      value.originCityId === value.destinationCityId
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["destinationCityId"],
+        message: "Origin and destination must differ",
+      });
+    }
+    if (value.departureAtUtc && value.departureAtUtc <= new Date()) {
+      context.addIssue({
+        code: "custom",
+        path: ["departureAtUtc"],
+        message: "Departure must be in the future",
+      });
+    }
+  });
 
 export const tripCancelSchema = z.object({
   reason: z.string().trim().min(3).max(1000),
@@ -551,6 +574,13 @@ export type SeatLayoutItem = {
   column: number;
   seatType: "FRONT" | "REAR" | "STANDARD";
 };
+
+export function bookingSeatPriceMinor(basePriceMinor: bigint, seatKey: string) {
+  if (basePriceMinor < 0n) throw new Error("Base seat price cannot be negative");
+  if (seatKey === "FRONT_RIGHT") return (basePriceMinor * 120n) / 100n;
+  if (seatKey.includes("CENTER")) return (basePriceMinor * 80n) / 100n;
+  return basePriceMinor;
+}
 
 export function generateSeatLayout(passengerSeatCount: number): SeatLayoutItem[] {
   const count = Math.max(1, Math.min(16, Math.floor(passengerSeatCount)));
@@ -1025,6 +1055,16 @@ export const supportTicketStatuses = [
   "REJECTED",
 ] as const;
 export const supportPriorities = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+export const supportRequesterRoles = ["CLIENT", "DRIVER"] as const;
+export const supportAttachmentMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "application/pdf",
+  "text/plain",
+] as const;
+export const supportAttachmentMaxSizeBytes = 20 * 1024 * 1024;
 
 export const defaultChatLimits = {
   maxTextLength: 2000,
@@ -1095,10 +1135,22 @@ export const supportTicketCreateSchema = z.object({
   bookingId: z.string().trim().min(1).optional().nullable(),
   tripId: z.string().trim().min(1).optional().nullable(),
   parcelOrderId: z.string().trim().min(1).optional().nullable(),
+  requesterRole: z.enum(supportRequesterRoles).optional(),
 });
 
 export const supportTicketMessageSchema = z.object({
   text: z.string().trim().min(1).max(4000),
+  replyToMessageId: z.string().trim().min(1).optional().nullable(),
+});
+
+export const supportAttachmentMetadataSchema = z.object({
+  messageId: z.string().trim().min(1).optional().nullable(),
+  fileObjectId: z.string().trim().min(1).optional().nullable(),
+  storageKey: z.string().trim().min(3).max(500).optional().nullable(),
+  originalFileName: z.string().trim().min(1).max(240),
+  mimeType: z.enum(supportAttachmentMimeTypes),
+  sizeBytes: z.coerce.number().int().positive().max(supportAttachmentMaxSizeBytes),
+  checksum: z.string().trim().min(8).max(160),
 });
 
 export const supportTicketStatusSchema = z.object({
@@ -1129,7 +1181,9 @@ export function bookingChatEligible(
   retentionUntil?: Date | null,
   now = new Date(),
 ) {
-  if (["CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) return true;
+  if (["PENDING_CONFIRMATION", "CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) {
+    return true;
+  }
   return status === "COMPLETED" && Boolean(retentionUntil && retentionUntil > now);
 }
 

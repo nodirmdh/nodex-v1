@@ -13,10 +13,9 @@ export default function ClientПлатежиPage() {
           </span>
           <div>
             <StatusPill tone="accent">Не участвует в заявке на поездку</StatusPill>
-            <h1 className="m-0 mt-3 text-xl font-black">Оплата поездки проходит вне Nodex</h1>
+            <h1 className="m-0 mt-3 text-xl font-black">Оплата поездки проходит вне ENVO</h1>
             <p className="m-0 mt-2 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Clients send seat requests. The listed ride price is informational, and payment is
-              arranged directly with the driver.
+              Клиент отправляет заявку на место. Цена поездки носит справочный характер, оплата согласуется напрямую с водителем.
             </p>
           </div>
         </div>

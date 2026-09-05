@@ -1,128 +1,114 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  BarChart3,
-  Bell,
-  Car,
-  CreditCard,
-  Headphones,
-  LayoutDashboard,
-  MessageSquare,
-  Package,
-  Route,
-  Search,
-  Settings,
-  ShieldCheck,
-  Star,
-  Ticket,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { EnvoIcon } from "@nodex/ui";
+import type { EnvoIconName } from "@nodex/ui";
+import { globalSearchItems } from "./admin-data";
 
-type NavItem = { label: string; href: string; icon: ReactNode };
+type NavItem = { label: string; href: string; icon: EnvoIconName };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
+  { label: "Обзор", items: [{ label: "Панель", href: "/dashboard", icon: "home" }] },
   {
-    label: "Overview",
-    items: [{ label: "Dashboard", href: "/", icon: <LayoutDashboard size={15} /> }],
-  },
-  {
-    label: "Operations",
+    label: "Операции",
     items: [
-      { label: "Drivers", href: "/drivers", icon: <Users size={15} /> },
-      { label: "Vehicles", href: "/vehicles", icon: <Car size={15} /> },
-      { label: "Routes", href: "/routes", icon: <Route size={15} /> },
-      { label: "Trips", href: "/trips", icon: <Ticket size={15} /> },
-      { label: "Seat Requests", href: "/bookings", icon: <UserCheck size={15} /> },
-      { label: "Matching", href: "/matching", icon: <Star size={15} /> },
-      { label: "Parcels", href: "/parcels", icon: <Package size={15} /> },
+      { label: "Поездки", href: "/trips", icon: "route" },
+      { label: "Бронирования", href: "/bookings", icon: "ticket" },
+      { label: "Подбор", href: "/matching", icon: "fill" },
     ],
   },
   {
-    label: "Communication",
+    label: "Люди",
     items: [
-      { label: "Messages", href: "/communications", icon: <MessageSquare size={15} /> },
-      { label: "Support", href: "/support", icon: <Headphones size={15} /> },
+      { label: "Клиенты", href: "/users", icon: "profile" },
+      { label: "Водители", href: "/drivers", icon: "passenger" },
+      { label: "Рефералы", href: "/referrals", icon: "referral" },
     ],
   },
   {
-    label: "Trust & Safety",
+    label: "Поддержка и безопасность",
     items: [
-      { label: "Verification", href: "/verification", icon: <ShieldCheck size={15} /> },
-      { label: "Reviews", href: "/trust-safety?view=reviews", icon: <Star size={15} /> },
-      { label: "Safety", href: "/trust-safety?view=safety", icon: <ShieldCheck size={15} /> },
+      { label: "Поддержка", href: "/support", icon: "support" },
+      { label: "Надёжность", href: "/reliability", icon: "protection" },
+      { label: "Антифрод", href: "/fraud", icon: "safety" },
+      { label: "Не предлагать", href: "/avoid-match", icon: "complaint" },
     ],
   },
   {
-    label: "Business",
+    label: "Рост",
     items: [
-      {
-        label: "Subscriptions",
-        href: "/finance?view=subscriptions",
-        icon: <CreditCard size={15} />,
-      },
-      { label: "Finance", href: "/finance?view=finance", icon: <CreditCard size={15} /> },
-      { label: "Analytics", href: "/analytics", icon: <BarChart3 size={15} /> },
+      { label: "Награды", href: "/rewards", icon: "reward" },
+      { label: "Промо", href: "/promotions", icon: "promo" },
     ],
   },
-  {
-    label: "System",
-    items: [{ label: "Settings", href: "/design-system", icon: <Settings size={15} /> }],
-  },
+  { label: "Система", items: [{ label: "Настройки", href: "/settings", icon: "preferences" }] },
+];
+
+const extraSearchItems = [
+  { label: "Очередь поддержки", detail: "Открытые обращения и диалоги", href: "/support" },
+  { label: "ENVO Protection", detail: "Задержки, отмены и поиск замены", href: "/reliability" },
+  { label: "Антифрод", detail: "Сигналы риска, награды и рефералы", href: "/fraud" },
+  { label: "Промо кампании", detail: "Партнёры, баннеры и конверсия", href: "/promotions" },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState("");
   const [currentSearch, setCurrentSearch] = useState("");
 
   useEffect(() => {
     setCurrentSearch(window.location.search);
+    setQuery("");
   }, [pathname]);
+
+  const results = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    return [...globalSearchItems, ...extraSearchItems]
+      .filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(needle))
+      .slice(0, 8);
+  }, [query]);
 
   const isActive = (href: string) => {
     const [hrefPath = href, hrefSearch = ""] = href.split("?");
-    if (hrefSearch) {
-      return pathname === hrefPath && currentSearch === `?${hrefSearch}`;
-    }
-    return hrefPath === "/" ? pathname === "/" : pathname === hrefPath;
+    if (hrefSearch) return pathname === hrefPath && currentSearch === `?${hrefSearch}`;
+    if (hrefPath === "/dashboard") return pathname === "/" || pathname === "/dashboard";
+    return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
   };
 
+  const currentLabel = groups.flatMap((group) => group.items).find((item) => isActive(item.href))?.label ?? "Панель";
+
   return (
-    <div className="admin-shell min-h-screen bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]">
-      <aside className="admin-sidebar border-r border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.96)] px-3 py-4">
-        <div className="mb-4 px-2">
-          <div className="text-xs font-black uppercase tracking-[0.16em] text-[rgb(var(--primary))]">
-            Nodex
-          </div>
-          <div className="text-xl font-black leading-tight">Nodex Admin</div>
-          <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-            Operations console
-          </div>
+    <div className={`admin-shell min-h-screen bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))] ${collapsed ? "admin-shell-collapsed" : ""}`}>
+      <aside className="admin-sidebar border-r border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.98)] px-3 py-4">
+        <div className="mb-5 flex items-center justify-between gap-2 px-2">
+          <Link className="min-w-0 text-[rgb(var(--foreground))] no-underline" href="/dashboard">
+            <div className="text-xs font-black uppercase text-[rgb(var(--primary))]">ENVO</div>
+            {!collapsed ? <><div className="text-xl font-black leading-tight">Центр управления</div><div className="text-xs font-semibold text-[rgb(var(--text-muted))]">Операции без шума</div></> : null}
+          </Link>
+          <button aria-label="Свернуть меню" className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" onClick={() => setCollapsed((value) => !value)} type="button">
+            <EnvoIcon name="back" className={collapsed ? "rotate-180" : ""} />
+          </button>
         </div>
         <nav className="space-y-4" aria-label="Admin navigation">
           {groups.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.12em] text-[rgb(var(--text-muted))]">
-                {group.label}
-              </div>
+              {!collapsed ? <div className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[rgb(var(--text-muted))]">{group.label}</div> : null}
               <div className="grid gap-0.5">
                 {group.items.map((item) => (
                   <Link
                     key={`${group.label}-${item.label}`}
-                    className={[
-                      "grid min-h-9 grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] px-2 text-sm font-semibold no-underline",
-                      isActive(item.href)
-                        ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
-                        : "text-[rgb(var(--text-muted))] hover:bg-[rgb(var(--surface-muted))] hover:text-[rgb(var(--foreground))]",
-                    ].join(" ")}
+                    title={item.label}
+                    className={`grid min-h-9 items-center gap-2 rounded-[8px] px-2 text-sm font-semibold no-underline ${collapsed ? "grid-cols-1 place-items-center" : "grid-cols-[20px_1fr]"} ${isActive(item.href) ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]" : "text-[rgb(var(--text-muted))] hover:bg-[rgb(var(--surface-muted))] hover:text-[rgb(var(--foreground))]"}`}
                     href={item.href}
                   >
-                    {item.icon}
-                    <span className="truncate">{item.label}</span>
+                    <EnvoIcon name={item.icon} />
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
                   </Link>
                 ))}
               </div>
@@ -131,39 +117,28 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
       <div className="min-w-0">
-        <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.9)] px-5 backdrop-blur-xl">
+        <header className="sticky top-0 z-[var(--z-nav)] flex min-h-14 items-center justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface)/0.94)] px-5 backdrop-blur-xl">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-              Operations /{" "}
-              {pathname === "/" ? "Dashboard" : pathname.split("/").filter(Boolean).join(" / ")}
-            </div>
-            <div className="truncate text-sm font-black">Modern mobility operations console</div>
+            <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">ENVO / {currentLabel}</div>
+            <div className="truncate text-sm font-black">Операционный центр ENVO</div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="hidden min-h-9 w-[320px] grid-cols-[18px_1fr] items-center gap-2 rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
-              <Search size={15} />
-              <input
-                className="min-w-0 border-0 bg-transparent text-sm outline-none"
-                placeholder="Search driver, phone, plate"
-              />
+          <div className="relative flex items-center gap-2">
+            <label className="hidden min-h-9 w-[390px] grid-cols-[18px_1fr] items-center gap-2 rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm text-[rgb(var(--text-muted))] lg:grid">
+              <EnvoIcon name="search" className="h-[15px] w-[15px]" />
+              <input className="min-w-0 border-0 bg-transparent text-sm outline-none" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск: клиент, водитель, рейс, заявка" value={query} />
             </label>
-            <button
-              aria-label="Notifications"
-              className="grid h-9 w-9 place-items-center rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]"
-              type="button"
-            >
-              <Bell size={16} />
-            </button>
-            <button
-              aria-label="Open command palette"
-              className="rounded-[10px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 text-sm font-black"
-              type="button"
-            >
-              ⌘K
-            </button>
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">
-              NA
-            </div>
+            {results.length > 0 ? (
+              <div className="absolute right-14 top-11 z-40 w-[420px] overflow-hidden rounded-[12px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-lg)]">
+                {results.map((item) => (
+                  <button key={item.href} className="block w-full border-b border-[rgb(var(--border))] px-3 py-2 text-left hover:bg-[rgb(var(--surface-muted))]" onClick={() => router.push(item.href)} type="button">
+                    <span className="block text-sm font-black">{item.label}</span>
+                    <span className="block text-xs text-[rgb(var(--text-muted))]">{item.detail}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button aria-label="Уведомления" className="grid h-9 w-9 place-items-center rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))]" type="button"><EnvoIcon name="notification" className="h-4 w-4" /></button>
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-xs font-black text-[rgb(var(--primary-foreground))]">NA</div>
           </div>
         </header>
         {children}
@@ -172,52 +147,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function AdminPageHeader({
-  title,
-  subtitle,
-  actions,
-}: {
-  title: string;
-  subtitle: string;
-  actions?: ReactNode;
-}) {
+export function AdminPageHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="m-0 text-[30px] font-black leading-tight">{title}</h1>
-        <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">{subtitle}</p>
+      <div className="min-w-0">
+        <h1 className="m-0 text-[28px] font-black leading-tight text-[rgb(var(--foreground))]">{title}</h1>
+        <p className="m-0 mt-1 max-w-[760px] text-sm font-semibold text-[rgb(var(--text-muted))]">{subtitle}</p>
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
   );
 }
 
-export function AdminPanel({
-  children,
-  className = "",
-  label,
-}: {
-  children: ReactNode;
-  className?: string;
-  label?: string;
-}) {
-  return (
-    <section
-      aria-label={label}
-      className={`rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-xs)] ${className}`}
-    >
-      {children}
-    </section>
-  );
+export function AdminPanel({ children, className = "", label }: { children: ReactNode; className?: string; label?: string }) {
+  return <section aria-label={label} className={`min-w-0 rounded-[8px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] shadow-[var(--shadow-xs)] ${className}`}>{children}</section>;
 }
 
-export function AdminStatusBadge({
-  children,
-  tone = "neutral",
-}: {
-  children: ReactNode;
-  tone?: "neutral" | "success" | "warning" | "danger" | "info";
-}) {
+export function AdminStatusBadge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "success" | "warning" | "danger" | "info" }) {
   const classes = {
     neutral: "bg-[rgb(var(--surface-muted))] text-[rgb(var(--text-muted))]",
     success: "bg-[rgb(var(--success-soft))] text-[rgb(var(--success))]",
@@ -225,11 +171,5 @@ export function AdminStatusBadge({
     danger: "bg-[rgb(var(--destructive-soft))] text-[rgb(var(--destructive))]",
     info: "bg-[rgb(var(--info-soft))] text-[rgb(var(--info))]",
   };
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center rounded-full px-2 text-xs font-black ${classes[tone]}`}
-    >
-      {children}
-    </span>
-  );
+  return <span className={`inline-flex min-h-6 items-center rounded-full px-2 text-xs font-bold ${classes[tone]}`}>{children}</span>;
 }

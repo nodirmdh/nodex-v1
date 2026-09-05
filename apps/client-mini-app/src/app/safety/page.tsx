@@ -1,13 +1,34 @@
 import Link from "next/link";
 import { Card, ClientHeader, ClientShell, Icon, StatusPill } from "../client-ui";
 
+const safetyActions = [
+  {
+    title: "Пожаловаться на водителя или поездку",
+    subtitle: "Отправить приватное обращение по безопасности",
+    tone: "warning" as const,
+    href: "/messages/support-envo?safety=report",
+  },
+  {
+    title: "Связаться с поддержкой",
+    subtitle: "Получить помощь по маршруту или посадке",
+    tone: "info" as const,
+    href: "/messages/support-envo?safety=support",
+  },
+  {
+    title: "Доверенный контакт",
+    subtitle: "Держите одного человека в курсе вашей поездки",
+    tone: "success" as const,
+    href: "/safety?trusted=contact",
+  },
+];
+
 export default function ClientSafetyPage() {
   return (
     <ClientShell active="profile">
       <ClientHeader
         backHref="/profile"
         level="secondary"
-        title="Safety"
+        title="Безопасность"
         subtitle="Надёжная помощь в каждой поездке"
       />
 
@@ -19,18 +40,17 @@ export default function ClientSafetyPage() {
           <div>
             <h2 className="m-0 text-lg font-black">Защита текущей поездки</h2>
             <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
-              Поделитесь деталями поездки, свяжитесь с поддержкой или откройте экстренную помощь при
-              необходимости.
+              Поделитесь деталями поездки, свяжитесь с поддержкой или откройте экстренную помощь при необходимости.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button
-            className="min-h-11 rounded-full bg-[rgb(var(--primary))] px-4 text-sm font-black text-[rgb(var(--primary-foreground))]"
-            type="button"
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--primary))] px-4 text-center text-sm font-black text-[rgb(var(--primary-foreground))] no-underline"
+            href="/trip-demo?share=1"
           >
             Поделиться поездкой
-          </button>
+          </Link>
           <Link
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-[rgb(var(--destructive-soft))] px-4 text-sm font-black text-[rgb(var(--destructive))] no-underline"
             href="/safety/sos"
@@ -43,37 +63,18 @@ export default function ClientSafetyPage() {
       <Card className="mt-3" compact>
         <h2 className="m-0 mb-3 text-lg font-black">Действия безопасности</h2>
         <div className="grid gap-2">
-          {(
-            [
-              [
-                "Пожаловаться на водителя или поездку",
-                "Отправить приватное обращение по безопасности",
-                "warning" as const,
-              ],
-              [
-                "Связаться с поддержкой",
-                "Получить помощь по маршруту или посадке",
-                "info" as const,
-              ],
-              [
-                "Доверенный контакт",
-                "Держите одного человека в курсе вашей поездки",
-                "success" as const,
-              ],
-            ] as const
-          ).map(([title, subtitle, tone]) => (
-            <div
-              key={title}
-              className="flex items-center justify-between gap-3 rounded-[22px] bg-[rgb(var(--canvas))] p-3"
+          {safetyActions.map((item) => (
+            <Link
+              key={item.title}
+              className="flex items-center justify-between gap-3 rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-[rgb(var(--foreground))] no-underline"
+              href={item.href}
             >
               <div>
-                <div className="text-sm font-black">{title}</div>
-                <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">
-                  {subtitle}
-                </div>
+                <div className="text-sm font-black">{item.title}</div>
+                <div className="text-xs font-semibold text-[rgb(var(--text-muted))]">{item.subtitle}</div>
               </div>
-              <StatusPill tone={tone}>{tone === "success" ? "Активные" : "Открыть"}</StatusPill>
-            </div>
+              <StatusPill tone={item.tone}>{item.tone === "success" ? "Активные" : "Открыть"}</StatusPill>
+            </Link>
           ))}
         </div>
       </Card>
@@ -81,15 +82,9 @@ export default function ClientSafetyPage() {
       <Card className="mt-3" compact>
         <h2 className="m-0 text-lg font-black">Советы по безопасности</h2>
         <ul className="m-0 mt-3 grid gap-2 p-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
-          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            Проверьте номер автомобиля перед посадкой.
-          </li>
-          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            По возможности ведите чат поездки внутри Nodex.
-          </li>
-          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">
-            Используйте SOS только в срочных ситуациях безопасности.
-          </li>
+          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">Проверьте номер автомобиля перед посадкой.</li>
+          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">По возможности ведите чат поездки внутри ENVO.</li>
+          <li className="list-none rounded-[16px] bg-[rgb(var(--canvas))] p-2.5">Используйте SOS только в срочных ситуациях безопасности.</li>
         </ul>
       </Card>
     </ClientShell>

@@ -20,12 +20,14 @@ import {
   cabinSeats,
   selectableSeatKeys,
   seatLabelForKey,
+  seatPriceMinor,
+  selectedSeatsTotalMinor,
   sevenSeatPreview,
   tripCabin,
 } from "./cabin-model";
 
 type IconName = "back" | "car" | "clock" | "map" | "shield" | "sliders" | "users";
-type SheetName = "preferences" | "baggage" | "schedule" | "pickup" | null;
+type SheetName = "preferences" | "baggage" | "pickup" | null;
 
 const iconPaths: Record<IconName, ReactNode> = {
   back: <path d="m15 6-6 6 6 6" />,
@@ -54,6 +56,12 @@ const seatLabelRu: Record<string, string> = {
 
 function displaySeatLabel(label: string) {
   return seatLabelRu[label] ?? label;
+}
+
+function seatPriceNote(seatKey: string) {
+  if (seatKey === "FRONT_RIGHT") return "+20% за повышенный комфорт";
+  if (seatKey.includes("CENTER")) return "-20% специальная цена";
+  return "Стандартная цена";
 }
 
 function Icon({ name, className = "" }: { name: IconName; className?: string }) {
@@ -94,17 +102,17 @@ function departureForSchedule(option: BookingScheduleOption, customValue: string
 
 export default function BookingFlowPage() {
   const [bookingType, setBookingType] = useState<BookingType>("SEAT");
-  const [selectedSeats, setSelectedSeats] = useState<string[]>(["FRONT_RIGHT"]);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [step, setStep] = useState<"hold" | "passengers" | "confirmed">("hold");
   const [passengerCount, setPassengerCount] = useState(1);
   const [previewSevenSeat, setPreviewSevenSeat] = useState(false);
   const [unavailableNotice, setUnavailableNotice] = useState("");
   const [activeSheet, setActiveSheet] = useState<SheetName>(null);
-  const [preferenceTypes, setPreferenceTypes] = useState<BookingPreferenceType[]>(["NO_SMOKING"]);
+  const [preferenceTypes, setPreferenceTypes] = useState<BookingPreferenceType[]>([]);
   const [driverComment, setDriverComment] = useState("");
   const [baggageType, setBaggageType] = useState<BookingBaggageChoice>("NONE");
-  const [baggageQuantity, setBaggageQuantity] = useState(1);
-  const [scheduleOption, setScheduleOption] = useState<BookingScheduleOption>("TOMORROW");
+  const [baggageQuantity, setBaggageQuantity] = useState(0);
+  const [scheduleOption] = useState<BookingScheduleOption>("TOMORROW");
   const [customDeparture, setCustomDeparture] = useState("2026-09-03T08:30");
   const [pickupLocation, setPickupLocation] = useState<BookingPickupLocation>({
     latitude: null,
@@ -131,7 +139,7 @@ export default function BookingFlowPage() {
   const totalMinor =
     bookingType === "WHOLE_CAR"
       ? tripCabin.wholeCarPriceMinor
-      : tripCabin.priceMinor * Math.max(1, effectiveSeats.length);
+      : selectedSeatsTotalMinor(tripCabin.priceMinor, visibleSeats, effectiveSeats);
   const selectedSummary =
     bookingType === "WHOLE_CAR"
       ? "Вся машина"
@@ -169,6 +177,20 @@ export default function BookingFlowPage() {
     scheduleOption,
     requestedDepartureAtUtc,
   });
+
+  const selectedSeatBreakdown = useMemo(
+    () =>
+      effectiveSeats.map((seatKey) => {
+        const seat = visibleSeats.find((item) => item.key === seatKey);
+        return {
+          seatKey,
+          label: displaySeatLabel(seatLabelForKey(visibleSeats, seatKey)),
+          priceMinor: seatPriceMinor(tripCabin.priceMinor, seat),
+          note: seatPriceNote(seatKey),
+        };
+      }),
+    [effectiveSeats, visibleSeats],
+  );
 
   const passengerFields = useMemo(
     () =>
@@ -209,13 +231,27 @@ export default function BookingFlowPage() {
     }
     if (next === "MULTI_SEAT") {
       setPassengerCount(2);
-      setSelectedSeats(availableSeatKeys.slice(0, 2));
+      setSelectedSeats([]);
       return;
     }
     setPassengerCount(1);
-    setSelectedSeats([availableSeatKeys[0] ?? "FRONT_RIGHT"]);
+    setSelectedSeats([]);
   }
 
+
+  function applyStartPreset(kind: "rear3" | "start6") {
+    setUnavailableNotice("");
+    setBookingType("MULTI_SEAT");
+    if (kind === "rear3") {
+      setPreviewSevenSeat(false);
+      setPassengerCount(3);
+      setSelectedSeats([]);
+      return;
+    }
+    setPreviewSevenSeat(true);
+    setPassengerCount(6);
+    setSelectedSeats(["FRONT_RIGHT", "ROW_1_LEFT", "ROW_1_RIGHT", "ROW_2_LEFT", "ROW_2_CENTER", "ROW_2_RIGHT"]);
+  }
   function requestSeatHold() {
     if (!requestReady) {
       setUnavailableNotice(
@@ -266,7 +302,7 @@ export default function BookingFlowPage() {
             <Icon name="back" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="m-0 text-xl font-black">Выберите место</h1>
+            <h1 className="m-0 text-xl font-semibold">Выберите места</h1>
             <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
               {tripCabin.model} · {tripCabin.departure}
             </p>
@@ -277,18 +313,18 @@ export default function BookingFlowPage() {
         <section className="mt-5 rounded-[30px] bg-[rgb(var(--surface)/0.96)] p-4 shadow-[0_18px_46px_rgb(var(--foreground)/0.1)] backdrop-blur">
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div>
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.1em] text-[rgb(var(--primary))]">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-[rgb(var(--primary))]">
                 <Icon name="car" className="h-4 w-4" />
                 {tripCabin.color} · {tripCabin.capacity}
               </div>
-              <div className="mt-1 text-xl font-black">{tripCabin.model}</div>
+              <div className="mt-1 text-xl font-semibold">{tripCabin.model}</div>
               <div className="text-sm font-semibold text-[rgb(var(--text-muted))]">
                 {tripCabin.route}
               </div>
             </div>
             <div className="text-right">
               <Badge tone="info">{tripCabin.plate}</Badge>
-              <div className="mt-2 flex items-center justify-end gap-1 text-xs font-black text-[rgb(var(--text-muted))]">
+              <div className="mt-2 flex items-center justify-end gap-1 text-xs font-semibold text-[rgb(var(--text-muted))]">
                 <Icon name="shield" className="h-4 w-4 text-[rgb(var(--primary))]" />
                 Проверено
               </div>
@@ -301,7 +337,7 @@ export default function BookingFlowPage() {
                 key={type}
                 aria-pressed={bookingType === type}
                 className={[
-                  "min-h-11 rounded-full px-2 text-sm font-black transition",
+                  "min-h-11 rounded-full px-2 text-sm font-semibold transition",
                   bookingType === type
                     ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] shadow-[var(--shadow-md)]"
                     : "bg-[rgb(var(--canvas))] text-[rgb(var(--text-muted))]",
@@ -309,24 +345,24 @@ export default function BookingFlowPage() {
                 type="button"
                 onClick={() => changeType(type)}
               >
-                {type === "SEAT" ? "Одно место" : type === "MULTI_SEAT" ? "Группа" : "Вся машина"}
+                {type === "SEAT" ? "1 место" : type === "MULTI_SEAT" ? "Несколько" : "Вся машина"}
               </button>
             ))}
           </div>
           {bookingType === "MULTI_SEAT" ? (
             <div className="mt-3 flex items-center justify-between rounded-[20px] bg-[rgb(var(--canvas))] p-2">
-              <span className="pl-2 text-sm font-black">Пассажиров</span>
+              <span className="pl-2 text-sm font-semibold">Пассажиров</span>
               <div className="flex items-center gap-2">
                 <button
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--surface))] text-lg font-black"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--surface))] text-lg font-semibold"
                   type="button"
                   onClick={() => setPassengerCount((value) => Math.max(2, value - 1))}
                 >
                   -
                 </button>
-                <span className="w-6 text-center text-sm font-black">{passengerCount}</span>
+                <span className="w-6 text-center text-sm font-semibold">{passengerCount}</span>
                 <button
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-lg font-black text-[rgb(var(--primary-foreground))]"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--primary))] text-lg font-semibold text-[rgb(var(--primary-foreground))]"
                   type="button"
                   onClick={() =>
                     setPassengerCount((value) => Math.min(availableSeatKeys.length, value + 1))
@@ -337,8 +373,15 @@ export default function BookingFlowPage() {
               </div>
             </div>
           ) : null}
+          <div className="mt-4">
+            <div className="mb-2 text-sm font-medium text-[rgb(var(--text-muted))]">Быстрый выбор</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("rear3")}>3 сзади</button>
+              <button className="min-h-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-semibold text-[rgb(var(--primary))]" type="button" onClick={() => applyStartPreset("start6")}>6 мест</button>
+            </div>
+          </div>
           {bookingType === "WHOLE_CAR" ? (
-            <p className="m-0 mt-3 rounded-[20px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-black text-[rgb(var(--primary))]">
+            <p className="m-0 mt-3 rounded-[20px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">
               Вы бронируете все доступные места. Попутчиков не будет.
             </p>
           ) : null}
@@ -359,10 +402,10 @@ export default function BookingFlowPage() {
           />
         </div>
 
-        <section className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]">
+        <section className="mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <h2 className="m-0 text-lg font-black">Выбрано</h2>
+              <h2 className="m-0 text-lg font-semibold">Выбрано</h2>
               <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
                 {bookingType === "WHOLE_CAR"
                   ? `${availableSeatKeys.length} доступных пассажирских мест`
@@ -370,29 +413,54 @@ export default function BookingFlowPage() {
               </p>
             </div>
             <Badge tone={requestReady ? "success" : "warning"}>
-              {requestReady ? "Готово" : "Выберите место"}
+              {requestReady ? "Готово" : "Выберите места"}
             </Badge>
           </div>
 
           <div className="grid grid-cols-[1fr_auto] gap-3 rounded-[26px] bg-[linear-gradient(135deg,rgb(var(--canvas)),rgb(var(--surface-tint)))] p-3 shadow-[inset_0_0_0_1px_rgb(var(--surface)/0.8)]">
             <div>
-              <div className="text-base font-black">{selectedSummary}</div>
+              <div className="text-base font-semibold">{selectedSummary}</div>
               <div className="mt-1 flex items-center gap-1 text-xs font-bold text-[rgb(var(--text-muted))]">
                 <Icon name="clock" className="h-4 w-4" />
                 {scheduleSummary} · {tripCabin.departure}
               </div>
+              {bookingType !== "WHOLE_CAR" && selectedSeatBreakdown.length === 1 ? (
+                <div className="mt-1 text-xs font-bold text-[rgb(var(--primary))]">
+                  {formatUzs(selectedSeatBreakdown[0]!.priceMinor)} · {selectedSeatBreakdown[0]!.note}
+                </div>
+              ) : null}
             </div>
             <div className="text-right">
               <div className="text-xs font-bold text-[rgb(var(--text-muted))]">
-                {bookingType === "WHOLE_CAR" ? "Вся машина" : "Цена за место"}
+                {bookingType === "WHOLE_CAR" ? "Вся машина" : "Итого по местам"}
               </div>
-              <div className="text-xl font-black text-[rgb(var(--foreground))]">
+              <div className="text-xl font-semibold text-[rgb(var(--foreground))]">
                 {formatUzs(totalMinor)}
               </div>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          {bookingType !== "WHOLE_CAR" && selectedSeatBreakdown.length > 1 ? (
+            <div className="mt-3 grid gap-2 rounded-[20px] bg-[rgb(var(--canvas))] p-3 text-sm">
+              {selectedSeatBreakdown.map((seat) => (
+                <div key={seat.seatKey} className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">{seat.label}</div>
+                    <div className="text-xs font-bold text-[rgb(var(--text-muted))]">{seat.note}</div>
+                  </div>
+                  <div className="shrink-0 font-semibold">{formatUzs(seat.priceMinor)}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {bookingType === "WHOLE_CAR" ? (
+            <p className="m-0 mt-3 rounded-[18px] bg-[rgb(var(--primary-soft))] p-3 text-sm font-semibold text-[rgb(var(--primary))]">
+              Это отдельная цена всей машины: {formatUzs(tripCabin.wholeCarPriceMinor)}.
+            </p>
+          ) : null}
+
+          <div className="mt-3 grid gap-2">
             {[
               ["preferences", "Пожелания", preferencesSummary, "sliders"],
               [
@@ -401,20 +469,20 @@ export default function BookingFlowPage() {
                 baggageType === "NONE" ? baggageSummary : `${baggageSummary} · ${baggageQuantity}`,
                 "car",
               ],
-              ["schedule", "Когда", scheduleSummary, "clock"],
+
               ["pickup", "Посадка", pickupLocation.label || "Добавить ориентир", "map"],
             ].map(([sheet, title, value, icon]) => (
               <button
                 key={sheet}
-                className="min-h-[74px] rounded-[22px] bg-[rgb(var(--canvas))] p-3 text-left shadow-[inset_0_0_0_1px_rgb(var(--border))]"
+                className="flex min-h-[58px] w-full items-center justify-between rounded-[16px] bg-[rgb(var(--canvas))] p-3 text-left shadow-[inset_0_0_0_1px_rgb(var(--border))]"
                 type="button"
                 onClick={() => setActiveSheet(sheet as SheetName)}
               >
-                <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.08em] text-[rgb(var(--primary))]">
+                <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--primary))]">
                   <Icon name={icon as IconName} className="h-4 w-4" />
                   {title}
                 </span>
-                <span className="mt-1 block text-sm font-black text-[rgb(var(--foreground))]">
+                <span className="mt-1 block text-sm font-semibold text-[rgb(var(--foreground))]">
                   {value}
                 </span>
               </button>
@@ -428,7 +496,7 @@ export default function BookingFlowPage() {
               type="button"
               onClick={requestSeatHold}
             >
-              {primaryAction}
+              {requestReady ? primaryAction : "Сначала выберите место"}
             </Button>
           ) : null}
         </section>
@@ -436,13 +504,13 @@ export default function BookingFlowPage() {
         {step !== "hold" ? (
           <section
             aria-label={step === "confirmed" ? "Подтверждение заявки" : "Данные пассажира"}
-            className="mt-4 rounded-[28px] bg-[rgb(var(--surface))] p-4 shadow-[var(--shadow-md)]"
+            className="sticky bottom-[76px] mt-4 rounded-[22px] bg-[rgb(var(--surface)/0.98)] p-4 shadow-[var(--shadow-floating)] backdrop-blur"
           >
             {step === "passengers" ? (
               <>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="m-0 text-lg font-black">Данные пассажира</h2>
+                    <h2 className="m-0 text-lg font-semibold">Данные пассажира</h2>
                     <p className="m-0 text-sm font-semibold text-[rgb(var(--text-muted))]">
                       Основной заказчик — текущий клиент. Другим пассажирам Telegram не нужен.
                     </p>
@@ -470,7 +538,7 @@ export default function BookingFlowPage() {
                 </div>
 
                 <div className="mt-3 rounded-[22px] bg-[rgb(var(--surface-tint))] p-3 text-sm font-semibold">
-                  <div className="font-black">Данные заявки</div>
+                  <div className="font-semibold">Данные заявки</div>
                   <div className="mt-1 text-[rgb(var(--text-muted))]">
                     {baggageType === "NONE"
                       ? baggageSummary
@@ -488,7 +556,7 @@ export default function BookingFlowPage() {
             ) : (
               <>
                 <Badge tone="success">Заявка отправлена</Badge>
-                <h2 className="m-0 mt-3 text-lg font-black">Заявка на место создана</h2>
+                <h2 className="m-0 mt-3 text-lg font-semibold">Заявка на место создана</h2>
                 <p className="m-0 mt-1 text-sm font-semibold text-[rgb(var(--text-muted))]">
                   {selectedSummary} добавлено к заявке. Водитель подтвердит поездку и увидит ваши
                   пожелания.
@@ -496,12 +564,10 @@ export default function BookingFlowPage() {
                 <code className="mt-3 block overflow-hidden rounded-[18px] bg-[rgb(var(--canvas))] p-3 text-[10px] text-[rgb(var(--text-muted))]">
                   {JSON.stringify(bookingCorePayload.hold)}
                 </code>
-                <Link
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-4 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline"
-                  href="/bookings"
-                >
-                  Открыть мои поездки
-                </Link>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--primary))] px-3 text-sm font-bold text-[rgb(var(--primary-foreground))] no-underline" href="/bookings">Открыть заявки</Link>
+                  <Link className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[rgb(var(--canvas))] px-3 text-sm font-bold text-[rgb(var(--primary))] no-underline" href="/messages/driver-azizbek">Чат с водителем</Link>
+                </div>
               </>
             )}
           </section>
@@ -516,17 +582,11 @@ export default function BookingFlowPage() {
         >
           <div className="w-full max-w-[430px] rounded-[30px] bg-[rgb(var(--surface))] p-4 shadow-[0_24px_70px_rgb(var(--foreground)/0.24)]">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="m-0 text-lg font-black">
-                {activeSheet === "preferences"
-                  ? "Пожелания к поездке"
-                  : activeSheet === "baggage"
-                    ? "Багаж"
-                    : activeSheet === "schedule"
-                      ? "Когда поехать"
-                      : "Точка посадки"}
+              <h2 className="m-0 text-lg font-semibold">
+                {activeSheet === "preferences" ? "Пожелания к поездке" : activeSheet === "baggage" ? "Багаж" : "Точка посадки"}
               </h2>
               <button
-                className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--canvas))] text-lg font-black"
+                className="grid h-9 w-9 place-items-center rounded-full bg-[rgb(var(--canvas))] text-lg font-semibold"
                 type="button"
                 onClick={() => setActiveSheet(null)}
               >
@@ -542,7 +602,7 @@ export default function BookingFlowPage() {
                       key={option.type}
                       aria-pressed={preferenceTypes.includes(option.type)}
                       className={[
-                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
+                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
                         preferenceTypes.includes(option.type)
                           ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                           : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
@@ -570,7 +630,7 @@ export default function BookingFlowPage() {
                     key={option.type}
                     aria-pressed={baggageType === option.type}
                     className={[
-                      "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
+                      "min-h-11 rounded-[18px] px-3 text-left text-sm font-semibold",
                       baggageType === option.type
                         ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
                         : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
@@ -583,9 +643,9 @@ export default function BookingFlowPage() {
                 ))}
                 {baggageType !== "NONE" ? (
                   <div className="mt-2 flex items-center justify-between rounded-[18px] bg-[rgb(var(--surface-tint))] p-2">
-                    <span className="pl-2 text-sm font-black">Количество</span>
+                    <span className="pl-2 text-sm font-semibold">Количество</span>
                     <input
-                      className="h-10 w-20 rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-center font-black"
+                      className="h-10 w-20 rounded-[14px] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-center font-semibold"
                       min={1}
                       max={20}
                       type="number"
@@ -596,41 +656,6 @@ export default function BookingFlowPage() {
                 ) : null}
               </div>
             ) : null}
-
-            {activeSheet === "schedule" ? (
-              <div className="grid gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {scheduleOptions.map((option) => (
-                    <button
-                      key={option.option}
-                      aria-pressed={scheduleOption === option.option}
-                      className={[
-                        "min-h-11 rounded-[18px] px-3 text-left text-sm font-black",
-                        scheduleOption === option.option
-                          ? "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]"
-                          : "bg-[rgb(var(--canvas))] text-[rgb(var(--foreground))]",
-                      ].join(" ")}
-                      type="button"
-                      onClick={() => setScheduleOption(option.option)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                {scheduleOption === "CUSTOM" ? (
-                  <input
-                    className="min-h-11 rounded-[18px] border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] px-3 text-sm font-black"
-                    type="datetime-local"
-                    value={customDeparture}
-                    onChange={(event) => setCustomDeparture(event.target.value)}
-                  />
-                ) : null}
-                <p className="m-0 text-xs font-semibold text-[rgb(var(--text-muted))]">
-                  Используем время отправления выбранного рейса, без отдельной scheduler-системы.
-                </p>
-              </div>
-            ) : null}
-
             {activeSheet === "pickup" ? (
               <div className="grid gap-2">
                 <input
