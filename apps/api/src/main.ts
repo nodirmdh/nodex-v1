@@ -33,6 +33,7 @@ import {
   bookingCancelSchema,
   bookingConfirmSchema,
   bookingHoldSchema,
+  bookingSeatPriceMinor,
   boardingCodeCanAttempt,
   boardingCodeRegenerateSchema,
   boardingCodeVerifySchema,
@@ -2967,7 +2968,15 @@ type BookingActor = {
 };
 
 const bookingInclude = {
-  trip: { include: { origin: true, destination: true, route: true } },
+  trip: {
+    include: {
+      origin: true,
+      destination: true,
+      route: true,
+      driverProfile: { include: { user: true } },
+      vehicle: true,
+    },
+  },
   client: true,
   pickupPoint: true,
   destinationPickupPoint: true,
@@ -3024,6 +3033,18 @@ function serializeBooking(booking: BookingWithInclude) {
       pricePerSeatMinor: booking.trip.pricePerSeatMinor,
       wholeCarPriceMinor: booking.trip.wholeCarPriceMinor,
       currency: booking.trip.currency,
+      driver: {
+        id: booking.trip.driverProfile.id,
+        displayName: booking.trip.driverProfile.user.displayName,
+        verified: booking.trip.driverProfile.verificationStatus === "APPROVED",
+        reliabilityScore: booking.trip.driverProfile.reliabilityScore,
+      },
+      vehicle: {
+        id: booking.trip.vehicle.id,
+        make: booking.trip.vehicle.make,
+        model: booking.trip.vehicle.model,
+        passengerSeatCount: booking.trip.vehicle.passengerSeatCount,
+      },
     },
     passengers: booking.passengers,
     seats: booking.seats,
@@ -3145,7 +3166,25 @@ async function ensureTripSeats(
     where: { tripId: trip.id },
     orderBy: [{ row: "asc" }, { column: "asc" }, { seatKey: "asc" }],
   });
-  if (existing.length >= trip.passengerSeatCapacity) return existing;
+  if (existing.length >= trip.passengerSeatCapacity) {
+    const staleAvailableSeats = existing.filter(
+      (seat) =>
+        seat.status === "AVAILABLE" &&
+        seat.priceMinor !== bookingSeatPriceMinor(trip.pricePerSeatMinor, seat.seatKey),
+    );
+    for (const seat of staleAvailableSeats) {
+      await tx.tripSeat.update({
+        where: { id: seat.id },
+        data: { priceMinor: bookingSeatPriceMinor(trip.pricePerSeatMinor, seat.seatKey) },
+      });
+    }
+    return staleAvailableSeats.length
+      ? tx.tripSeat.findMany({
+          where: { tripId: trip.id },
+          orderBy: [{ row: "asc" }, { column: "asc" }, { seatKey: "asc" }],
+        })
+      : existing;
+  }
   const existingKeys = new Set(existing.map((seat) => seat.seatKey));
   const layout = generateSeatLayout(trip.passengerSeatCapacity);
   await tx.tripSeat.createMany({
@@ -3158,7 +3197,7 @@ async function ensureTripSeats(
         row: seat.row,
         column: seat.column,
         seatType: seat.seatType,
-        priceMinor: trip.pricePerSeatMinor,
+        priceMinor: bookingSeatPriceMinor(trip.pricePerSeatMinor, seat.seatKey),
         status: "AVAILABLE" as const,
       })),
     skipDuplicates: true,
@@ -5537,7 +5576,15 @@ async function cancelBooking(bookingId: string, actor: BookingActor, reason: str
     if (bookedCount > 0) {
       await tx.trip.update({
         where: { id: booking.tripId },
-        data: { availableSeatCount: { increment: bookedCount }, version: { increment: 1 } },
+        data: {
+          availableSeatCount: { increment: bookedCount },
+          ...(booking.trip.status === "FULL" ? { status: "BOOKING_OPEN" } : {}),
+          version: { increment: 1 },
+        },
+      });
+      await tx.tripSeatSnapshot.updateMany({
+        where: { tripId: booking.tripId },
+        data: { availableSeatCount: { increment: bookedCount } },
       });
     }
     await tx.bookingCancellation.create({
@@ -5576,65 +5623,181 @@ async function driverDecideBooking(
   reason?: string,
   requestId?: string,
 ) {
-  if (decision === "REJECTED") {
-    const profile = await prisma.driverProfile.findFirst({
-      where: { userId: driverUserId, verificationStatus: "APPROVED" },
-    });
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
-      select: { id: true },
-    });
-    if (!booking) {
-      throw Object.assign(new Error("Booking not found"), {
-        statusCode: 404,
-        code: "BOOKING_NOT_FOUND",
-      });
-    }
-    return cancelBooking(
-      booking.id,
-      { userId: driverUserId, role: "DRIVER", requestId },
-      reason ?? "Rejected by driver",
-    );
-  }
-  return prisma.$transaction(async (tx) => {
-    const profile = await tx.driverProfile.findFirst({
-      where: { userId: driverUserId, verificationStatus: "APPROVED" },
-    });
-    const booking = await tx.booking.findFirst({
-      where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
-      include: bookingInclude,
-    });
-    if (!booking) {
-      throw Object.assign(new Error("Booking not found"), {
-        statusCode: 404,
-        code: "BOOKING_NOT_FOUND",
-      });
-    }
-    if (booking.status === "CONFIRMED") return booking;
-    if (booking.status !== "PENDING_CONFIRMATION") {
-      throw Object.assign(new Error("Booking cannot be approved"), {
-        statusCode: 409,
-        code: "BOOKING_TRANSITION_INVALID",
-      });
-    }
-    const saved = await tx.booking.update({
-      where: { id: booking.id },
-      data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
-      include: bookingInclude,
-    });
-    await writeBookingEvent(tx, saved.id, driverUserId, "BOOKING_DRIVER_APPROVED", { reason });
-    await writeBookingAudit(
-      tx,
-      "BOOKING_DRIVER_APPROVED",
-      saved.id,
-      { userId: driverUserId, role: "DRIVER", requestId },
-      { reason },
-    );
-    await enqueueBookingEvent(tx, "booking.driver.approved", saved.id, { tripId: booking.tripId });
-    return saved;
+  const owned = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      trip: {
+        driverProfile: { userId: driverUserId, verificationStatus: "APPROVED" },
+      },
+    },
+    select: { tripId: true },
   });
+  if (!owned) {
+    throw Object.assign(new Error("Booking not found"), {
+      statusCode: 404,
+      code: "BOOKING_NOT_FOUND",
+    });
+  }
+  return withBookingLock(owned.tripId, async () =>
+    prisma.$transaction(async (tx) => {
+      await expireSeatHolds(tx, owned.tripId);
+      const booking = await tx.booking.findFirst({
+        where: {
+          id: bookingId,
+          trip: {
+            driverProfile: { userId: driverUserId, verificationStatus: "APPROVED" },
+          },
+        },
+        include: bookingInclude,
+      });
+      if (!booking) {
+        throw Object.assign(new Error("Booking not found"), {
+          statusCode: 404,
+          code: "BOOKING_NOT_FOUND",
+        });
+      }
+      if (decision === "APPROVED" && booking.status === "CONFIRMED") return booking;
+      if (decision === "REJECTED" && booking.status === "REJECTED") return booking;
+      if (booking.status !== "PENDING_CONFIRMATION") {
+        throw Object.assign(new Error("Booking request cannot be decided"), {
+          statusCode: 409,
+          code: "BOOKING_TRANSITION_INVALID",
+        });
+      }
+      const hold = booking.holds.find(
+        (candidate) => candidate.status === "ACTIVE" && candidate.expiresAt > new Date(),
+      );
+      if (!hold) {
+        throw Object.assign(new Error("Booking request hold expired"), {
+          statusCode: 409,
+          code: "SEAT_HOLD_EXPIRED",
+        });
+      }
+      const actor: BookingActor = {
+        userId: driverUserId,
+        role: "DRIVER",
+        requestId,
+      };
+      if (decision === "REJECTED") {
+        const released = await releaseActiveSeatHold(tx, hold, "RELEASED");
+        if (!released) {
+          throw Object.assign(new Error("Booking request was already decided"), {
+            statusCode: 409,
+            code: "BOOKING_TRANSITION_INVALID",
+          });
+        }
+        const saved = await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: "REJECTED",
+            cancellationReason: reason ?? "Rejected by driver",
+            version: { increment: 1 },
+          },
+          include: bookingInclude,
+        });
+        await writeBookingEvent(tx, saved.id, driverUserId, "BOOKING_REJECTED", { reason });
+        await writeBookingAudit(tx, "BOOKING_REJECTED", saved.id, actor, { reason });
+        await enqueueBookingEvent(tx, "booking.rejected", saved.id, {
+          tripId: booking.tripId,
+          clientId: booking.clientId,
+        });
+        return saved;
+      }
+      const tripSeatIds = hold.items
+        .map((item) => item.tripSeatId)
+        .filter((id): id is string => Boolean(id));
+      const bookedSeats = await tx.tripSeat.updateMany({
+        where: { id: { in: tripSeatIds }, tripId: booking.tripId, status: "HELD" },
+        data: { status: "BOOKED", version: { increment: 1 } },
+      });
+      if (bookedSeats.count !== tripSeatIds.length) {
+        throw Object.assign(new Error("Held seats can no longer be confirmed"), {
+          statusCode: 409,
+          code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
+        });
+      }
+      const bookingSeats = await tx.bookingSeat.updateMany({
+        where: { bookingId: booking.id, tripSeatId: { in: tripSeatIds }, status: "HELD" },
+        data: { status: "BOOKED" },
+      });
+      if (bookingSeats.count !== tripSeatIds.length) {
+        throw Object.assign(new Error("Booking seats can no longer be confirmed"), {
+          statusCode: 409,
+          code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
+        });
+      }
+      const claimed = await tx.seatHold.updateMany({
+        where: { id: hold.id, status: "ACTIVE", version: hold.version },
+        data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
+      });
+      if (claimed.count !== 1) {
+        throw Object.assign(new Error("Booking request was already decided"), {
+          statusCode: 409,
+          code: "BOOKING_TRANSITION_INVALID",
+        });
+      }
+      const inventory = await tx.trip.updateMany({
+        where: { id: booking.tripId, availableSeatCount: { gte: tripSeatIds.length } },
+        data: {
+          availableSeatCount: { decrement: tripSeatIds.length },
+          version: { increment: 1 },
+        },
+      });
+      if (inventory.count !== 1) {
+        throw Object.assign(new Error("Trip seat inventory is inconsistent"), {
+          statusCode: 409,
+          code: "SEAT_INVENTORY_CONFLICT",
+        });
+      }
+      const snapshot = await tx.tripSeatSnapshot.updateMany({
+        where: { tripId: booking.tripId, availableSeatCount: { gte: tripSeatIds.length } },
+        data: { availableSeatCount: { decrement: tripSeatIds.length } },
+      });
+      if (snapshot.count !== 1) {
+        throw Object.assign(new Error("Trip seat snapshot is inconsistent"), {
+          statusCode: 409,
+          code: "SEAT_INVENTORY_CONFLICT",
+        });
+      }
+      const trip = await tx.trip.findUniqueOrThrow({
+        where: { id: booking.tripId },
+        select: { availableSeatCount: true, status: true },
+      });
+      if (trip.availableSeatCount === 0 && ["PUBLISHED", "BOOKING_OPEN"].includes(trip.status)) {
+        await tx.trip.update({ where: { id: booking.tripId }, data: { status: "FULL" } });
+      }
+      const saved = await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
+        include: bookingInclude,
+      });
+      await writeBookingEvent(tx, saved.id, driverUserId, "BOOKING_CONFIRMED", {
+        reason,
+        seatKeys: hold.items.map((item) => item.seatKey),
+      });
+      await writeBookingAudit(tx, "BOOKING_CONFIRMED", saved.id, actor, { reason });
+      await enqueueBookingEvent(tx, "booking.confirmed", saved.id, {
+        tripId: booking.tripId,
+        clientId: booking.clientId,
+      });
+      if (booking.clientId) {
+        await tx.waitlistMatch.updateMany({
+          where: { tripId: booking.tripId, waitlist: { userId: booking.clientId } },
+          data: { actedAt: new Date() },
+        });
+        await tx.waitlistEntry.updateMany({
+          where: {
+            userId: booking.clientId,
+            status: "MATCHED",
+            matches: { some: { tripId: booking.tripId } },
+          },
+          data: { status: "BOOKED" },
+        });
+      }
+      return saved;
+    }),
+  );
 }
-
 async function driverOwnTrip(userId: string, tripId: string) {
   const profile = await prisma.driverProfile.findUnique({ where: { userId } });
   if (!profile) return null;
@@ -10532,6 +10695,11 @@ async function registerBookingRoutes(http: {
                 currency: "UZS",
                 totalMinor: totalMinor.toString(),
                 pricePerSeatMinor: trip.pricePerSeatMinor.toString(),
+                seats: availableSeats.map((seat) => ({
+                  seatKey: seat.seatKey,
+                  priceMinor: seat.priceMinor.toString(),
+                })),
+                bookingType: parsed.type,
               },
               tripSnapshot: {
                 tripId: trip.id,
@@ -10642,7 +10810,11 @@ async function registerBookingRoutes(http: {
             code: "SEAT_HOLD_NOT_FOUND",
           });
         }
-        if (hold.status === "CONFIRMED" || hold.booking.status === "CONFIRMED") {
+        if (
+          hold.status === "CONFIRMED" ||
+          hold.booking.status === "CONFIRMED" ||
+          hold.booking.status === "PENDING_CONFIRMATION"
+        ) {
           return tx.booking.findUniqueOrThrow({
             where: { id: hold.bookingId },
             include: bookingInclude,
@@ -10662,9 +10834,6 @@ async function registerBookingRoutes(http: {
           });
         }
         const seatKeys = hold.items.map((item) => item.seatKey);
-        const tripSeatIds = hold.items
-          .map((item) => item.tripSeatId)
-          .filter((id): id is string => Boolean(id));
         await tx.bookingPassenger.deleteMany({ where: { bookingId: hold.bookingId } });
         await tx.bookingPassenger.createMany({
           data: parsed.passengers.map((passenger, index) => ({
@@ -10690,38 +10859,22 @@ async function registerBookingRoutes(http: {
             })),
           });
         }
-        const bookedSeats = await tx.tripSeat.updateMany({
-          where: { id: { in: tripSeatIds }, status: "HELD" },
-          data: { status: "BOOKED", version: { increment: 1 } },
-        });
-        if (bookedSeats.count !== tripSeatIds.length) {
-          throw Object.assign(new Error("Seat hold can no longer be confirmed"), {
-            statusCode: 409,
-            code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
+        const suppliedSeatKeys = parsed.passengers
+          .map((passenger) => passenger.seatKey)
+          .filter((seatKey): seatKey is string => Boolean(seatKey));
+        if (
+          new Set(suppliedSeatKeys).size !== suppliedSeatKeys.length ||
+          suppliedSeatKeys.some((seatKey) => !seatKeys.includes(seatKey))
+        ) {
+          throw Object.assign(new Error("Passenger seats must match held seats"), {
+            statusCode: 400,
+            code: "PASSENGER_SEAT_MISMATCH",
           });
         }
-        const bookedBookingSeats = await tx.bookingSeat.updateMany({
-          where: { bookingId: hold.bookingId, tripSeatId: { in: tripSeatIds }, status: "HELD" },
-          data: { status: "BOOKED" },
-        });
-        if (bookedBookingSeats.count !== tripSeatIds.length) {
-          throw Object.assign(new Error("Seat hold booking rows can no longer be confirmed"), {
-            statusCode: 409,
-            code: "SEAT_HOLD_OWNERSHIP_CONFLICT",
-          });
-        }
-        await tx.seatHold.update({
-          where: { id: hold.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
-        });
-        await tx.trip.update({
-          where: { id: hold.tripId },
-          data: { availableSeatCount: { decrement: seatKeys.length }, version: { increment: 1 } },
-        });
         const saved = await tx.booking.update({
           where: { id: hold.bookingId },
           data: {
-            status: "CONFIRMED",
+            status: "PENDING_CONFIRMATION",
             paymentMethod: parsed.paymentMethod,
             clientComment: parsed.clientComment ?? parsed.preferences.driverComment ?? null,
             travelPreferences: parsed.preferences as Prisma.InputJsonValue,
@@ -10732,31 +10885,20 @@ async function registerBookingRoutes(http: {
               parsed.schedule.requestedDepartureAtUtc ??
               hold.booking.requestedDepartureAtUtc ??
               null,
-            confirmedAt: new Date(),
             version: { increment: 1 },
           },
           include: bookingInclude,
         });
-        await writeBookingEvent(tx, saved.id, req.auth!.userId, "BOOKING_CONFIRMED", {
+        await writeBookingEvent(tx, saved.id, req.auth!.userId, "BOOKING_REQUESTED", {
           seatKeys,
           paymentMethod: parsed.paymentMethod,
           preferences: parsed.preferences,
           pickupLocation: parsed.pickupLocation,
           schedule: parsed.schedule,
         });
-        await writeBookingAudit(tx, "BOOKING_CONFIRMED", saved.id, actor, { seatKeys });
-        await enqueueBookingEvent(tx, "booking.confirmed", saved.id, { tripId: hold.tripId });
-        await tx.waitlistMatch.updateMany({
-          where: { tripId: hold.tripId, waitlist: { userId: req.auth!.userId } },
-          data: { actedAt: new Date() },
-        });
-        await tx.waitlistEntry.updateMany({
-          where: {
-            userId: req.auth!.userId,
-            status: "MATCHED",
-            matches: { some: { tripId: hold.tripId } },
-          },
-          data: { status: "BOOKED" },
+        await writeBookingAudit(tx, "BOOKING_REQUESTED", saved.id, actor, { seatKeys });
+        await enqueueBookingEvent(tx, "booking.requested", saved.id, {
+          tripId: hold.tripId,
         });
         return saved;
       });
@@ -11142,7 +11284,7 @@ async function registerBookingRoutes(http: {
   });
   http.get("/api/v1/driver/trips/:tripId/bookings", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    const trip = await approvedDriverOwnTrip(req.auth!.userId, String(req.params.tripId));
     if (!trip) {
       res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
       return;
@@ -11152,7 +11294,12 @@ async function registerBookingRoutes(http: {
       include: bookingInclude,
       orderBy: { createdAt: "desc" },
     });
-    res.json({ bookings: bookings.map(serializeBooking) });
+    const sorted = bookings.sort(
+      (left, right) =>
+        Number(right.status === "PENDING_CONFIRMATION") -
+        Number(left.status === "PENDING_CONFIRMATION"),
+    );
+    res.json({ bookings: sorted.map(serializeBooking) });
   });
 
   http.get("/api/v1/driver/trips/:tripId/passengers", async (req, res) => {
@@ -11345,7 +11492,9 @@ async function registerBookingRoutes(http: {
 
   http.get("/api/v1/driver/bookings/:bookingId", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const profile = await prisma.driverProfile.findUnique({ where: { userId: req.auth!.userId } });
+    const profile = await prisma.driverProfile.findFirst({
+      where: { userId: req.auth!.userId, verificationStatus: "APPROVED" },
+    });
     const booking = await prisma.booking.findFirst({
       where: { id: String(req.params.bookingId), trip: { driverProfileId: profile?.id ?? "" } },
       include: bookingInclude,

@@ -575,6 +575,13 @@ export type SeatLayoutItem = {
   seatType: "FRONT" | "REAR" | "STANDARD";
 };
 
+export function bookingSeatPriceMinor(basePriceMinor: bigint, seatKey: string) {
+  if (basePriceMinor < 0n) throw new Error("Base seat price cannot be negative");
+  if (seatKey === "FRONT_RIGHT") return (basePriceMinor * 120n) / 100n;
+  if (seatKey.includes("CENTER")) return (basePriceMinor * 80n) / 100n;
+  return basePriceMinor;
+}
+
 export function generateSeatLayout(passengerSeatCount: number): SeatLayoutItem[] {
   const count = Math.max(1, Math.min(16, Math.floor(passengerSeatCount)));
   const seats: SeatLayoutItem[] = [
@@ -1174,7 +1181,9 @@ export function bookingChatEligible(
   retentionUntil?: Date | null,
   now = new Date(),
 ) {
-  if (["CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) return true;
+  if (["PENDING_CONFIRMATION", "CONFIRMED", "BOARDING", "IN_PROGRESS"].includes(status)) {
+    return true;
+  }
   return status === "COMPLETED" && Boolean(retentionUntil && retentionUntil > now);
 }
 

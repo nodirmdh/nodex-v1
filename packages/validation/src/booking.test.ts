@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { bookingConfirmSchema, bookingHoldSchema, generateSeatLayout } from "./index";
+import {
+  bookingConfirmSchema,
+  bookingHoldSchema,
+  bookingSeatPriceMinor,
+  generateSeatLayout,
+} from "./index";
 
 describe("generateSeatLayout", () => {
   it("generates stable seat keys from passenger capacity", () => {
@@ -77,5 +82,13 @@ describe("bookingConfirmSchema", () => {
 
     expect(parsed.baggage).toEqual([]);
     expect(parsed.preferences.types).toEqual([]);
+  });
+});
+
+describe("bookingSeatPriceMinor", () => {
+  it("applies the frozen ENVO seat modifiers", () => {
+    expect(bookingSeatPriceMinor(100_000n, "FRONT_RIGHT")).toBe(120_000n);
+    expect(bookingSeatPriceMinor(100_000n, "ROW_1_CENTER")).toBe(80_000n);
+    expect(bookingSeatPriceMinor(100_000n, "ROW_1_LEFT")).toBe(100_000n);
   });
 });

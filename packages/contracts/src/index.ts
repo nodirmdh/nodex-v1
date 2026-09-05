@@ -268,6 +268,26 @@ export interface PublicTripDto {
 }
 
 export type BookingType = "SEAT" | "MULTI_SEAT" | "WHOLE_CAR";
+export type BookingStatus =
+  | "DRAFT"
+  | "HOLD"
+  | "PENDING_CONFIRMATION"
+  | "REJECTED"
+  | "CONFIRMED"
+  | "PAYMENT_PENDING"
+  | "PAID"
+  | "BOARDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "NO_SHOW_CLIENT"
+  | "NO_SHOW_DRIVER"
+  | "CANCELLED_BY_CLIENT"
+  | "CANCELLED_BY_DRIVER"
+  | "CANCELLED_BY_ADMIN"
+  | "EXPIRED"
+  | "REFUND_PENDING"
+  | "REFUNDED"
+  | "DISPUTED";
 export type BookingPreferenceType =
   | "CHILD"
   | "PET"
