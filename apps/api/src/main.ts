@@ -3442,7 +3442,9 @@ async function verifyTripStartPinForBooking(
   location?: Omit<ReturnType<typeof tripLocationPointSchema.parse>, "bookingId">,
 ) {
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const profile = await tx.driverProfile.findFirst({
+      where: { userId: actor.userId, verificationStatus: "APPROVED" },
+    });
     const booking = await tx.booking.findFirst({
       where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
       include: { trip: true, seats: true },
@@ -3727,7 +3729,9 @@ async function startBoardingTrip(tripId: string, actor: BookingActor) {
 
 async function boardBooking(bookingId: string, code: string, actor: BookingActor) {
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const profile = await tx.driverProfile.findFirst({
+      where: { userId: actor.userId, verificationStatus: "APPROVED" },
+    });
     const booking = await tx.booking.findFirst({
       where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
       include: { trip: true, seats: true },
@@ -3805,7 +3809,9 @@ async function boardBooking(bookingId: string, code: string, actor: BookingActor
 
 async function markClientNoShow(bookingId: string, actor: BookingActor, reason: string) {
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.driverProfile.findUnique({ where: { userId: actor.userId } });
+    const profile = await tx.driverProfile.findFirst({
+      where: { userId: actor.userId, verificationStatus: "APPROVED" },
+    });
     const booking = await tx.booking.findFirst({
       where: {
         id: bookingId,
@@ -5569,7 +5575,9 @@ async function driverDecideBooking(
   requestId?: string,
 ) {
   if (decision === "REJECTED") {
-    const profile = await prisma.driverProfile.findUnique({ where: { userId: driverUserId } });
+    const profile = await prisma.driverProfile.findFirst({
+      where: { userId: driverUserId, verificationStatus: "APPROVED" },
+    });
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
       select: { id: true },
@@ -5587,7 +5595,9 @@ async function driverDecideBooking(
     );
   }
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.driverProfile.findUnique({ where: { userId: driverUserId } });
+    const profile = await tx.driverProfile.findFirst({
+      where: { userId: driverUserId, verificationStatus: "APPROVED" },
+    });
     const booking = await tx.booking.findFirst({
       where: { id: bookingId, trip: { driverProfileId: profile?.id ?? "" } },
       include: bookingInclude,
