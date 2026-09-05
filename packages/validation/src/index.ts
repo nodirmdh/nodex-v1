@@ -112,6 +112,7 @@ export const operationalTripStatuses = [
   "EXPIRED",
   "BLOCKED",
 ] as const;
+export const tripTariffs = ["START", "COMFORT", "PREMIUM"] as const;
 
 export const operationalBookingStatuses = [
   "PENDING_CONFIRMATION",
@@ -297,24 +298,46 @@ export const tripStopSchema = z.object({
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
-export const tripDraftSchema = z.object({
-  vehicleId: z.string().trim().min(1).optional(),
-  routeId: z.string().trim().min(1).optional().nullable(),
-  originCityId: z.string().trim().min(1).optional().nullable(),
-  destinationCityId: z.string().trim().min(1).optional().nullable(),
-  departureAtUtc: z.coerce.date().optional(),
-  arrivalEstimateAtUtc: z.coerce.date().optional().nullable(),
-  timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
-  passengerSeatCapacity: z.coerce.number().int().min(1).max(16).optional(),
-  pricePerSeatMinor: z.coerce.bigint().nonnegative().optional(),
-  wholeCarPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
-  parcelSupported: z.boolean().optional(),
-  parcelPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
-  currency: z.literal("UZS").default("UZS"),
-  luggageRules: optionalTextField,
-  comment: z.string().trim().max(1000).optional().nullable(),
-  stops: z.array(tripStopSchema).max(20).optional(),
-});
+export const tripDraftSchema = z
+  .object({
+    vehicleId: z.string().trim().min(1).optional(),
+    routeId: z.string().trim().min(1).optional().nullable(),
+    originCityId: z.string().trim().min(1).optional().nullable(),
+    destinationCityId: z.string().trim().min(1).optional().nullable(),
+    departureAtUtc: z.coerce.date().optional(),
+    arrivalEstimateAtUtc: z.coerce.date().optional().nullable(),
+    timezone: z.string().trim().min(3).max(80).default("Asia/Tashkent"),
+    passengerSeatCapacity: z.coerce.number().int().min(1).max(16).optional(),
+    tariff: z.enum(tripTariffs).optional(),
+    pricePerSeatMinor: z.coerce.bigint().positive().optional(),
+    wholeCarPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+    parcelSupported: z.boolean().optional(),
+    parcelPriceMinor: z.coerce.bigint().nonnegative().optional().nullable(),
+    currency: z.literal("UZS").default("UZS"),
+    luggageRules: optionalTextField,
+    comment: z.string().trim().max(1000).optional().nullable(),
+    stops: z.array(tripStopSchema).max(20).optional(),
+  })
+  .superRefine((value, context) => {
+    if (
+      value.originCityId &&
+      value.destinationCityId &&
+      value.originCityId === value.destinationCityId
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["destinationCityId"],
+        message: "Origin and destination must differ",
+      });
+    }
+    if (value.departureAtUtc && value.departureAtUtc <= new Date()) {
+      context.addIssue({
+        code: "custom",
+        path: ["departureAtUtc"],
+        message: "Departure must be in the future",
+      });
+    }
+  });
 
 export const tripCancelSchema = z.object({
   reason: z.string().trim().min(3).max(1000),

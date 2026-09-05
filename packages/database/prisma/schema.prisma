@@ -172,6 +172,12 @@ enum TripStatus {
   EXPIRED
 }
 
+enum TripTariff {
+  START
+  COMFORT
+  PREMIUM
+}
+
 enum PickupPointType {
   CITY_CENTER
   BUS_STATION
@@ -1389,6 +1395,7 @@ model Trip {
   status                        TripStatus             @default(DRAFT)
   passengerSeatCapacity         Int                    @default(1)
   availableSeatCount            Int                    @default(1)
+  tariff                        TripTariff             @default(START)
   pricePerSeatMinor             BigInt                 @default(0)
   wholeCarPriceMinor            BigInt?
   parcelSupported               Boolean                @default(false)

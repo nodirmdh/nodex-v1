@@ -14,6 +14,8 @@ export type TripStatus =
   | "EXPIRED"
   | "BLOCKED";
 
+export type TripTariff = "START" | "COMFORT" | "PREMIUM";
+
 export type SeatStatus =
   | "AVAILABLE"
   | "HELD"

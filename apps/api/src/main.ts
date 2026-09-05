@@ -2777,6 +2777,7 @@ function publicTripDto(trip: PublicTripWithInclude) {
     timezone: trip.timezone,
     availableSeatCount: trip.availableSeatCount,
     passengerSeatCapacity: trip.passengerSeatCapacity,
+    tariff: trip.tariff,
     pricePerSeatMinor: trip.pricePerSeatMinor,
     wholeCarPriceMinor: trip.wholeCarPriceMinor,
     parcelSupported: trip.parcelSupported,
@@ -2805,6 +2806,7 @@ function publicTripDto(trip: PublicTripWithInclude) {
       reliabilityScore: trip.driverProfile.reliabilityScore,
     },
     vehicle: {
+      id: trip.vehicle.id,
       make: trip.vehicle.make,
       model: trip.vehicle.model,
       year: trip.vehicle.year,
@@ -5641,6 +5643,16 @@ async function driverOwnTrip(userId: string, tripId: string) {
     include: tripInclude,
   });
 }
+async function approvedDriverOwnTrip(userId: string, tripId: string) {
+  const profile = await prisma.driverProfile.findFirst({
+    where: { userId, verificationStatus: "APPROVED" },
+  });
+  if (!profile) return null;
+  return prisma.trip.findFirst({
+    where: { id: tripId, driverProfileId: profile.id },
+    include: tripInclude,
+  });
+}
 
 async function validateTripPublication(tripId: string) {
   const trip = await prisma.trip.findUnique({
@@ -5870,6 +5882,7 @@ async function createReturnTripDraft(
       timezone: original.timezone,
       passengerSeatCapacity: original.passengerSeatCapacity,
       availableSeatCount: original.passengerSeatCapacity,
+      tariff: original.tariff,
       pricePerSeatMinor: original.pricePerSeatMinor,
       wholeCarPriceMinor: original.wholeCarPriceMinor,
       parcelSupported: original.parcelSupported,
@@ -6051,7 +6064,20 @@ async function registerTripSupplyRoutes(http: {
       res.status(403).json(errorBody("DRIVER_NOT_APPROVED", "Driver must be approved", req));
       return;
     }
-    const parsed = tripDraftSchema.parse(req.body ?? {});
+    const parsedResult = tripDraftSchema.safeParse(req.body ?? {});
+    if (!parsedResult.success) {
+      res
+        .status(400)
+        .json(
+          errorBody(
+            "VALIDATION_ERROR",
+            parsedResult.error.issues[0]?.message ?? "Invalid trip data",
+            req,
+          ),
+        );
+      return;
+    }
+    const parsed = parsedResult.data;
     const vehicle = parsed.vehicleId
       ? await prisma.vehicle.findFirst({
           where: {
@@ -6069,6 +6095,14 @@ async function registerTripSupplyRoutes(http: {
       res
         .status(400)
         .json(errorBody("APPROVED_VEHICLE_REQUIRED", "Approved vehicle required", req));
+      return;
+    }
+    const requestedCapacity =
+      parsed.passengerSeatCapacity ?? Math.min(vehicle.passengerSeatCount, 4);
+    if (requestedCapacity > vehicle.passengerSeatCount) {
+      res
+        .status(422)
+        .json(errorBody("CAPACITY_INVALID", "Capacity must fit approved vehicle", req));
       return;
     }
     const trip = await prisma.$transaction(async (tx) => {
@@ -6100,7 +6134,7 @@ async function registerTripSupplyRoutes(http: {
           ? await tx.city.findUnique({ where: { id: parsed.destinationCityId } })
           : null);
       const departureAtUtc = parsed.departureAtUtc ?? new Date(Date.now() + 86_400_000);
-      const capacity = parsed.passengerSeatCapacity ?? Math.min(vehicle.passengerSeatCount, 4);
+      const capacity = requestedCapacity;
       const createData = cleanObject({
         driverProfileId: profile.id,
         vehicleId: vehicle.id,
@@ -6118,6 +6152,7 @@ async function registerTripSupplyRoutes(http: {
         timezone: parsed.timezone,
         passengerSeatCapacity: capacity,
         availableSeatCount: capacity,
+        tariff: parsed.tariff ?? "START",
         pricePerSeatMinor: parsed.pricePerSeatMinor ?? 0n,
         wholeCarPriceMinor: parsed.wholeCarPriceMinor,
         parcelSupported: parsed.parcelSupported ?? false,
@@ -6149,7 +6184,7 @@ async function registerTripSupplyRoutes(http: {
 
   http.patch("/api/v1/trips/:tripId", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    const trip = await approvedDriverOwnTrip(req.auth!.userId, String(req.params.tripId));
     if (!trip) {
       res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
       return;
@@ -6160,7 +6195,49 @@ async function registerTripSupplyRoutes(http: {
         .json(errorBody("TRIP_LOCKED", "Unpublish trip before editing critical fields", req));
       return;
     }
-    const parsed = tripDraftSchema.parse(req.body ?? {});
+    const parsedResult = tripDraftSchema.safeParse(req.body ?? {});
+    if (!parsedResult.success) {
+      res
+        .status(400)
+        .json(
+          errorBody(
+            "VALIDATION_ERROR",
+            parsedResult.error.issues[0]?.message ?? "Invalid trip data",
+            req,
+          ),
+        );
+      return;
+    }
+    const parsed = parsedResult.data;
+    if (
+      parsed.passengerSeatCapacity !== undefined &&
+      parsed.passengerSeatCapacity > trip.vehicle.passengerSeatCount
+    ) {
+      res
+        .status(422)
+        .json(errorBody("CAPACITY_INVALID", "Capacity must fit approved vehicle", req));
+      return;
+    }
+    const changesBookingContract = [
+      parsed.departureAtUtc,
+      parsed.passengerSeatCapacity,
+      parsed.tariff,
+      parsed.pricePerSeatMinor,
+      parsed.wholeCarPriceMinor,
+      parsed.parcelSupported,
+      parsed.parcelPriceMinor,
+    ].some((value) => value !== undefined);
+    if (changesBookingContract) {
+      const activeBookings = await prisma.booking.count({
+        where: { tripId: trip.id, ...activeBookingWhere() },
+      });
+      if (activeBookings > 0) {
+        res
+          .status(409)
+          .json(errorBody("TRIP_HAS_ACTIVE_BOOKINGS", "Active bookings lock trip terms", req));
+        return;
+      }
+    }
     const updated = await prisma.$transaction(async (tx) => {
       const data: Prisma.TripUncheckedUpdateInput = {
         version: { increment: 1 },
@@ -6174,6 +6251,7 @@ async function registerTripSupplyRoutes(http: {
               availableSeatCount: parsed.passengerSeatCapacity,
             }
           : {}),
+        ...(parsed.tariff !== undefined ? { tariff: parsed.tariff } : {}),
         ...(parsed.pricePerSeatMinor !== undefined
           ? { pricePerSeatMinor: parsed.pricePerSeatMinor }
           : {}),
@@ -6200,7 +6278,7 @@ async function registerTripSupplyRoutes(http: {
 
   http.post("/api/v1/trips/:tripId/publish", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    const trip = await approvedDriverOwnTrip(req.auth!.userId, String(req.params.tripId));
     if (!trip) {
       res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
       return;
@@ -6280,7 +6358,7 @@ async function registerTripSupplyRoutes(http: {
 
   http.post("/api/v1/trips/:tripId/unpublish", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
-    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    const trip = await approvedDriverOwnTrip(req.auth!.userId, String(req.params.tripId));
     if (!trip) {
       res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
       return;
@@ -6313,13 +6391,21 @@ async function registerTripSupplyRoutes(http: {
   http.post("/api/v1/trips/:tripId/cancel", async (req, res) => {
     if (!(await authenticate(req, res, ["DRIVER"]))) return;
     const parsed = tripCancelSchema.parse(req.body ?? {});
-    const trip = await driverOwnTrip(req.auth!.userId, String(req.params.tripId));
+    const trip = await approvedDriverOwnTrip(req.auth!.userId, String(req.params.tripId));
     if (!trip) {
       res.status(404).json(errorBody("TRIP_NOT_FOUND", "Trip not found", req));
       return;
     }
     if (trip.status === "CANCELLED") {
       res.json({ trip: serializeTrip(trip) });
+      return;
+    }
+    if (
+      !["DRAFT", "UNPUBLISHED", "PUBLISHED", "BOOKING_OPEN", "FULL", "BOARDING"].includes(
+        trip.status,
+      )
+    ) {
+      res.status(409).json(errorBody("TRIP_INVALID_TRANSITION", "Trip cannot be cancelled", req));
       return;
     }
     const updated = await prisma.$transaction(async (tx) => {
